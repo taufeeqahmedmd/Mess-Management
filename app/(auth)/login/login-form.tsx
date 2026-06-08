@@ -59,7 +59,7 @@ export function LoginForm() {
             inputMode="numeric"
             autoComplete="username"
             required
-            placeholder="9281122104"
+            placeholder="Enter your mobile number"
             className={`${inputClass} input--rfid pr-11 font-mono`}
           />
           <span className="pointer-events-none absolute inset-y-0 right-3 grid place-items-center text-muted">
