@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { Icon } from "./icons";
 import { NotificationsMenu } from "./notifications-menu";
 import { ProfileMenu } from "./profile-menu";
@@ -26,11 +27,18 @@ export function AppNavbar({ onMenuClick }: { onMenuClick: () => void }) {
 
         <Link
           href="/dashboard"
+          aria-label="Mess Management — go to dashboard"
           className="flex items-center gap-2 rounded-sm px-1 focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
         >
-          <span className="grid size-8 place-items-center rounded-md bg-gold font-display text-lg font-semibold leading-none text-ink shadow-gold">
-            M
-          </span>
+          <Image
+            src="/assets/images/logo/logo.svg"
+            alt=""
+            width={32}
+            height={32}
+            unoptimized
+            priority
+            className="size-8 shrink-0"
+          />
           <span className="hidden font-display text-lg font-semibold text-ink sm:inline">
             Mess Management
           </span>
