@@ -33,7 +33,7 @@ function EyeOffIcon() {
 }
 
 const inputClass =
-  "w-full rounded-sm border border-line-strong bg-surface px-4 py-3 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+  "w-full rounded-sm border border-line-strong bg-surface-2 px-4 py-3 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
 
 export function LoginForm() {
   const [state, action, pending] = useActionState(loginAction, initial);
@@ -100,8 +100,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        style={{ backgroundColor: "color-mix(in srgb, var(--gold-deep) 60%, var(--ink) 40%)" }}
-        className="mt-1 rounded-sm bg-gold-deep px-4 py-3 text-center font-semibold text-white shadow-gold transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1 rounded-sm bg-gold px-4 py-3 text-center font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Signing in…" : "Sign In"}
       </button>
