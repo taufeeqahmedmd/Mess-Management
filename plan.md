@@ -445,19 +445,19 @@ public endpoints are **Route Handlers** (need explicit POST/idempotency/CSV).
 
 ## 11. Phased roadmap
 
-| Phase | Deliverable | Mock parity |
-|---|---|---|
-| **0. Setup** | Next.js + TS + Tailwind + Prisma + Postgres, env, base layout (theme already finalized — just wire it), CI | — |
-| **1. Auth & RBAC** | Mobile+password login, change-password, role×screen×action grid + guards, seed Super Admin | Login + Access Control |
-| **2. Master data** | Categories (+identifier), meals, **dual rates (charge+vendor)**, **per-category settings**, counters, operators, portal employees | Configurations |
-| **3. Cardholders & cards** | CRUD, import/export, block, validity/expiry, replace + history | Users + Replace Card |
-| **4. Recharge & ledger** | Wallet + multi-meal coupon grants, validity/expiry, edit/delete reversal, earmarking, import w/ failure report, receipts | Recharge |
-| **5. RFID Counter** | Operator login, server tap engine (§6.1), verification UI, per-category rules, beep + voice, fullscreen | RFID Counter |
-| **6. Offline/PWA** | Service worker, IndexedDB queue, idempotent sync, sync report | Offline queue |
-| **7. Dashboards & reports** | Dashboard (incl. vendor cost + P/L), **Vendor Dashboard**, consumption/balance reports, date range, CSV, audit log | Dashboard + Vendor Dashboard + Reports |
-| **8. Self-service** | Public balance + filtered history download | (new) |
-| **9. Vendor settlement** | Vendors + period settlements (meal counts × vendor rate → payable) | (new) |
-| **10. Hardening & deploy** | Validation, rate limits, tests, audit completeness, deployment | — |
+| Phase | Deliverable | Mock parity | Status |
+|---|---|---|---|
+| **0. Setup** | Next.js + TS + Tailwind + Prisma + Postgres, env, base layout (theme already finalized — just wire it), CI | — | ✅ Done |
+| **1. Auth & RBAC** | Mobile+password login, change-password, role×screen×action grid + guards, seed Super Admin | Login + Access Control | ✅ Done |
+| **2. Master data** | Categories (+identifier), meals, **dual rates (charge+vendor)**, **per-category settings**, counters, operators, portal employees | Configurations | ✅ Done |
+| **3. Cardholders & cards** | CRUD, import/export, block, validity/expiry, replace + history | Users + Replace Card | ✅ Done |
+| **4. Recharge & ledger** | Wallet + multi-meal coupon grants, validity/expiry, edit/delete reversal, earmarking, import w/ failure report, receipts | Recharge | ✅ Done |
+| **5. RFID Counter** | Operator login, server tap engine (§6.1), verification UI, per-category rules, beep + voice, fullscreen | RFID Counter | ✅ Done |
+| **6. Offline/PWA** | Service worker, IndexedDB queue, idempotent sync, sync report | Offline queue | ✅ Done |
+| **7. Dashboards & reports** | Dashboard (incl. vendor cost + P/L), **Vendor Dashboard**, consumption/balance reports, date range, CSV, audit log | Dashboard + Vendor Dashboard + Reports | ◻ Next |
+| **8. Self-service** | Public balance + filtered history download | (new) | ◻ |
+| **9. Vendor settlement** | Vendors + period settlements (meal counts × vendor rate → payable) | (new) | ◻ |
+| **10. Hardening & deploy** | Validation, rate limits, tests, audit completeness, deployment | — | ◻ |
 
 > Multi-branch (branches, departments, branch scoping) is folded into Phase 2 (master data) and
 > applied across all later phases. DB = **PostgreSQL** (confirmed); see `db-schema.md`.
