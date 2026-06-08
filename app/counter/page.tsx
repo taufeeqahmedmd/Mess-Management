@@ -1,28 +1,44 @@
-/**
- * Full-screen RFID Counter POS (plan.md §8, frontend rules "critical path").
- * The real tap-capture input, server tap engine, photo verification, beep, and
- * offline queue land in Phases 5–6. This is the themed full-screen placeholder.
- */
-export default function CounterPage() {
+import Link from "next/link";
+import { redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { requireActor } from "@/lib/session";
+import { can } from "@/lib/rbac";
+import { auth } from "@/lib/auth";
+import { CounterScreen } from "./counter-screen";
+
+export default async function CounterPage() {
+  const actor = await requireActor();
+  if (!can(actor, "counter.operate")) redirect("/dashboard");
+  const session = await auth();
+
+  const counters = await prisma.counter.findMany({
+    where: {
+      status: "active",
+      operators: { some: { appUserId: BigInt(actor.id) } },
+      ...(actor.branchId ? { branchId: BigInt(actor.branchId) } : {}),
+    },
+    orderBy: { code: "asc" },
+  });
+
+  if (counters.length === 0) {
+    return (
+      <main className="flex min-h-screen flex-col items-center justify-center gap-3 bg-canvas p-6 text-center">
+        <h1 className="font-display text-2xl font-semibold text-ink">No counter assigned</h1>
+        <p className="max-w-sm text-sm text-ink-2">
+          You aren&rsquo;t assigned to any active counter. Ask an administrator to assign you under
+          Settings → Counters.
+        </p>
+        <Link href="/dashboard" className="mt-2 rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 hover:border-gold hover:text-gold-deep">
+          Back to dashboard
+        </Link>
+      </main>
+    );
+  }
+
   return (
-    <main className="flex min-h-screen flex-col items-center justify-center gap-6 bg-canvas p-6">
-      <div className="w-full max-w-xl rounded-lg bg-surface p-10 text-center shadow-lg">
-        <p className="text-xs font-semibold uppercase tracking-[0.06em] text-muted">
-          RFID Counter
-        </p>
-        <h1 className="mt-2 font-display text-3xl font-semibold text-ink">
-          Tap a card to begin
-        </h1>
-        <input
-          aria-label="Card scan"
-          disabled
-          placeholder="Waiting for reader…"
-          className="input--rfid mt-6 w-full rounded-sm border border-line-strong bg-surface-2 px-4 py-3 text-center font-mono text-lg tracking-[0.08em] text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none"
-        />
-        <p className="mt-4 text-sm text-muted">
-          Operator login + tap engine arrive in Phase 5.
-        </p>
-      </div>
-    </main>
+    <CounterScreen
+      counters={counters.map((c) => ({ id: c.id.toString(), name: c.name, code: c.code }))}
+      operatorName={session?.user?.name ?? "Operator"}
+    />
   );
 }
