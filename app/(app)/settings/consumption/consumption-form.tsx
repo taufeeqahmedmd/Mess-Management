@@ -1,20 +1,29 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useState } from "react";
+import { MultiSelect } from "@/components/ui/multi-select";
 import { saveConsumptionAction, type ConsumptionState } from "./actions";
 
 export type ConsumptionRow = {
   id: string;
   name: string;
-  model: "wallet" | "coupon";
+  models: ("wallet" | "coupon")[];
   duplicateWindow: number;
   restrictMealSession: boolean;
 };
 
 const initial: ConsumptionState = {};
 
+const MODEL_OPTIONS = [
+  { value: "wallet", label: "Wallet (money)" },
+  { value: "coupon", label: "Coupon (count)" },
+];
+
 export function ConsumptionForm({ rows }: { rows: ConsumptionRow[] }) {
   const [state, action, pending] = useActionState(saveConsumptionAction, initial);
+  const [models, setModels] = useState<Record<string, string[]>>(() =>
+    Object.fromEntries(rows.map((r) => [r.id, r.models])),
+  );
 
   return (
     <form action={action} className="flex flex-col gap-4">
@@ -29,51 +38,60 @@ export function ConsumptionForm({ rows }: { rows: ConsumptionRow[] }) {
         </p>
       ) : null}
 
-      <div className="overflow-x-auto rounded-md border border-line bg-surface">
+      <p className="text-xs text-muted">
+        Pick one or both models. When both are enabled, taps resolve <strong>coupon first, then
+        wallet</strong>.
+      </p>
+
+      <div className="overflow-visible rounded-md border border-line bg-surface">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
               <th className="px-4 py-3 font-semibold">Category</th>
-              <th className="px-4 py-3 font-semibold">Model</th>
+              <th className="px-4 py-3 font-semibold">Models</th>
               <th className="px-4 py-3 font-semibold">Duplicate window (s)</th>
               <th className="px-4 py-3 font-semibold">Once per session</th>
             </tr>
           </thead>
           <tbody>
-            {rows.map((r) => (
-              <tr key={r.id} className="border-t border-line">
-                <td className="px-4 py-3 font-medium text-ink">{r.name}</td>
-                <td className="px-4 py-3">
-                  <select
-                    name={`model_${r.id}`}
-                    defaultValue={r.model}
-                    aria-label={`${r.name} consumption model`}
-                    className="rounded-sm border border-line-strong bg-surface-2 px-3 py-2 text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
-                  >
-                    <option value="wallet">Wallet (money)</option>
-                    <option value="coupon">Coupon (count)</option>
-                  </select>
-                </td>
-                <td className="px-4 py-3">
-                  <input
-                    name={`dup_${r.id}`}
-                    inputMode="numeric"
-                    defaultValue={String(r.duplicateWindow)}
-                    aria-label={`${r.name} duplicate window seconds`}
-                    className="w-24 rounded-sm border border-line-strong bg-surface-2 px-2 py-2 text-right font-mono text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
-                  />
-                </td>
-                <td className="px-4 py-3">
-                  <input
-                    type="checkbox"
-                    name={`restrict_${r.id}`}
-                    defaultChecked={r.restrictMealSession}
-                    aria-label={`${r.name} restrict to once per meal session`}
-                    className="size-4 accent-[var(--gold)]"
-                  />
-                </td>
-              </tr>
-            ))}
+            {rows.map((r) => {
+              const selected = models[r.id] ?? [];
+              return (
+                <tr key={r.id} className="border-t border-line">
+                  <td className="px-4 py-3 font-medium text-ink">{r.name}</td>
+                  <td className="px-4 py-3">
+                    <MultiSelect
+                      options={MODEL_OPTIONS}
+                      selected={selected}
+                      onChange={(next) => setModels((p) => ({ ...p, [r.id]: next }))}
+                      ariaLabel={`${r.name} consumption models`}
+                      placeholder="Select model(s)"
+                    />
+                    {selected.map((m) => (
+                      <input key={m} type="hidden" name={`models_${r.id}`} value={m} />
+                    ))}
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      name={`dup_${r.id}`}
+                      inputMode="numeric"
+                      defaultValue={String(r.duplicateWindow)}
+                      aria-label={`${r.name} duplicate window seconds`}
+                      className="w-24 rounded-sm border border-line-strong bg-surface-2 px-2 py-2 text-right font-mono text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
+                    />
+                  </td>
+                  <td className="px-4 py-3">
+                    <input
+                      type="checkbox"
+                      name={`restrict_${r.id}`}
+                      defaultChecked={r.restrictMealSession}
+                      aria-label={`${r.name} restrict to once per meal session`}
+                      className="size-4 accent-[var(--gold)]"
+                    />
+                  </td>
+                </tr>
+              );
+            })}
           </tbody>
         </table>
       </div>

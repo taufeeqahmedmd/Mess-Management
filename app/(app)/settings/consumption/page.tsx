@@ -17,10 +17,13 @@ export default async function ConsumptionPage() {
 
   const rows: ConsumptionRow[] = categories.map((c) => {
     const s = c.settings[0];
+    const models = (s?.models ?? []).filter(
+      (m): m is "wallet" | "coupon" => m === "wallet" || m === "coupon",
+    );
     return {
       id: c.id.toString(),
       name: c.name,
-      model: s?.model === "coupon" ? "coupon" : "wallet",
+      models: models.length ? models : ["wallet"],
       duplicateWindow: s?.duplicateWindow ?? 0,
       restrictMealSession: s?.restrictMealSession ?? false,
     };

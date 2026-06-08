@@ -243,8 +243,9 @@ model Category {
 }
 
 // Per-category consumption config (plan.md §6 — the mock's "System Settings").
-// Each category has ONE active row deciding how its cardholders' taps resolve:
-// WALLET (deduct money) or COUPON (deduct a per-meal count). Carries that
+// Each category has ONE active row deciding how its cardholders' taps resolve.
+// `models` enables WALLET (deduct money), COUPON (deduct a per-meal count), or
+// BOTH; when both, resolution is coupon-first then wallet. Carries that
 // category's duplicate-tap window + once-per-meal-session flag.
 enum ConsumptionModel {
   wallet
@@ -252,14 +253,14 @@ enum ConsumptionModel {
 }
 
 model CategorySetting {
-  id                  BigInt           @id @default(autoincrement())
-  categoryId          BigInt           @map("category_id")
-  model               ConsumptionModel @default(wallet)
-  duplicateWindow     Int              @default(0) @map("duplicate_window") // seconds; 0 = no guard
-  restrictMealSession Boolean          @default(false) @map("restrict_meal_session")
-  status              CategoryStatus   @default(active) // only the active row applies
-  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+  id                  BigInt             @id @default(autoincrement())
+  categoryId          BigInt             @map("category_id")
+  models              ConsumptionModel[] // enabled models; both = coupon-first then wallet
+  duplicateWindow     Int                @default(0) @map("duplicate_window") // seconds; 0 = no guard
+  restrictMealSession Boolean            @default(false) @map("restrict_meal_session")
+  status              CategoryStatus     @default(active) // only the active row applies
+  createdAt           DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime           @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   category Category @relation(fields: [categoryId], references: [id])
 

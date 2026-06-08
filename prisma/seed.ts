@@ -175,23 +175,24 @@ async function main() {
   }
 
   // --- Per-category consumption settings (one active per category) ---
-  // Student = COUPON (count), 120s duplicate window, once-per-session; others = WALLET.
+  // models enables WALLET, COUPON, or both (coupon-first then wallet). Student =
+  // COUPON (count), 120s duplicate window, once-per-session; others = WALLET.
   const categoryModels: Record<
     string,
-    { model: "wallet" | "coupon"; duplicateWindow: number; restrictMealSession: boolean }
+    { models: ("wallet" | "coupon")[]; duplicateWindow: number; restrictMealSession: boolean }
   > = {
-    STU: { model: "coupon", duplicateWindow: 120, restrictMealSession: true },
-    EMP: { model: "wallet", duplicateWindow: 0, restrictMealSession: false },
-    CON: { model: "wallet", duplicateWindow: 0, restrictMealSession: false },
-    GST: { model: "wallet", duplicateWindow: 0, restrictMealSession: false },
-    VIS: { model: "wallet", duplicateWindow: 0, restrictMealSession: false },
+    STU: { models: ["coupon"], duplicateWindow: 120, restrictMealSession: true },
+    EMP: { models: ["wallet"], duplicateWindow: 0, restrictMealSession: false },
+    CON: { models: ["wallet"], duplicateWindow: 0, restrictMealSession: false },
+    GST: { models: ["wallet"], duplicateWindow: 0, restrictMealSession: false },
+    VIS: { models: ["wallet"], duplicateWindow: 0, restrictMealSession: false },
   };
   for (const [cc, cfg] of Object.entries(categoryModels)) {
     if ((await prisma.categorySetting.count({ where: { categoryId: catId[cc] } })) === 0) {
       await prisma.categorySetting.create({
         data: {
           categoryId: catId[cc],
-          model: cfg.model,
+          models: cfg.models,
           duplicateWindow: cfg.duplicateWindow,
           restrictMealSession: cfg.restrictMealSession,
         },

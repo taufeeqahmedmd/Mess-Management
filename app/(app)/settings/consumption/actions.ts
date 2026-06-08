@@ -22,21 +22,30 @@ export async function saveConsumptionAction(
 
   const ops: {
     categoryId: bigint;
-    model: ConsumptionModel;
+    models: ConsumptionModel[];
     duplicateWindow: number;
     restrictMealSession: boolean;
   }[] = [];
 
   for (const cat of categories) {
-    const model: ConsumptionModel =
-      String(formData.get(`model_${cat.id}`)) === "coupon" ? "coupon" : "wallet";
+    const models = [
+      ...new Set(
+        formData
+          .getAll(`models_${cat.id}`)
+          .map(String)
+          .filter((m): m is ConsumptionModel => m === "wallet" || m === "coupon"),
+      ),
+    ];
+    if (models.length === 0) {
+      return { error: `Select at least one model for ${cat.name}.` };
+    }
     const dupStr = String(formData.get(`dup_${cat.id}`) ?? "0").trim();
     if (!/^\d+$/.test(dupStr)) {
       return { error: `Duplicate window for ${cat.name} must be a whole number of seconds.` };
     }
     ops.push({
       categoryId: cat.id,
-      model,
+      models,
       duplicateWindow: parseInt(dupStr, 10),
       restrictMealSession: formData.get(`restrict_${cat.id}`) === "on",
     });
@@ -51,7 +60,7 @@ export async function saveConsumptionAction(
         await tx.categorySetting.update({
           where: { id: active.id },
           data: {
-            model: op.model,
+            models: op.models,
             duplicateWindow: op.duplicateWindow,
             restrictMealSession: op.restrictMealSession,
           },
@@ -60,7 +69,7 @@ export async function saveConsumptionAction(
         await tx.categorySetting.create({
           data: {
             categoryId: op.categoryId,
-            model: op.model,
+            models: op.models,
             duplicateWindow: op.duplicateWindow,
             restrictMealSession: op.restrictMealSession,
             status: "active",

@@ -294,12 +294,14 @@ enum TxStatus   { APPROVED REJECTED BLOCKED QUEUED }
 ## 6. Consumption / money model (this is how the mock works — port it exactly)
 
 **The resolution model is PER-CATEGORY, not global.** Each category has one active
-`CategorySetting` whose `model` is either **WALLET** or **COUPON**. There is no "coupon-first
-then wallet" fallback — a category is one or the other. The same setting also carries that
-category's `duplicateWindow` (seconds) and `restrictMealSession` (once-per-meal-session) flags.
+`CategorySetting` whose `models` enables **WALLET**, **COUPON**, or **both** (multi-select). When
+both are enabled the resolution is **coupon-first, then wallet fallback**; with a single model it
+behaves as that model only. The same setting also carries that category's `duplicateWindow`
+(seconds) and `restrictMealSession` (once-per-meal-session) flags.
 
-Both balances still exist on every cardholder (wallet money + per-meal coupon counts) because a
-recharge can credit both; the *consumption* path picks one based on the category model.
+Both balances always exist on every cardholder (wallet money + per-meal coupon counts) because a
+recharge can credit both; the *consumption* path uses whichever enabled model can pay, trying
+coupon before wallet.
 
 ### 6.1 Tap resolution — exact order (port of `consumeRFID`)
 
@@ -318,18 +320,18 @@ Run inside one DB transaction, in this order; first failing check wins:
 9. **Duplicate within window** (category `duplicateWindow` s, same meal, approved) → `BLOCKED` "ALREADY UTILIZED".
 10. **Once-per-session** (category `restrictMealSession`, an approved tap already this meal session today) → `BLOCKED` "SESSION USED".
 11. Compute `amount = price(category, meal)` and `vendorAmount = vendorPrice(category, meal)`.
-12. **If category model = COUPON:**
-    - If the cardholder has any active recharge but `availableRechargeCoupons(meal) < 1`
-      → `REJECTED` "MEAL NOT RECHARGED" (earmark guard, see §6.2).
-    - Else if coupon balance for that meal `< 1` → `REJECTED` "INSUFFICIENT COUPON".
-    - Else decrement the meal's coupon balance by 1 **and** decrement one active recharge's
-      remaining coupon for that meal. `paidBy = COUPON`, `amount = 0`.
-13. **If category model = WALLET:**
-    - If the cardholder has any active recharge but `availableRechargeAmount(meal) < amount`
-      → `REJECTED` "MEAL NOT RECHARGED".
-    - Else if `wallet < amount` → `REJECTED` "INSUFFICIENT BALANCE".
-    - Else `wallet -= amount` **and** FIFO-consume `amount` from active recharges' remaining.
-      `paidBy = WALLET`.
+12. Resolve payment by the category's enabled `models`, **coupon first then wallet**. Try each
+    enabled model in that order; the first that can pay wins. If none can pay, reject with the
+    reason from the last attempted model.
+    - **COUPON (if enabled):** if the cardholder has any active recharge but
+      `availableRechargeCoupons(meal) < 1` → fails "MEAL NOT RECHARGED" (earmark guard, §6.2);
+      else if coupon balance for that meal `< 1` → fails "INSUFFICIENT COUPON"; else decrement the
+      meal's coupon balance by 1 **and** one active recharge's remaining coupon for that meal.
+      `paidBy = COUPON`, `amount = 0`. **Done.**
+    - **WALLET (if enabled and coupon didn't pay):** if the cardholder has any active recharge but
+      `availableRechargeAmount(meal) < amount` → fails "MEAL NOT RECHARGED"; else if
+      `wallet < amount` → fails "INSUFFICIENT BALANCE"; else `wallet -= amount` **and** FIFO-consume
+      `amount` from active recharges' remaining. `paidBy = WALLET`. **Done.**
 14. On success: write `APPROVED` transaction (with `amount`, `vendorAmount`, snapshots),
     success **beep** + **voice "Accepted"** (rejections say "Rejected"). Always show the
     cardholder photo/name/category + balances on the result screen.
@@ -492,7 +494,7 @@ Proposed folder layout:
 
 | Topic | Needed by | Status |
 |---|---|---|
-| Coupon = count vs money; tap priority | Phase 4–5 | **Resolved by mock:** per-category model (WALLET *or* COUPON count), not a global priority. Coupon = meal count (price-independent). See §6. |
+| Coupon = count vs money; tap priority | Phase 4–5 | **Resolved:** per-category `models` enables WALLET, COUPON, or **both**; when both, resolution is **coupon-first then wallet**. Coupon = meal count (price-independent). See §6. |
 | Recharge earmarking ("MEAL NOT RECHARGED") | Phase 4–5 | **Resolved by mock:** active recharges constrain consumable meals/amounts. Confirm this is desired in prod (it is implemented). See §6.2. |
 | Dual rates + Profit/Loss reporting | Phase 2,7 | **Resolved by mock:** charge rate + vendor rate per meal×category; P/L surfaced on dashboard/reports. |
 | Login handle: mobile vs email | Phase 1 | **Resolved by mock:** mobile number + password. Email optional. |
