@@ -10,7 +10,15 @@ import { useMediaQuery } from "./hooks";
  * row. The navbar's menu button collapses the rail on desktop and opens an
  * off-canvas drawer on mobile. Theme tokens throughout (Warm Cafeteria).
  */
-export function AppShell({ children }: { children: React.ReactNode }) {
+export type ShellUser = { name: string; role: string };
+
+export function AppShell({
+  user,
+  children,
+}: {
+  user: ShellUser;
+  children: React.ReactNode;
+}) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [railExpanded, setRailExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
@@ -25,7 +33,7 @@ export function AppShell({ children }: { children: React.ReactNode }) {
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
-      <AppNavbar onMenuClick={handleMenuClick} />
+      <AppNavbar onMenuClick={handleMenuClick} user={user} />
 
       <div className="flex min-h-0 flex-1">
         <AppSidebar

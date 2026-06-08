@@ -5,13 +5,20 @@ import Image from "next/image";
 import { Icon } from "./icons";
 import { NotificationsMenu } from "./notifications-menu";
 import { ProfileMenu } from "./profile-menu";
+import type { ShellUser } from "./app-shell";
 
 /**
  * Top app bar (YouTube-style): menu button + logo/title on the left, a centered
  * search field, notifications + profile on the right. Sticky, full-width.
  * Search is presentational for Phase 0 (wiring lands with the data layer).
  */
-export function AppNavbar({ onMenuClick }: { onMenuClick: () => void }) {
+export function AppNavbar({
+  onMenuClick,
+  user,
+}: {
+  onMenuClick: () => void;
+  user: ShellUser;
+}) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface px-3 sm:px-4">
       {/* Left: menu + logo + title */}
@@ -67,7 +74,7 @@ export function AppNavbar({ onMenuClick }: { onMenuClick: () => void }) {
       {/* Right: notifications + profile */}
       <div className="flex items-center gap-1 sm:gap-2">
         <NotificationsMenu />
-        <ProfileMenu />
+        <ProfileMenu user={user} />
       </div>
     </header>
   );

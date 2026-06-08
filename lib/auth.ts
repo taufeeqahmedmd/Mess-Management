@@ -1,38 +1,63 @@
 import NextAuth from "next-auth";
 import Credentials from "next-auth/providers/credentials";
+import bcrypt from "bcryptjs";
 import { z } from "zod";
+import { prisma } from "./prisma";
+import { authConfig } from "./auth.config";
+import type { Permission } from "./rbac";
 
 /**
- * Auth.js (NextAuth v5) — staff Credentials auth. JWT session strategy (so no
- * `sessions` table is needed; see db-schema.md §13 deferred decision).
- *
- * Phase 0: config + provider shape only. `authorize` is a STUB that always
- * denies — the real flow (look up app_users, verify bcrypt hash, attach role +
- * permissions + branch scope to the token) is implemented in Phase 1.
+ * Auth.js (NextAuth v5) — staff login by **mobile number + password**
+ * (plan.md §4). JWT sessions. The authorize step (Node-only: Prisma + bcrypt)
+ * verifies the credential, then loads the staff member's role, permissions, and
+ * branch scope so they ride on the session token. Route gating + token/session
+ * mapping live in the edge-safe authConfig.
  */
-
 export const credentialsSchema = z.object({
-  email: z.string().email(),
+  mobile: z.string().trim().min(4),
   password: z.string().min(1),
 });
 
 export const { handlers, auth, signIn, signOut } = NextAuth({
-  session: { strategy: "jwt" },
-  pages: { signIn: "/login" },
+  ...authConfig,
   providers: [
     Credentials({
       credentials: {
-        email: { label: "Email", type: "email" },
+        mobile: { label: "Mobile", type: "text" },
         password: { label: "Password", type: "password" },
       },
       authorize: async (raw) => {
         const parsed = credentialsSchema.safeParse(raw);
         if (!parsed.success) return null;
+        const { mobile, password } = parsed.data;
 
-        // TODO(Phase 1): look up app_users by email, verify bcrypt password,
-        // ensure status === 'active', then return the staff identity. Roles,
-        // permissions, and branch scope get attached via jwt/session callbacks.
-        return null;
+        const user = await prisma.appUser.findUnique({
+          where: { mobile },
+          include: {
+            role: { include: { permissions: { include: { permission: true } } } },
+          },
+        });
+        if (!user || user.status !== "active") return null;
+
+        const ok = await bcrypt.compare(password, user.passwordHash);
+        if (!ok) return null;
+
+        await prisma.appUser.update({
+          where: { id: user.id },
+          data: { lastLoginAt: new Date() },
+        });
+
+        return {
+          id: user.id.toString(),
+          name: user.name,
+          email: user.email ?? undefined,
+          roleName: user.role.name,
+          isSuperAdmin: user.role.name === "Super Admin",
+          branchId: user.branchId ? user.branchId.toString() : null,
+          permissions: user.role.permissions.map(
+            (rp) => rp.permission.code as Permission,
+          ),
+        };
       },
     }),
   ],
