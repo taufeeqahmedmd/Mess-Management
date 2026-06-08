@@ -185,8 +185,9 @@ model RolePermission {
 
 model AppUser {
   id           BigInt        @id @default(autoincrement())
-  username     String        @unique @db.VarChar(60)
-  email        String        @unique @db.VarChar(150)
+  name         String        @db.VarChar(150)
+  mobile       String        @unique @db.VarChar(20) // login handle (plan.md §4 — mobile + password)
+  email        String?       @unique @db.VarChar(150)
   passwordHash String        @map("password_hash") @db.VarChar(255)
   roleId       BigInt        @map("role_id")
   branchId     BigInt?       @map("branch_id") // NULL = all branches (Super Admin)

@@ -8,6 +8,8 @@
  */
 
 export const PERMISSIONS = [
+  "dashboard.view",
+  "vendorDashboard.view",
   "users.view",
   "users.create",
   "users.edit",
@@ -21,16 +23,18 @@ export const PERMISSIONS = [
   "recharge.create",
   "recharge.edit",
   "recharge.delete",
+  "recharge.import",
   "counter.operate",
   "categories.manage",
   "meals.manage",
   "rates.manage",
+  "vendorRates.manage",
   "counters.manage",
   "reports.view",
-  "dashboard.view",
   "settings.manage",
   "roles.manage",
   "staff.manage",
+  "accessControl.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

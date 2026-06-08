@@ -1,16 +1,22 @@
 /**
- * Seed — mirrors the mock (db-schema.md §12): 1 branch, full role/permission set,
- * a Super Admin staff account, categories, meal types (with windows), a rate
- * matrix, payment modes, counters + operator assignment, and default settings.
+ * Seed — mirrors the mock (plan.md §12): 1 branch, the full role/permission set,
+ * portal-employee staff (mobile + password login), Super Admin "Srikanth", the
+ * categories, meal types (with windows), a rate matrix, payment modes, counters +
+ * operator assignment, and default settings.
  *
- * Idempotent where unique keys allow (upserts); guarded by existence checks where
- * there is no natural key. Run with: npm run db:seed.
+ * Login is by MOBILE NUMBER (plan.md §4). Idempotent via upserts. Run: npm run db:seed.
+ *
+ * Deferred to their phases (kept simple here): dual charge/vendor rates and
+ * per-category CategorySetting (Phase 2); multi-meal recharge coupons (Phase 4).
  */
 import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { PERMISSIONS } from "../lib/rbac";
+import { DEFAULT_ROLE_PERMISSIONS, ROLES, type RoleName } from "../lib/access-control";
 
 const prisma = new PrismaClient();
+
+const DEFAULT_PASSWORD = "ChangeMe123!"; // change all seeded staff passwords after first login
 
 async function main() {
   // --- Branch ---
@@ -33,55 +39,57 @@ async function main() {
   const allPerms = await prisma.permission.findMany();
   const permId = (code: string) => allPerms.find((p) => p.code === code)!.id;
 
-  // --- Roles + their permission grants ---
-  const roleGrants: Record<string, readonly string[]> = {
-    "Super Admin": PERMISSIONS, // bypasses checks anyway; granted for completeness
-    Admin: [
-      "users.view", "users.create", "users.edit", "users.import",
-      "cards.view", "cards.replace", "cards.activate", "cards.deactivate",
-      "recharge.view", "recharge.create",
-      "categories.manage", "meals.manage", "rates.manage", "counters.manage",
-      "reports.view", "dashboard.view",
-    ],
-    Accounts: [
-      "users.view",
-      "cards.view", "cards.activate", "cards.deactivate", "cards.replace",
-      "recharge.view", "recharge.create", "recharge.edit",
-      "reports.view", "dashboard.view",
-    ],
-    Operator: ["counter.operate"],
-  };
-
-  const roles: Record<string, bigint> = {};
-  for (const [name, perms] of Object.entries(roleGrants)) {
+  // --- Roles + their default permission grants (editable Access Control grid) ---
+  const roleId: Record<RoleName, bigint> = {} as Record<RoleName, bigint>;
+  for (const name of ROLES) {
     const role = await prisma.role.upsert({
       where: { name },
       update: {},
       create: { name },
     });
-    roles[name] = role.id;
-    for (const code of perms) {
+    roleId[name] = role.id;
+    for (const code of DEFAULT_ROLE_PERMISSIONS[name]) {
       await prisma.rolePermission.upsert({
-        where: { roleId_permissionId: { roleId: role.id, permissionId: permId(code) } },
+        where: {
+          roleId_permissionId: { roleId: role.id, permissionId: permId(code) },
+        },
         update: {},
         create: { roleId: role.id, permissionId: permId(code) },
       });
     }
   }
 
-  // --- Super Admin staff account ---
-  const passwordHash = await bcrypt.hash("ChangeMe123!", 10);
-  const admin = await prisma.appUser.upsert({
-    where: { email: "admin@mess.local" },
-    update: {},
-    create: {
-      username: "admin",
-      email: "admin@mess.local",
-      passwordHash,
-      roleId: roles["Super Admin"],
-      branchId: null, // all-branch
-    },
-  });
+  // --- Portal employees (staff). Login = mobile + password. ---
+  const passwordHash = await bcrypt.hash(DEFAULT_PASSWORD, 10);
+  const staff: Array<{
+    name: string;
+    mobile: string;
+    role: RoleName;
+    branchId: bigint | null;
+  }> = [
+    { name: "Srikanth", mobile: "9281122104", role: "Super Admin", branchId: null },
+    { name: "Admin User", mobile: "9000000001", role: "Admin", branchId: branch.id },
+    { name: "Mess Incharge", mobile: "9000000002", role: "Mess Incharge", branchId: branch.id },
+    { name: "Accountant", mobile: "9000000003", role: "Accountant", branchId: branch.id },
+    { name: "Management", mobile: "9000000004", role: "Management", branchId: branch.id },
+  ];
+
+  const staffId: Record<string, bigint> = {};
+  for (const s of staff) {
+    const u = await prisma.appUser.upsert({
+      where: { mobile: s.mobile },
+      update: {},
+      create: {
+        name: s.name,
+        mobile: s.mobile,
+        passwordHash,
+        roleId: roleId[s.role],
+        branchId: s.branchId,
+      },
+    });
+    staffId[s.mobile] = u.id;
+  }
+  const messInchargeId = staffId["9000000002"];
 
   // --- Categories (+ identifier config) ---
   const categories = [
@@ -138,7 +146,7 @@ async function main() {
   }
 
   // --- Rate matrix (meal × category × branch), current (valid_from today) ---
-  // Sample prices; tune in the Master Data module (Phase 2).
+  // NOTE: single charge rate for now; vendor rate (dual rates) arrives in Phase 2.
   const priceMatrix: Record<string, Record<string, number>> = {
     BRK: { STU: 25, EMP: 35, CON: 35, GST: 50, VIS: 50 },
     LUN: { STU: 45, EMP: 60, CON: 60, GST: 90, VIS: 90 },
@@ -146,7 +154,9 @@ async function main() {
     DIN: { STU: 45, EMP: 60, CON: 60, GST: 90, VIS: 90 },
   };
   const today = new Date();
-  const validFrom = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()));
+  const validFrom = new Date(
+    Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate()),
+  );
   if ((await prisma.mealRate.count()) === 0) {
     const rows: Prisma.MealRateCreateManyInput[] = [];
     for (const [mc, byCat] of Object.entries(priceMatrix)) {
@@ -163,10 +173,11 @@ async function main() {
     await prisma.mealRate.createMany({ data: rows });
   }
 
-  // --- Counters + operator assignment ---
+  // --- Counters + operator assignment (Mess Incharge operates all) ---
   const counterDefs = [
     { code: "C1", name: "Counter 1 (Main)" },
     { code: "C2", name: "Counter 2 (Annex)" },
+    { code: "C3", name: "Counter 3 (Block A)" },
   ];
   for (const cd of counterDefs) {
     const counter = await prisma.counter.upsert({
@@ -175,19 +186,17 @@ async function main() {
       create: { branchId: branch.id, code: cd.code, name: cd.name },
     });
     await prisma.counterOperator.upsert({
-      where: { counterId_appUserId: { counterId: counter.id, appUserId: admin.id } },
+      where: {
+        counterId_appUserId: { counterId: counter.id, appUserId: messInchargeId },
+      },
       update: {},
-      create: { counterId: counter.id, appUserId: admin.id },
+      create: { counterId: counter.id, appUserId: messInchargeId },
     });
   }
 
-  // --- Default settings (global) ---
-  const settings: Record<string, Prisma.InputJsonValue> = {
-    duplicate_window_seconds: 120,
-    prevent_per_meal_session: true,
-    resolution_strategy: "coupon_first",
-    currency: "INR",
-  };
+  // --- Default settings (global). Per-category consumption config (model /
+  //     duplicate-window / session-restriction) becomes CategorySetting in Phase 2. ---
+  const settings: Record<string, Prisma.InputJsonValue> = { currency: "INR" };
   for (const [settingKey, value] of Object.entries(settings)) {
     await prisma.setting.upsert({
       where: { settingKey },
@@ -198,10 +207,12 @@ async function main() {
 
   console.log("Seed complete:", {
     branch: branch.code,
-    admin: admin.email,
-    roles: Object.keys(roles),
+    superAdmin: "Srikanth / 9281122104",
+    roles: ROLES,
+    staff: staff.length,
     categories: categories.length,
     meals: meals.length,
+    counters: counterDefs.length,
   });
 }
 
