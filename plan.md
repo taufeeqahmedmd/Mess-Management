@@ -454,8 +454,8 @@ public endpoints are **Route Handlers** (need explicit POST/idempotency/CSV).
 | **4. Recharge & ledger** | Wallet + multi-meal coupon grants, validity/expiry, edit/delete reversal, earmarking, import w/ failure report, receipts | Recharge | ✅ Done |
 | **5. RFID Counter** | Operator login, server tap engine (§6.1), verification UI, per-category rules, beep + voice, fullscreen | RFID Counter | ✅ Done |
 | **6. Offline/PWA** | Service worker, IndexedDB queue, idempotent sync, sync report | Offline queue | ✅ Done |
-| **7. Dashboards & reports** | Dashboard (incl. vendor cost + P/L), **Vendor Dashboard**, consumption/balance reports, date range, CSV, audit log | Dashboard + Vendor Dashboard + Reports | ◻ Next |
-| **8. Self-service** | Public balance + filtered history download | (new) | ◻ |
+| **7. Dashboards & reports** | Dashboard (incl. vendor cost + P/L), **Vendor Dashboard**, consumption/balance reports, date range, CSV, audit log | Dashboard + Vendor Dashboard + Reports | ✅ Done |
+| **8. Self-service** | Public balance + filtered history download | (new) | ◻ Next |
 | **9. Vendor settlement** | Vendors + period settlements (meal counts × vendor rate → payable) | (new) | ◻ |
 | **10. Hardening & deploy** | Validation, rate limits, tests, audit completeness, deployment | — | ◻ |
 
