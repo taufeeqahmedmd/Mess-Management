@@ -133,7 +133,11 @@ export default async function RechargePage({
                 const coupons = r.coupons.reduce((s, c) => s + c.count, 0);
                 return (
                   <tr key={r.id.toString()} className="border-t border-line">
-                    <td className="px-4 py-3 text-ink-2">{r.rechargedAt.toISOString().slice(0, 10)}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/recharge/${r.id}`} className="text-ink-2 transition-colors hover:text-gold-deep">
+                        {r.rechargedAt.toISOString().slice(0, 10)}
+                      </Link>
+                    </td>
                     <td className="px-4 py-3">
                       <Link href={`/users/${r.userId}`} className="text-ink transition-colors hover:text-gold-deep">{r.user.fullName}</Link>
                       <span className="ml-1 font-mono text-xs text-muted">{r.user.code}</span>
