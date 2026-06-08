@@ -9,8 +9,10 @@ services:
       POSTGRES_USER: mess
       POSTGRES_PASSWORD: mess
       POSTGRES_DB: mess_management
+    # Host port 5433 (not 5432) to avoid clashing with a local Postgres install.
+    # Container still listens on 5432 internally; connect via localhost:5433.
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - mess-pgdata:/var/lib/postgresql/data
     healthcheck:
