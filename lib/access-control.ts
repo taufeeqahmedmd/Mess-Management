@@ -32,6 +32,8 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleName, readonly Permission[]> =
     "recharge.edit",
     "recharge.import",
     "reports.view",
+    "settlements.view",
+    "settlements.manage",
   ],
   Management: [
     "dashboard.view",
@@ -39,6 +41,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleName, readonly Permission[]> =
     "cards.view",
     "recharge.view",
     "reports.view",
+    "settlements.view",
   ],
 };
 
@@ -106,6 +109,14 @@ export const ACCESS_SCREENS: readonly AccessScreen[] = [
     key: "reports",
     label: "Reports",
     actions: [{ action: "view", label: "View", permission: "reports.view" }],
+  },
+  {
+    key: "settlements",
+    label: "Vendor Settlement",
+    actions: [
+      { action: "view", label: "View", permission: "settlements.view" },
+      { action: "manage", label: "Manage", permission: "settlements.manage" },
+    ],
   },
   {
     key: "configurations",

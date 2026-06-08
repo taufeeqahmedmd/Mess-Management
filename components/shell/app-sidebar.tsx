@@ -33,6 +33,12 @@ const SECTIONS: NavSection[] = [
       { label: "Cardholders", href: "/users", icon: "users", permission: "users.view" },
       { label: "RFID Cards", href: "/cards", icon: "card", permission: "cards.view" },
       { label: "Reports", href: "/reports", icon: "reports", permission: "reports.view" },
+      {
+        label: "Vendor Settlement",
+        href: "/settlements",
+        icon: "vendor",
+        permission: "settlements.view",
+      },
       { label: "Settings", href: "/settings", icon: "settings", permission: "settings.manage" },
       {
         label: "Access Control",

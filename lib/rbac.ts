@@ -25,6 +25,8 @@ export const PERMISSIONS = [
   "recharge.delete",
   "recharge.import",
   "counter.operate",
+  "settlements.view",
+  "settlements.manage",
   "categories.manage",
   "meals.manage",
   "rates.manage",
