@@ -232,6 +232,26 @@ async function main() {
     });
   }
 
+  // --- Sample cardholders (wallet + active card) for demo/testing ---
+  const sampleUsers = [
+    { code: "ADM2024001", fullName: "Aarav Sharma", cat: "STU", phone: "9810000001", cardUid: "1000000001", wallet: 500 },
+    { code: "ADM2024002", fullName: "Diya Patel", cat: "STU", phone: "9810000002", cardUid: "1000000002", wallet: 0 },
+    { code: "EMP1001", fullName: "Rahul Verma", cat: "EMP", phone: "9810000003", cardUid: "1000000003", wallet: 1200 },
+  ];
+  for (const u of sampleUsers) {
+    if (await prisma.user.findUnique({ where: { code: u.code } })) continue;
+    await prisma.$transaction(async (tx) => {
+      const created = await tx.user.create({
+        data: { code: u.code, fullName: u.fullName, phone: u.phone, categoryId: catId[u.cat], branchId: branch.id, status: "active" },
+      });
+      await tx.wallet.create({ data: { userId: created.id, balanceAmount: new Prisma.Decimal(u.wallet) } });
+      const card = await tx.rfidCard.create({
+        data: { cardUid: u.cardUid, userId: created.id, status: "active", issuedAt: new Date() },
+      });
+      await tx.cardEvent.create({ data: { cardId: card.id, userId: created.id, type: "issue", newUid: u.cardUid } });
+    });
+  }
+
   console.log("Seed complete:", {
     branch: branch.code,
     superAdmin: "Srikanth / 9281122104",

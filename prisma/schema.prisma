@@ -305,21 +305,23 @@ model CounterOperator {
 // ---------- Cardholders & cards ----------
 
 model User {
-  id           BigInt     @id @default(autoincrement())
-  code         String     @unique @db.VarChar(40) // category identifier + public self-service handle
-  fullName     String     @map("full_name") @db.VarChar(150)
-  phone        String?    @db.VarChar(20)
-  email        String?    @db.VarChar(150)
-  categoryId   BigInt     @map("category_id")
-  departmentId BigInt?    @map("department_id")
-  branchId     BigInt     @map("branch_id")
-  photoUrl     String?    @map("photo_url") @db.VarChar(255)
-  kycRef       String?    @map("kyc_ref") @db.VarChar(80)
-  status       UserStatus @default(active)
-  createdBy    BigInt?    @map("created_by")
-  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
-  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
-  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(6)
+  id              BigInt     @id @default(autoincrement())
+  code            String     @unique @db.VarChar(40) // category identifier + public self-service handle
+  fullName        String     @map("full_name") @db.VarChar(150)
+  phone           String?    @db.VarChar(20)
+  email           String?    @db.VarChar(150)
+  categoryId      BigInt     @map("category_id")
+  departmentId    BigInt?    @map("department_id")
+  branchId        BigInt     @map("branch_id")
+  photoUrl        String?    @map("photo_url") @db.VarChar(255)
+  kycRef          String?    @map("kyc_ref") @db.VarChar(80)
+  status          UserStatus @default(active)
+  cardExpiryDate  DateTime?  @map("card_expiry_date") @db.Date // user-level validity; past this, wallet+coupons are zeroed (§6)
+  validityExpired Boolean    @default(false) @map("validity_expired") // set when expiry claw-back has run
+  createdBy       BigInt?    @map("created_by")
+  createdAt       DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt       DateTime?  @map("deleted_at") @db.Timestamptz(6)
 
   category       Category            @relation(fields: [categoryId], references: [id])
   department     Department?         @relation(fields: [departmentId], references: [id])
