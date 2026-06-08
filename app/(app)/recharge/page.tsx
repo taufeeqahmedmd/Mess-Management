@@ -26,6 +26,7 @@ export default async function RechargePage({
   const canCreate = can(actor, "recharge.create");
   const canEdit = can(actor, "recharge.edit");
   const canReverse = can(actor, "recharge.delete");
+  const canImport = can(actor, "recharge.import");
 
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
@@ -74,7 +75,14 @@ export default async function RechargePage({
           <h1 className="font-display text-2xl font-semibold text-ink">Recharge</h1>
           <p className="mt-1 text-sm text-ink-2">Top up a cardholder&rsquo;s wallet or grant meal coupons.</p>
         </div>
-        {canEdit ? <ExpirySweepButton /> : null}
+        <div className="flex flex-wrap items-center gap-2">
+          {canImport ? (
+            <Link href="/recharge/import" className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
+              Import
+            </Link>
+          ) : null}
+          {canEdit ? <ExpirySweepButton /> : null}
+        </div>
       </div>
 
       {canCreate ? (
