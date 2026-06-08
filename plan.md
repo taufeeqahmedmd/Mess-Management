@@ -455,8 +455,8 @@ public endpoints are **Route Handlers** (need explicit POST/idempotency/CSV).
 | **5. RFID Counter** | Operator login, server tap engine (§6.1), verification UI, per-category rules, beep + voice, fullscreen | RFID Counter | ✅ Done |
 | **6. Offline/PWA** | Service worker, IndexedDB queue, idempotent sync, sync report | Offline queue | ✅ Done |
 | **7. Dashboards & reports** | Dashboard (incl. vendor cost + P/L), **Vendor Dashboard**, consumption/balance reports, date range, CSV, audit log | Dashboard + Vendor Dashboard + Reports | ✅ Done |
-| **8. Self-service** | Public balance + filtered history download | (new) | ◻ Next |
-| **9. Vendor settlement** | Vendors + period settlements (meal counts × vendor rate → payable) | (new) | ◻ |
+| **8. Self-service** | Public balance + filtered history download | (new) | ✅ Done |
+| **9. Vendor settlement** | Vendors + period settlements (meal counts × vendor rate → payable) | (new) | ◻ Next |
 | **10. Hardening & deploy** | Validation, rate limits, tests, audit completeness, deployment | — | ◻ |
 
 > Multi-branch (branches, departments, branch scoping) is folded into Phase 2 (master data) and
