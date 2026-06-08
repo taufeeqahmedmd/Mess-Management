@@ -1,0 +1,652 @@
+// RFID Coupon / Mess Management — Prisma schema (PostgreSQL).
+// Source of truth for the database; ported from db-schema.md with the documented
+// MySQL→PG deltas (BIGINT IDENTITY, BOOLEAN, JSONB, native enums, timestamptz,
+// @updatedAt, setting_key instead of reserved `key`).
+//
+// Conventions:
+//  - Money is Decimal(12,2) everywhere (CLAUDE.md non-negotiable). Never float.
+//  - Ledgers (wallet_transactions, coupon_transactions) are append-only.
+//  - Cardholders = `users`; staff = `app_users` (login + RBAC).
+//  - branch_id NULL = all-branch (Super Admin); non-null = scoped.
+//  - Deferred (db-schema.md §13): coupon = count vs earmarked money — BOTH balance
+//    paths kept (wallets + coupon_balances). recharge validity columns provisional.
+//  - JWT sessions (Auth.js) → no `sessions` table.
+//
+// NOTE: Partial unique indexes (e.g. one ACTIVE card per user, one approved tap
+// per meal session) are not expressible in the Prisma schema; they are added as
+// raw SQL inside the relevant migration AND enforced in the service layer.
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ---------- Enums ----------
+
+enum BranchStatus {
+  active
+  inactive
+}
+
+enum AppUserStatus {
+  active
+  disabled
+  locked
+}
+
+enum CategoryStatus {
+  active
+  inactive
+}
+
+enum CounterStatus {
+  active
+  inactive
+}
+
+enum UserStatus {
+  active
+  suspended
+  inactive
+}
+
+enum CardStatus {
+  active
+  blocked
+  lost
+  retired
+}
+
+enum CardEventType {
+  issue
+  replace
+  activate
+  deactivate
+  lost
+  retire
+}
+
+enum PaidBy {
+  wallet
+  coupon
+}
+
+enum RechargeStatus {
+  posted
+  reversed
+  expired
+}
+
+enum RedemptionStatus {
+  posted
+  reversed
+}
+
+enum TxnType {
+  CR
+  DR
+}
+
+enum LedgerSource {
+  recharge
+  redemption
+  reversal
+  adjustment
+  expiry
+}
+
+enum ReversalSource {
+  recharge
+  redemption
+}
+
+enum ReversalStatus {
+  pending
+  approved
+  rejected
+}
+
+enum SettlementStatus {
+  draft
+  approved
+  paid
+}
+
+enum OfflineQueueStatus {
+  pending
+  synced
+  failed
+  duplicate
+}
+
+// ---------- Identity, access & org ----------
+
+model Branch {
+  id        BigInt       @id @default(autoincrement())
+  code      String       @unique @db.VarChar(30)
+  name      String       @db.VarChar(150)
+  address   String?      @db.VarChar(255)
+  status    BranchStatus @default(active)
+  createdBy BigInt?      @map("created_by")
+  updatedBy BigInt?      @map("updated_by")
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?    @map("deleted_at") @db.Timestamptz(6)
+
+  appUsers    AppUser[]
+  departments Department[]
+  counters    Counter[]
+  users       User[]
+  mealRates   MealRate[]
+  settlements VendorSettlement[]
+  settings    Setting[]
+
+  @@map("branches")
+}
+
+model Role {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @unique @db.VarChar(60)
+  description String?  @db.VarChar(255)
+  createdAt   DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  permissions RolePermission[]
+  appUsers    AppUser[]
+
+  @@map("roles")
+}
+
+model Permission {
+  id          BigInt  @id @default(autoincrement())
+  code        String  @unique @db.VarChar(80)
+  module      String  @db.VarChar(60)
+  description String? @db.VarChar(255)
+
+  roles RolePermission[]
+
+  @@map("permissions")
+}
+
+model RolePermission {
+  id           BigInt @id @default(autoincrement())
+  roleId       BigInt @map("role_id")
+  permissionId BigInt @map("permission_id")
+
+  role       Role       @relation(fields: [roleId], references: [id], onDelete: Cascade)
+  permission Permission @relation(fields: [permissionId], references: [id], onDelete: Cascade)
+
+  @@unique([roleId, permissionId])
+  @@map("role_permissions")
+}
+
+model AppUser {
+  id           BigInt        @id @default(autoincrement())
+  username     String        @unique @db.VarChar(60)
+  email        String        @unique @db.VarChar(150)
+  passwordHash String        @map("password_hash") @db.VarChar(255)
+  roleId       BigInt        @map("role_id")
+  branchId     BigInt?       @map("branch_id") // NULL = all branches (Super Admin)
+  status       AppUserStatus @default(active)
+  lastLoginAt  DateTime?     @map("last_login_at") @db.Timestamptz(6)
+  failedLogins Int           @default(0) @map("failed_logins")
+  createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  role             Role              @relation(fields: [roleId], references: [id])
+  branch           Branch?           @relation(fields: [branchId], references: [id])
+  counterOperators CounterOperator[]
+  cardEvents       CardEvent[]
+  recharges        Recharge[]
+  redemptions      Redemption[]
+  reversalsMade    Reversal[]        @relation("ReversalRequestedBy")
+  reversalsApprovd Reversal[]        @relation("ReversalApprovedBy")
+  auditLogs        AuditLog[]
+
+  @@map("app_users")
+}
+
+model Department {
+  id        BigInt   @id @default(autoincrement())
+  branchId  BigInt   @map("branch_id")
+  name      String   @db.VarChar(120)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  branch Branch @relation(fields: [branchId], references: [id])
+  users  User[]
+
+  @@unique([branchId, name])
+  @@map("departments")
+}
+
+model Category {
+  id                 BigInt         @id @default(autoincrement())
+  code               String         @unique @db.VarChar(30)
+  name               String         @unique @db.VarChar(80)
+  identifierLabel    String         @default("ID") @map("identifier_label") @db.VarChar(60)
+  identifierRegex    String?        @map("identifier_regex") @db.VarChar(120)
+  identifierRequired Boolean        @default(true) @map("identifier_required")
+  identifierUnique   Boolean        @default(true) @map("identifier_unique")
+  status             CategoryStatus @default(active)
+  createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  users     User[]
+  mealRates MealRate[]
+
+  @@map("categories")
+}
+
+// ---------- Counters & devices ----------
+
+model Counter {
+  id        BigInt        @id @default(autoincrement())
+  branchId  BigInt        @map("branch_id")
+  code      String        @db.VarChar(30)
+  name      String        @db.VarChar(120)
+  status    CounterStatus @default(active)
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt DateTime?     @map("deleted_at") @db.Timestamptz(6)
+
+  branch      Branch            @relation(fields: [branchId], references: [id])
+  operators   CounterOperator[]
+  recharges   Recharge[]
+  redemptions Redemption[]
+
+  @@unique([branchId, code])
+  @@map("counters")
+}
+
+model CounterOperator {
+  id        BigInt @id @default(autoincrement())
+  counterId BigInt @map("counter_id")
+  appUserId BigInt @map("app_user_id")
+
+  counter Counter @relation(fields: [counterId], references: [id], onDelete: Cascade)
+  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@unique([counterId, appUserId])
+  @@map("counter_operators")
+}
+
+// ---------- Cardholders & cards ----------
+
+model User {
+  id           BigInt     @id @default(autoincrement())
+  code         String     @unique @db.VarChar(40) // category identifier + public self-service handle
+  fullName     String     @map("full_name") @db.VarChar(150)
+  phone        String?    @db.VarChar(20)
+  email        String?    @db.VarChar(150)
+  categoryId   BigInt     @map("category_id")
+  departmentId BigInt?    @map("department_id")
+  branchId     BigInt     @map("branch_id")
+  photoUrl     String?    @map("photo_url") @db.VarChar(255)
+  kycRef       String?    @map("kyc_ref") @db.VarChar(80)
+  status       UserStatus @default(active)
+  createdBy    BigInt?    @map("created_by")
+  createdAt    DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+  deletedAt    DateTime?  @map("deleted_at") @db.Timestamptz(6)
+
+  category       Category            @relation(fields: [categoryId], references: [id])
+  department     Department?         @relation(fields: [departmentId], references: [id])
+  branch         Branch              @relation(fields: [branchId], references: [id])
+  cards          RfidCard[]
+  cardEvents     CardEvent[]
+  wallet         Wallet?
+  couponBalances CouponBalance[]
+  recharges      Recharge[]
+  redemptions    Redemption[]
+  walletTxns     WalletTransaction[]
+  couponTxns     CouponTransaction[]
+
+  @@index([branchId])
+  @@index([categoryId])
+  @@index([phone])
+  @@map("users")
+}
+
+model RfidCard {
+  id        BigInt     @id @default(autoincrement())
+  cardUid   String     @unique @map("card_uid") @db.VarChar(64) // value the USB reader emits
+  userId    BigInt     @map("user_id")
+  status    CardStatus @default(active)
+  issuedAt  DateTime?  @map("issued_at") @db.Timestamptz(6)
+  expiresOn DateTime?  @map("expires_on") @db.Timestamptz(6)
+  blockedAt DateTime?  @map("blocked_at") @db.Timestamptz(6)
+  createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user        User         @relation(fields: [userId], references: [id])
+  cardEvents  CardEvent[]
+  recharges   Recharge[]
+  redemptions Redemption[]
+
+  // One ACTIVE card per user → partial unique index added in migration SQL.
+  @@index([userId])
+  @@map("rfid_cards")
+}
+
+model CardEvent {
+  id        BigInt        @id @default(autoincrement())
+  cardId    BigInt?       @map("card_id")
+  userId    BigInt        @map("user_id")
+  type      CardEventType
+  oldUid    String?       @map("old_uid") @db.VarChar(64)
+  newUid    String?       @map("new_uid") @db.VarChar(64)
+  reason    String?       @db.VarChar(255)
+  appUserId BigInt?       @map("app_user_id")
+  createdAt DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  card    RfidCard? @relation(fields: [cardId], references: [id])
+  user    User      @relation(fields: [userId], references: [id])
+  appUser AppUser?  @relation(fields: [appUserId], references: [id])
+
+  @@index([userId])
+  @@index([cardId])
+  @@map("card_events")
+}
+
+// ---------- Balances (cached; reconcilable from ledgers) ----------
+
+model Wallet {
+  id            BigInt   @id @default(autoincrement())
+  userId        BigInt   @unique @map("user_id")
+  balanceAmount Decimal  @default(0) @map("balance_amount") @db.Decimal(12, 2)
+  currency      String   @default("INR") @db.Char(3)
+  version       Int      @default(0) // optimistic lock
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user              User                @relation(fields: [userId], references: [id])
+  WalletTransaction WalletTransaction[]
+
+  @@map("wallets")
+}
+
+model CouponBalance {
+  id         BigInt   @id @default(autoincrement())
+  userId     BigInt   @map("user_id")
+  mealTypeId BigInt   @map("meal_type_id")
+  count      Int      @default(0)
+  version    Int      @default(0)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id])
+  mealType MealType @relation(fields: [mealTypeId], references: [id])
+
+  @@unique([userId, mealTypeId])
+  @@map("coupon_balances")
+}
+
+// ---------- Catalog & pricing ----------
+
+model MealType {
+  id        BigInt  @id @default(autoincrement())
+  code      String  @unique @db.VarChar(30)
+  name      String  @db.VarChar(80)
+  startTime String  @default("00:00") @map("start_time") @db.VarChar(5) // "HH:MM"; overnight handled in service
+  endTime   String  @default("00:00") @map("end_time") @db.VarChar(5)
+  active    Boolean @default(true)
+
+  rates          MealRate[]
+  couponBalances CouponBalance[]
+  rechargePlans  RechargePlan[]
+  recharges      Recharge[]
+  redemptions    Redemption[]
+  couponTxns     CouponTransaction[]
+
+  @@map("meal_types")
+}
+
+model MealRate {
+  id         BigInt    @id @default(autoincrement())
+  mealTypeId BigInt    @map("meal_type_id")
+  categoryId BigInt    @map("category_id")
+  branchId   BigInt    @map("branch_id")
+  rate       Decimal   @db.Decimal(12, 2)
+  validFrom  DateTime  @map("valid_from") @db.Date
+  validTo    DateTime? @map("valid_to") @db.Date // NULL = current
+  createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  mealType MealType @relation(fields: [mealTypeId], references: [id])
+  category Category @relation(fields: [categoryId], references: [id])
+  branch   Branch   @relation(fields: [branchId], references: [id])
+
+  @@index([branchId, mealTypeId, categoryId, validFrom])
+  @@map("meal_rates")
+}
+
+model RechargePlan {
+  id         BigInt  @id @default(autoincrement())
+  name       String  @db.VarChar(80)
+  amount     Decimal @default(0) @db.Decimal(12, 2)
+  bonus      Decimal @default(0) @db.Decimal(12, 2)
+  mealCount  Int     @default(0) @map("meal_count")
+  mealTypeId BigInt? @map("meal_type_id")
+  active     Boolean @default(true)
+
+  mealType  MealType?  @relation(fields: [mealTypeId], references: [id])
+  recharges Recharge[]
+
+  @@map("recharge_plans")
+}
+
+model PaymentMode {
+  id     BigInt  @id @default(autoincrement())
+  code   String  @unique @db.VarChar(30)
+  name   String  @db.VarChar(60)
+  active Boolean @default(true)
+
+  recharges Recharge[]
+
+  @@map("payment_modes")
+}
+
+// ---------- Money movements (ledgers) ----------
+
+model Recharge {
+  id                   BigInt         @id @default(autoincrement())
+  clientUuid           String         @unique @map("client_uuid") @db.Uuid // idempotency key
+  userId               BigInt         @map("user_id")
+  cardId               BigInt?        @map("card_id")
+  planId               BigInt?        @map("plan_id")
+  amount               Decimal        @default(0) @db.Decimal(12, 2) // money → wallet
+  mealTypeId           BigInt?        @map("meal_type_id") // set → coupon grant for this meal
+  mealCredits          Int            @default(0) @map("meal_credits")
+  validFrom            DateTime?      @map("valid_from") @db.Date
+  validTill            DateTime?      @map("valid_till") @db.Date
+  remainingAmount      Decimal        @default(0) @map("remaining_amount") @db.Decimal(12, 2)
+  remainingMealCredits Int            @default(0) @map("remaining_meal_credits")
+  paymentModeId        BigInt         @map("payment_mode_id")
+  counterId            BigInt?        @map("counter_id")
+  appUserId            BigInt         @map("app_user_id") // operator
+  status               RechargeStatus @default(posted)
+  rechargedAt          DateTime       @default(now()) @map("recharged_at") @db.Timestamptz(6)
+
+  user        User          @relation(fields: [userId], references: [id])
+  card        RfidCard?     @relation(fields: [cardId], references: [id])
+  plan        RechargePlan? @relation(fields: [planId], references: [id])
+  mealType    MealType?     @relation(fields: [mealTypeId], references: [id])
+  paymentMode PaymentMode   @relation(fields: [paymentModeId], references: [id])
+  counter     Counter?      @relation(fields: [counterId], references: [id])
+  appUser     AppUser       @relation(fields: [appUserId], references: [id])
+
+  @@index([userId, rechargedAt])
+  @@map("recharges")
+}
+
+model Redemption {
+  id          BigInt           @id @default(autoincrement())
+  clientUuid  String           @unique @map("client_uuid") @db.Uuid // idempotency key
+  userId      BigInt           @map("user_id")
+  cardId      BigInt           @map("card_id")
+  mealTypeId  BigInt           @map("meal_type_id")
+  counterId   BigInt           @map("counter_id")
+  categoryId  BigInt?          @map("category_id") // snapshot
+  paidBy      PaidBy?          @map("paid_by")
+  rateApplied Decimal          @map("rate_applied") @db.Decimal(12, 2)
+  amount      Decimal          @db.Decimal(12, 2) // 0 when paid_by = coupon
+  appUserId   BigInt           @map("app_user_id") // operator
+  status      RedemptionStatus @default(posted)
+  redeemedAt  DateTime         @default(now()) @map("redeemed_at") @db.Timestamptz(6)
+  syncedAt    DateTime?        @map("synced_at") @db.Timestamptz(6) // set when an offline tap is synced
+
+  user     User     @relation(fields: [userId], references: [id])
+  card     RfidCard @relation(fields: [cardId], references: [id])
+  mealType MealType @relation(fields: [mealTypeId], references: [id])
+  counter  Counter  @relation(fields: [counterId], references: [id])
+  appUser  AppUser  @relation(fields: [appUserId], references: [id])
+
+  @@index([userId, redeemedAt])
+  @@index([counterId, redeemedAt])
+  @@index([mealTypeId, redeemedAt])
+  @@map("redemptions")
+}
+
+model WalletTransaction {
+  id           BigInt       @id @default(autoincrement())
+  walletId     BigInt       @map("wallet_id")
+  userId       BigInt       @map("user_id")
+  txnType      TxnType      @map("txn_type")
+  sourceTable  LedgerSource @map("source_table")
+  sourceId     BigInt       @map("source_id")
+  amount       Decimal      @db.Decimal(12, 2)
+  balanceAfter Decimal      @map("balance_after") @db.Decimal(12, 2)
+  reference    String?      @db.VarChar(120)
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  wallet Wallet @relation(fields: [walletId], references: [id])
+  user   User   @relation(fields: [userId], references: [id])
+
+  @@index([walletId, createdAt])
+  @@index([userId, createdAt])
+  @@map("wallet_transactions")
+}
+
+model CouponTransaction {
+  id           BigInt       @id @default(autoincrement())
+  userId       BigInt       @map("user_id")
+  mealTypeId   BigInt       @map("meal_type_id")
+  txnType      TxnType      @map("txn_type")
+  sourceTable  LedgerSource @map("source_table")
+  sourceId     BigInt       @map("source_id")
+  count        Int
+  balanceAfter Int          @map("balance_after")
+  createdAt    DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  user     User     @relation(fields: [userId], references: [id])
+  mealType MealType @relation(fields: [mealTypeId], references: [id])
+
+  @@index([userId, createdAt])
+  @@map("coupon_transactions")
+}
+
+model Reversal {
+  id          BigInt         @id @default(autoincrement())
+  sourceTable ReversalSource @map("source_table")
+  sourceId    BigInt         @map("source_id")
+  reason      String         @db.VarChar(255)
+  requestedBy BigInt         @map("requested_by")
+  status      ReversalStatus @default(pending)
+  approvedBy  BigInt?        @map("approved_by")
+  approvedAt  DateTime?      @map("approved_at") @db.Timestamptz(6)
+  createdAt   DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  requester AppUser  @relation("ReversalRequestedBy", fields: [requestedBy], references: [id])
+  approver  AppUser? @relation("ReversalApprovedBy", fields: [approvedBy], references: [id])
+
+  @@index([sourceTable, sourceId])
+  @@map("reversals")
+}
+
+// ---------- Vendor settlement ----------
+
+model Vendor {
+  id     BigInt       @id @default(autoincrement())
+  code   String       @unique @db.VarChar(30)
+  name   String       @db.VarChar(150)
+  gstin  String?      @db.VarChar(20)
+  status BranchStatus @default(active)
+
+  settlements VendorSettlement[]
+
+  @@map("vendors")
+}
+
+model VendorSettlement {
+  id          BigInt           @id @default(autoincrement())
+  vendorId    BigInt           @map("vendor_id")
+  branchId    BigInt           @map("branch_id")
+  periodStart DateTime         @map("period_start") @db.Date
+  periodEnd   DateTime         @map("period_end") @db.Date
+  mealCount   Int              @default(0) @map("meal_count")
+  grossAmount Decimal          @default(0) @map("gross_amount") @db.Decimal(12, 2)
+  status      SettlementStatus @default(draft)
+  createdAt   DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  vendor Vendor @relation(fields: [vendorId], references: [id])
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@map("vendor_settlements")
+}
+
+// ---------- Ops: offline, audit, notifications, settings ----------
+
+model OfflineQueue {
+  id          BigInt             @id @default(autoincrement())
+  deviceId    String             @map("device_id") @db.VarChar(80)
+  clientUuid  String             @unique @map("client_uuid") @db.Uuid
+  payloadJson Json               @map("payload_json") @db.JsonB
+  status      OfflineQueueStatus @default(pending)
+  syncedAt    DateTime?          @map("synced_at") @db.Timestamptz(6)
+  createdAt   DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([status])
+  @@map("offline_queue")
+}
+
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  appUserId  BigInt?  @map("app_user_id")
+  action     String   @db.VarChar(60)
+  entity     String   @db.VarChar(60)
+  entityId   BigInt?  @map("entity_id")
+  beforeJson Json?    @map("before_json") @db.JsonB
+  afterJson  Json?    @map("after_json") @db.JsonB
+  ip         String?  @db.VarChar(45)
+  userAgent  String?  @map("user_agent") @db.VarChar(255)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  appUser AppUser? @relation(fields: [appUserId], references: [id])
+
+  @@index([entity, entityId])
+  @@index([appUserId, createdAt])
+  @@map("audit_log")
+}
+
+model Notification {
+  id          BigInt    @id @default(autoincrement())
+  type        String    @db.VarChar(40)
+  audience    String    @db.VarChar(60)
+  payloadJson Json      @map("payload_json") @db.JsonB
+  readAt      DateTime? @map("read_at") @db.Timestamptz(6)
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  @@index([type])
+  @@map("notifications")
+}
+
+model Setting {
+  settingKey String   @id @map("setting_key") @db.VarChar(60)
+  value      Json     @db.JsonB
+  branchId   BigInt?  @map("branch_id") // NULL = global; set = per-branch override
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  @@map("settings")
+}

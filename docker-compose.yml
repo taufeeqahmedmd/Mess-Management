@@ -1,0 +1,23 @@
+# Local PostgreSQL for development. Matches DATABASE_URL in .env.example.
+# Start with:  docker compose up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mess-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mess
+      POSTGRES_PASSWORD: mess
+      POSTGRES_DB: mess_management
+    ports:
+      - "5432:5432"
+    volumes:
+      - mess-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mess -d mess_management"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mess-pgdata:
