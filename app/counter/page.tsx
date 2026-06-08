@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { auth } from "@/lib/auth";
 import { CounterScreen } from "./counter-screen";
+import { ServiceWorkerRegister } from "./sw-register";
 
 export default async function CounterPage() {
   const actor = await requireActor();
@@ -36,9 +37,12 @@ export default async function CounterPage() {
   }
 
   return (
-    <CounterScreen
-      counters={counters.map((c) => ({ id: c.id.toString(), name: c.name, code: c.code }))}
-      operatorName={session?.user?.name ?? "Operator"}
-    />
+    <>
+      <ServiceWorkerRegister />
+      <CounterScreen
+        counters={counters.map((c) => ({ id: c.id.toString(), name: c.name, code: c.code }))}
+        operatorName={session?.user?.name ?? "Operator"}
+      />
+    </>
   );
 }
