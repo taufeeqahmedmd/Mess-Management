@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { setUserStatusAction } from "./actions";
 
 const PAGE_SIZE = 25;
@@ -64,11 +65,21 @@ export default async function UsersPage({
           <h1 className="font-display text-2xl font-semibold text-ink">Cardholders</h1>
           <p className="mt-1 text-sm text-ink-2">{total} cardholder{total === 1 ? "" : "s"}.</p>
         </div>
-        {can(actor, "users.create") ? (
-          <Link href="/users/new" className="rounded-sm bg-gold px-4 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep">
-            Add cardholder
-          </Link>
-        ) : null}
+        <div className="flex flex-wrap items-center gap-2">
+          <a href="/api/users/export" className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
+            Export CSV
+          </a>
+          {can(actor, "users.import") ? (
+            <Link href="/users/import" className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
+              Import
+            </Link>
+          ) : null}
+          {can(actor, "users.create") ? (
+            <Link href="/users/new" className="rounded-sm bg-gold px-4 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep">
+              Add cardholder
+            </Link>
+          ) : null}
+        </div>
       </div>
 
       <form method="get" className="flex max-w-md gap-2">
@@ -129,13 +140,20 @@ export default async function UsersPage({
                       {canEdit ? (
                         <>
                           <Link href={`/users/${u.id}/edit`} className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-gold-deep transition-colors hover:bg-gold/10">Edit</Link>
-                          <form action={setUserStatusAction}>
-                            <input type="hidden" name="id" value={u.id.toString()} />
-                            <input type="hidden" name="status" value={u.status === "active" ? "suspended" : "active"} />
-                            <button type="submit" className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep">
-                              {u.status === "active" ? "Block" : "Unblock"}
-                            </button>
-                          </form>
+                          <ConfirmActionForm
+                            action={setUserStatusAction}
+                            fields={{ id: u.id.toString(), status: u.status === "active" ? "suspended" : "active" }}
+                            confirm={{
+                              title: u.status === "active" ? "Block cardholder" : "Unblock cardholder",
+                              message: `${u.status === "active" ? "Block" : "Unblock"} “${u.fullName}”?`,
+                              confirmLabel: "Yes",
+                              tone: u.status === "active" ? "danger" : "default",
+                            }}
+                            successMessage={u.status === "active" ? "Cardholder blocked." : "Cardholder unblocked."}
+                            buttonClassName="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep disabled:opacity-60"
+                          >
+                            {u.status === "active" ? "Block" : "Unblock"}
+                          </ConfirmActionForm>
                         </>
                       ) : (
                         <span className="text-xs text-muted-2">—</span>
