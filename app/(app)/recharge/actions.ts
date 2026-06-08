@@ -93,6 +93,95 @@ export async function createRechargeAction(
   redirect("/recharge?flash=created");
 }
 
+/**
+ * Edit a posted recharge: reverse its unspent remainder, then apply the new
+ * values as a fresh recharge (plan §6.3). Already-consumed amounts are untouched.
+ */
+export async function editRechargeAction(
+  _prev: RechargeFormState,
+  formData: FormData,
+): Promise<RechargeFormState> {
+  const actor = await requirePermission("recharge.edit");
+
+  let oldId: bigint;
+  let userId: bigint;
+  try {
+    oldId = BigInt(String(formData.get("rechargeId") ?? ""));
+    userId = BigInt(String(formData.get("userId") ?? ""));
+  } catch {
+    return { error: "Invalid recharge." };
+  }
+
+  const amount = String(formData.get("amount") ?? "").trim() || "0";
+  const paymentModeId = String(formData.get("paymentModeId") ?? "").trim();
+  const validTillStr = String(formData.get("validTill") ?? "").trim();
+  const remarks = String(formData.get("remarks") ?? "").trim() || null;
+
+  const coupons: { mealTypeId: string; count: number }[] = [];
+  for (const [key, value] of formData.entries()) {
+    if (key.startsWith("coupon_")) {
+      const n = Number.parseInt(String(value), 10);
+      if (Number.isInteger(n) && n > 0) coupons.push({ mealTypeId: key.slice(7), count: n });
+    }
+  }
+
+  const invalid = validateRechargeInput({ amount, coupons });
+  if (invalid) return { error: invalid };
+  if (!paymentModeId) return { error: "Select a payment mode." };
+
+  const old = await prisma.recharge.findUnique({ where: { id: oldId }, include: { user: true } });
+  if (!old) return { error: "Recharge not found." };
+  if (old.status !== "posted") return { error: "Only posted recharges can be edited." };
+  if (old.userId !== userId) return { error: "Cardholder mismatch." };
+  if (actor.branchId && old.user.branchId.toString() !== actor.branchId) {
+    return { error: "Out of your branch scope." };
+  }
+
+  let validTill: Date | null = null;
+  if (validTillStr) {
+    validTill = new Date(validTillStr);
+    if (Number.isNaN(validTill.getTime())) return { error: "Invalid validity date." };
+  }
+
+  try {
+    await prisma.$transaction(async (tx) => {
+      await reverseRechargeRemaining(tx, oldId, "reversal", BigInt(actor.id));
+      const r = await applyRecharge(tx, {
+        userId,
+        amount: new Prisma.Decimal(amount),
+        coupons: coupons.map((c) => ({ mealTypeId: BigInt(c.mealTypeId), count: c.count })),
+        validFrom: null,
+        validTill,
+        paymentModeId: BigInt(paymentModeId),
+        counterId: null,
+        appUserId: BigInt(actor.id),
+        remarks,
+        clientUuid: randomUUID(),
+      });
+      await writeAudit(
+        {
+          appUserId: BigInt(actor.id),
+          action: "recharge.edit",
+          entity: "recharge",
+          entityId: r.id,
+          before: { rechargeId: oldId.toString() },
+          after: { amount, coupons: coupons.length },
+        },
+        tx,
+      );
+    });
+  } catch (e) {
+    if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+      return { error: "Duplicate recharge — please retry." };
+    }
+    throw e;
+  }
+
+  revalidatePath("/recharge");
+  revalidatePath(`/users/${userId}`);
+  redirect("/recharge?flash=updated");
+}
+
 /** Reverse (claw back the unspent remaining of) a posted recharge. */
 export async function reverseRechargeAction(formData: FormData): Promise<void> {
   const actor = await requirePermission("recharge.delete");

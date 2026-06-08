@@ -23,6 +23,7 @@ export default async function RechargePage({
   const actor = await requireActor();
   if (!can(actor, "recharge.view")) redirect("/dashboard");
   const canCreate = can(actor, "recharge.create");
+  const canEdit = can(actor, "recharge.edit");
   const canReverse = can(actor, "recharge.delete");
 
   const sp = await searchParams;
@@ -142,26 +143,34 @@ export default async function RechargePage({
                         {r.status[0].toUpperCase() + r.status.slice(1)}
                       </span>
                     </td>
-                    <td className="px-4 py-3 text-right">
-                      {canReverse && r.status === "posted" ? (
-                        <ConfirmActionForm
-                          action={reverseRechargeAction}
-                          className="inline"
-                          fields={{ id: r.id.toString() }}
-                          confirm={{
-                            title: "Reverse recharge",
-                            message: `Reverse the unspent remainder of this recharge for ${r.user.fullName}?`,
-                            confirmLabel: "Yes, reverse",
-                            tone: "danger",
-                          }}
-                          successMessage="Recharge reversed."
-                          buttonClassName="rounded-sm px-2.5 py-1 text-xs font-medium text-tomato transition-colors hover:bg-tomato-soft disabled:opacity-60"
-                        >
-                          Reverse
-                        </ConfirmActionForm>
-                      ) : (
-                        <span className="text-xs text-muted-2">—</span>
-                      )}
+                    <td className="px-4 py-3">
+                      <div className="flex items-center justify-end gap-2">
+                        {r.status === "posted" && canEdit ? (
+                          <Link href={`/recharge/${r.id}/edit`} className="rounded-sm px-2.5 py-1 text-xs font-medium text-gold-deep transition-colors hover:bg-gold/10">
+                            Edit
+                          </Link>
+                        ) : null}
+                        {r.status === "posted" && canReverse ? (
+                          <ConfirmActionForm
+                            action={reverseRechargeAction}
+                            className="inline"
+                            fields={{ id: r.id.toString() }}
+                            confirm={{
+                              title: "Reverse recharge",
+                              message: `Reverse the unspent remainder of this recharge for ${r.user.fullName}?`,
+                              confirmLabel: "Yes, reverse",
+                              tone: "danger",
+                            }}
+                            successMessage="Recharge reversed."
+                            buttonClassName="rounded-sm px-2.5 py-1 text-xs font-medium text-tomato transition-colors hover:bg-tomato-soft disabled:opacity-60"
+                          >
+                            Reverse
+                          </ConfirmActionForm>
+                        ) : null}
+                        {r.status !== "posted" || (!canEdit && !canReverse) ? (
+                          <span className="text-xs text-muted-2">—</span>
+                        ) : null}
+                      </div>
                     </td>
                   </tr>
                 );

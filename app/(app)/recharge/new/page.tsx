@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { RechargeForm } from "../recharge-form";
+import { createRechargeAction } from "../actions";
 
 export default async function NewRechargePage({
   searchParams,
@@ -59,6 +60,7 @@ export default async function NewRechargePage({
       </div>
 
       <RechargeForm
+        action={createRechargeAction}
         userId={user.id.toString()}
         userName={user.fullName}
         meals={meals.map((m) => ({ id: m.id.toString(), name: m.name }))}
