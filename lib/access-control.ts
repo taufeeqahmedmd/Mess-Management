@@ -42,5 +42,90 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleName, readonly Permission[]> =
   ],
 };
 
-/** Roles that should always hold every permission (UI may render their grid read-only). */
+/** Roles that should always hold every permission (UI renders their grid read-only). */
 export const SUPERUSER_ROLES: readonly RoleName[] = ["Super Admin"];
+
+/**
+ * The admin-facing Access Control grid (plan.md §4 — mock's role × screen ×
+ * action matrix), mapped to the real `module.action` permission catalog. Each
+ * screen lists the actions that apply to it; toggling a cell grants/revokes the
+ * mapped permission for the selected role.
+ */
+export type ScreenAction = { action: string; label: string; permission: Permission };
+export type AccessScreen = { key: string; label: string; actions: ScreenAction[] };
+
+export const ACCESS_SCREENS: readonly AccessScreen[] = [
+  {
+    key: "dashboard",
+    label: "Dashboard",
+    actions: [{ action: "view", label: "View", permission: "dashboard.view" }],
+  },
+  {
+    key: "vendorDashboard",
+    label: "Vendor Dashboard",
+    actions: [{ action: "view", label: "View", permission: "vendorDashboard.view" }],
+  },
+  {
+    key: "counter",
+    label: "Counter",
+    actions: [{ action: "operate", label: "Operate", permission: "counter.operate" }],
+  },
+  {
+    key: "users",
+    label: "Cardholders",
+    actions: [
+      { action: "view", label: "View", permission: "users.view" },
+      { action: "create", label: "Add", permission: "users.create" },
+      { action: "edit", label: "Edit", permission: "users.edit" },
+      { action: "delete", label: "Delete", permission: "users.delete" },
+      { action: "import", label: "Import", permission: "users.import" },
+    ],
+  },
+  {
+    key: "cards",
+    label: "RFID Cards",
+    actions: [
+      { action: "view", label: "View", permission: "cards.view" },
+      { action: "replace", label: "Replace", permission: "cards.replace" },
+      { action: "activate", label: "Activate", permission: "cards.activate" },
+      { action: "deactivate", label: "Deactivate", permission: "cards.deactivate" },
+    ],
+  },
+  {
+    key: "recharge",
+    label: "Recharge",
+    actions: [
+      { action: "view", label: "View", permission: "recharge.view" },
+      { action: "create", label: "Add", permission: "recharge.create" },
+      { action: "edit", label: "Edit", permission: "recharge.edit" },
+      { action: "delete", label: "Delete", permission: "recharge.delete" },
+      { action: "import", label: "Import", permission: "recharge.import" },
+    ],
+  },
+  {
+    key: "reports",
+    label: "Reports",
+    actions: [{ action: "view", label: "View", permission: "reports.view" }],
+  },
+  {
+    key: "configurations",
+    label: "Configurations",
+    actions: [
+      { action: "categories", label: "Categories", permission: "categories.manage" },
+      { action: "meals", label: "Meals", permission: "meals.manage" },
+      { action: "rates", label: "Rates", permission: "rates.manage" },
+      { action: "vendorRates", label: "Vendor Rates", permission: "vendorRates.manage" },
+      { action: "counters", label: "Counters", permission: "counters.manage" },
+      { action: "settings", label: "Settings", permission: "settings.manage" },
+    ],
+  },
+  {
+    key: "accessControl",
+    label: "Access Control",
+    actions: [
+      { action: "manage", label: "Grid", permission: "accessControl.manage" },
+      { action: "roles", label: "Roles", permission: "roles.manage" },
+      { action: "staff", label: "Staff", permission: "staff.manage" },
+    ],
+  },
+];

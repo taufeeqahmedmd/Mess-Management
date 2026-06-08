@@ -21,5 +21,13 @@ export default async function AppLayout({
     role: session.user.roleName,
   };
 
-  return <AppShell user={user}>{children}</AppShell>;
+  return (
+    <AppShell
+      user={user}
+      permissions={session.user.permissions}
+      isSuperAdmin={session.user.isSuperAdmin}
+    >
+      {children}
+    </AppShell>
+  );
 }

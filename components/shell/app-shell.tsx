@@ -14,9 +14,13 @@ export type ShellUser = { name: string; role: string };
 
 export function AppShell({
   user,
+  permissions,
+  isSuperAdmin,
   children,
 }: {
   user: ShellUser;
+  permissions: string[];
+  isSuperAdmin: boolean;
   children: React.ReactNode;
 }) {
   const isDesktop = useMediaQuery("(min-width: 768px)");
@@ -40,6 +44,8 @@ export function AppShell({
           expanded={railExpanded}
           mobileOpen={mobileOpen}
           onNavigate={() => setMobileOpen(false)}
+          permissions={permissions}
+          isSuperAdmin={isSuperAdmin}
         />
 
         {/* Mobile drawer backdrop */}
