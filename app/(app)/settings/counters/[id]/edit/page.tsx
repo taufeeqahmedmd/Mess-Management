@@ -1,0 +1,75 @@
+import Link from "next/link";
+import { notFound, redirect } from "next/navigation";
+import { prisma } from "@/lib/prisma";
+import { requireActor } from "@/lib/session";
+import { can } from "@/lib/rbac";
+import { CounterForm, type CounterData } from "../../counter-form";
+import { OperatorsForm, type StaffOption } from "../../operators-form";
+import { updateCounterAction } from "../../actions";
+
+export default async function EditCounterPage({
+  params,
+}: {
+  params: Promise<{ id: string }>;
+}) {
+  const actor = await requireActor();
+  if (!can(actor, "counters.manage")) redirect("/dashboard");
+
+  const { id } = await params;
+  let counterId: bigint;
+  try {
+    counterId = BigInt(id);
+  } catch {
+    notFound();
+  }
+
+  const counter = await prisma.counter.findUnique({
+    where: { id: counterId },
+    include: { operators: true },
+  });
+  if (!counter) notFound();
+
+  const staff = await prisma.appUser.findMany({
+    where: { deletedAt: null, status: "active" },
+    include: { role: true },
+    orderBy: { name: "asc" },
+  });
+  const staffOptions: StaffOption[] = staff.map((s) => ({
+    id: s.id.toString(),
+    name: s.name,
+    mobile: s.mobile,
+    role: s.role.name,
+  }));
+  const assignedIds = counter.operators.map((o) => o.appUserId.toString());
+
+  const counterData: CounterData = {
+    id: counter.id.toString(),
+    code: counter.code,
+    name: counter.name,
+    status: counter.status === "inactive" ? "inactive" : "active",
+  };
+
+  return (
+    <div className="mx-auto flex max-w-4xl flex-col gap-8 p-5 sm:p-6">
+      <div>
+        <p className="text-xs text-muted">
+          <Link href="/settings/counters" className="hover:text-gold-deep">Counters</Link> / {counter.name}
+        </p>
+        <h1 className="font-display text-2xl font-semibold text-ink">Edit counter</h1>
+      </div>
+
+      <section className="flex flex-col gap-4">
+        <h2 className="font-display text-lg font-semibold text-ink">Details</h2>
+        <CounterForm action={updateCounterAction} counter={counterData} />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="font-display text-lg font-semibold text-ink">Operators</h2>
+          <p className="mt-1 text-sm text-ink-2">Staff who may sign in and run this counter.</p>
+        </div>
+        <OperatorsForm counterId={counterData.id} staff={staffOptions} assignedIds={assignedIds} />
+      </section>
+    </div>
+  );
+}
