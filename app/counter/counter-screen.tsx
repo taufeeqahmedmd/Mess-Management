@@ -2,6 +2,13 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState } from "react";
+import {
+  enqueueTap,
+  getQueuedTaps,
+  removeTaps,
+  queueCount,
+  type QueuedTap,
+} from "@/lib/offline-queue";
 
 type Counter = { id: string; name: string; code: string };
 
@@ -24,6 +31,7 @@ type TapResult = {
 };
 
 type RecentTap = { key: string; name: string; status: TapResult["status"]; meal?: string; charged?: string; at: string };
+type SyncResult = { clientTxId: string; status: string; reason: string; name?: string; charged?: string; meal?: string };
 
 const STATUS_STYLE: Record<TapResult["status"], { panel: string; chip: string }> = {
   APPROVED: { panel: "border-sage bg-sage-soft", chip: "bg-sage-deep text-white" },
@@ -32,23 +40,36 @@ const STATUS_STYLE: Record<TapResult["status"], { panel: string; chip: string }>
   QUEUED: { panel: "border-gold bg-gold-soft", chip: "bg-gold-deep text-white" },
 };
 
+function dotFor(status: TapResult["status"]) {
+  if (status === "APPROVED") return "bg-sage";
+  if (status === "QUEUED") return "bg-gold-deep";
+  return "bg-tomato";
+}
+
 export function CounterScreen({ counters, operatorName }: { counters: Counter[]; operatorName: string }) {
   const [counterId, setCounterId] = useState(counters[0]?.id ?? "");
   const [scan, setScan] = useState("");
   const [result, setResult] = useState<TapResult | null>(null);
   const [busy, setBusy] = useState(false);
   const [recent, setRecent] = useState<RecentTap[]>([]);
-  const [online, setOnline] = useState(() =>
-    typeof navigator !== "undefined" ? navigator.onLine : true,
-  );
+  const [queued, setQueued] = useState(0);
+  const [syncing, setSyncing] = useState(false);
+  const [syncReport, setSyncReport] = useState<{ approved: number; rejected: number; blocked: number } | null>(null);
+  const [online, setOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
 
   const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<AudioContext | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
+    void queueCount().then(setQueued);
+    void syncQueue();
+
     const refocus = () => inputRef.current?.focus();
-    const goOnline = () => setOnline(true);
+    const goOnline = () => {
+      setOnline(true);
+      void syncQueue();
+    };
     const goOffline = () => setOnline(false);
     window.addEventListener("click", refocus);
     window.addEventListener("online", goOnline);
@@ -60,7 +81,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
     };
   }, []);
 
-  function beep(ok: boolean) {
+  function beep(kind: "ok" | "bad" | "queued") {
     try {
       const Ctor = window.AudioContext ?? (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext;
       const ctx = (audioRef.current ??= new Ctor());
@@ -68,7 +89,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
       const osc = ctx.createOscillator();
       const gain = ctx.createGain();
       osc.type = "sine";
-      osc.frequency.value = ok ? 880 : 220;
+      osc.frequency.value = kind === "ok" ? 880 : kind === "queued" ? 660 : 220;
       gain.gain.setValueAtTime(0.12, ctx.currentTime);
       gain.gain.exponentialRampToValueAtTime(0.001, ctx.currentTime + 0.25);
       osc.connect(gain);
@@ -76,7 +97,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
       osc.start();
       osc.stop(ctx.currentTime + 0.25);
     } catch {
-      /* audio unavailable */
+      /* no audio */
     }
   }
 
@@ -87,15 +108,89 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
       window.speechSynthesis.cancel();
       window.speechSynthesis.speak(u);
     } catch {
-      /* speech unavailable */
+      /* no speech */
     }
+  }
+
+  function pushRecent(t: RecentTap) {
+    setRecent((list) => [t, ...list].slice(0, 8));
+  }
+
+  async function syncQueue() {
+    if (typeof navigator !== "undefined" && !navigator.onLine) return;
+    const taps = await getQueuedTaps();
+    if (taps.length === 0) return;
+    setSyncing(true);
+
+    const byCounter = new Map<string, QueuedTap[]>();
+    for (const t of taps) {
+      const arr = byCounter.get(t.counterId) ?? [];
+      arr.push(t);
+      byCounter.set(t.counterId, arr);
+    }
+
+    const all: SyncResult[] = [];
+    for (const [cid, group] of byCounter) {
+      try {
+        const r = await fetch("/api/counter/sync", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            counterId: cid,
+            taps: group.map((g) => ({ cardUid: g.cardUid, clientTxId: g.clientTxId, at: g.at })),
+          }),
+        });
+        if (r.ok) {
+          const data = (await r.json()) as { results: SyncResult[] };
+          all.push(...data.results);
+          await removeTaps(data.results.map((x) => x.clientTxId));
+        }
+      } catch {
+        /* still offline / failed — leave queued */
+      }
+    }
+
+    if (all.length > 0) {
+      setRecent((list) =>
+        list.map((t) => {
+          const r = all.find((x) => x.clientTxId === t.key);
+          return r ? { ...t, status: r.status as TapResult["status"], charged: r.charged, meal: r.meal } : t;
+        }),
+      );
+      setSyncReport({
+        approved: all.filter((r) => r.status === "APPROVED").length,
+        rejected: all.filter((r) => r.status === "REJECTED").length,
+        blocked: all.filter((r) => r.status === "BLOCKED").length,
+      });
+    }
+    setQueued(await queueCount());
+    setSyncing(false);
+  }
+
+  async function queueOffline(cardUid: string, clientTxId: string) {
+    await enqueueTap({ clientTxId, cardUid, counterId, at: new Date().toISOString() });
+    setQueued(await queueCount());
+    const res: TapResult = { status: "QUEUED", reason: "Saved — will sync when online" };
+    setResult(res);
+    beep("queued");
+    speak("Queued");
+    pushRecent({ key: clientTxId, name: cardUid, status: "QUEUED", at: new Date().toLocaleTimeString() });
   }
 
   async function submit(cardUid: string) {
     if (!cardUid || busy || !counterId) return;
     setBusy(true);
+    setSyncReport(null);
     const clientTxId = crypto.randomUUID();
-    let res: TapResult;
+
+    if (typeof navigator !== "undefined" && !navigator.onLine) {
+      await queueOffline(cardUid, clientTxId);
+      setScan("");
+      setBusy(false);
+      inputRef.current?.focus();
+      return;
+    }
+
     try {
       const r = await fetch("/api/counter/tap", {
         method: "POST",
@@ -103,28 +198,24 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
         body: JSON.stringify({ cardUid, counterId, clientTxId }),
       });
       const data = await r.json();
-      res = r.ok ? (data as TapResult) : { status: "REJECTED", reason: data?.error ?? "Error" };
+      const res: TapResult = r.ok ? (data as TapResult) : { status: "REJECTED", reason: data?.error ?? "Error" };
+      setResult(res);
+      const ok = res.status === "APPROVED";
+      beep(ok ? "ok" : "bad");
+      speak(ok ? "Accepted" : "Rejected");
+      pushRecent({
+        key: clientTxId,
+        name: res.cardholder?.name ?? cardUid,
+        status: res.status,
+        meal: res.meal?.name,
+        charged: res.charged,
+        at: new Date().toLocaleTimeString(),
+      });
     } catch {
-      res = { status: "REJECTED", reason: "Network error" };
+      // network dropped mid-request — queue it (idempotent on the server).
+      await queueOffline(cardUid, clientTxId);
     }
 
-    setResult(res);
-    const ok = res.status === "APPROVED";
-    beep(ok);
-    speak(ok ? "Accepted" : "Rejected");
-    setRecent((list) =>
-      [
-        {
-          key: clientTxId,
-          name: res.cardholder?.name ?? cardUid,
-          status: res.status,
-          meal: res.meal?.name,
-          charged: res.charged,
-          at: new Date().toLocaleTimeString(),
-        },
-        ...list,
-      ].slice(0, 8),
-    );
     setScan("");
     setBusy(false);
     inputRef.current?.focus();
@@ -134,7 +225,6 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
 
   return (
     <main className="flex min-h-screen flex-col bg-canvas">
-      {/* Top bar */}
       <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-5 py-3">
         <div className="flex items-center gap-3">
           <span className="font-display text-lg font-semibold text-ink">RFID Counter</span>
@@ -150,6 +240,17 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
           </select>
         </div>
         <div className="flex items-center gap-3 text-sm">
+          {queued > 0 ? (
+            <button
+              type="button"
+              onClick={() => void syncQueue()}
+              disabled={syncing || !online}
+              className="inline-flex items-center gap-1.5 rounded-pill bg-gold-soft px-3 py-1 font-medium text-gold-deep disabled:opacity-60"
+            >
+              <span className="size-2 rounded-pill bg-gold-deep" />
+              {syncing ? "Syncing…" : `${queued} queued`}
+            </button>
+          ) : null}
           <span className="inline-flex items-center gap-1.5 text-ink-2">
             <span className={`size-2 rounded-pill ${online ? "bg-sage" : "bg-tomato"}`} />
             {online ? "Online" : "Offline"}
@@ -161,8 +262,20 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
         </div>
       </header>
 
+      {syncReport ? (
+        <div className="flex items-center justify-between gap-3 border-b border-line bg-surface-2 px-5 py-2 text-sm">
+          <span className="text-ink-2">
+            Synced: <span className="font-medium text-sage-deep">{syncReport.approved} approved</span>
+            {syncReport.rejected + syncReport.blocked > 0 ? (
+              <>, <span className="font-medium text-tomato">{syncReport.rejected + syncReport.blocked} not applied</span> (balance/rules changed)</>
+            ) : null}
+            .
+          </span>
+          <button type="button" onClick={() => setSyncReport(null)} className="text-muted hover:text-ink-2" aria-label="Dismiss">✕</button>
+        </div>
+      ) : null}
+
       <div className="grid flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[1fr_320px]">
-        {/* Result + scan */}
         <section className="flex flex-col gap-4">
           <div
             className={`flex min-h-[360px] flex-1 flex-col items-center justify-center gap-5 rounded-lg border-2 p-8 text-center transition-colors ${
@@ -182,7 +295,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
                 ) : (
                   <div className="grid size-40 place-items-center rounded-md border border-line bg-surface-2">
                     <span className="font-display text-4xl font-semibold text-muted-2">
-                      {(ch?.name ?? "?").slice(0, 1).toUpperCase()}
+                      {ch?.name ? ch.name.slice(0, 1).toUpperCase() : result.status === "QUEUED" ? "⏱" : "?"}
                     </span>
                   </div>
                 )}
@@ -194,9 +307,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
                 {ch ? (
                   <div>
                     <p className="font-display text-2xl font-semibold text-ink">{ch.name}</p>
-                    <p className="mt-0.5 text-sm text-ink-2">
-                      <span className="font-mono">{ch.code}</span> · {ch.category}
-                    </p>
+                    <p className="mt-0.5 text-sm text-ink-2"><span className="font-mono">{ch.code}</span> · {ch.category}</p>
                   </div>
                 ) : null}
 
@@ -205,9 +316,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
                 <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm text-ink-2">
                   {result.meal ? <span>Meal: <span className="font-medium text-ink">{result.meal.name}</span></span> : null}
                   {result.status === "APPROVED" ? (
-                    <span>
-                      {result.paidBy === "coupon" ? "Coupon" : `Charged ₹${result.charged}`}
-                    </span>
+                    <span>{result.paidBy === "coupon" ? "Coupon" : `Charged ₹${result.charged}`}</span>
                   ) : null}
                   {ch ? <span>Wallet: <span className="font-mono text-ink">₹{ch.walletBalance}</span></span> : null}
                 </div>
@@ -222,7 +331,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
             onKeyDown={(e) => {
               if (e.key === "Enter") {
                 e.preventDefault();
-                submit(scan.trim());
+                void submit(scan.trim());
               }
             }}
             disabled={busy}
@@ -234,7 +343,6 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
           />
         </section>
 
-        {/* Recent taps */}
         <aside className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
           <h2 className="font-display text-sm font-semibold uppercase tracking-[0.06em] text-muted">Recent</h2>
           {recent.length === 0 ? (
@@ -245,7 +353,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
                 <li key={t.key} className="flex items-center justify-between gap-2 rounded-sm border border-line bg-surface-2 px-3 py-2 text-sm">
                   <span className="min-w-0">
                     <span className="inline-flex items-center gap-1.5">
-                      <span className={`size-2 rounded-pill ${t.status === "APPROVED" ? "bg-sage" : t.status === "QUEUED" ? "bg-gold-deep" : "bg-tomato"}`} />
+                      <span className={`size-2 rounded-pill ${dotFor(t.status)}`} />
                       <span className="truncate text-ink">{t.name}</span>
                     </span>
                     {t.meal ? <span className="ml-3 text-xs text-muted">{t.meal}</span> : null}
