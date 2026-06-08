@@ -52,11 +52,12 @@ export function AppNavbar({
         </Link>
       </div>
 
-      {/* Center: search */}
-      <div className="flex flex-1 justify-center px-2">
+      {/* Center: search (hidden on phones — presentational until wired; keeps the
+          flex-1 spacer so the right cluster stays pinned to the edge) */}
+      <div className="flex min-w-0 flex-1 justify-center px-2">
         <form
           role="search"
-          className="flex w-full max-w-xl items-center gap-2 rounded-pill border border-line-strong bg-surface-2 px-4 py-2 focus-within:border-gold focus-within:ring-3 focus-within:ring-gold/15"
+          className="hidden w-full max-w-xl items-center gap-2 rounded-pill border border-line-strong bg-surface-2 px-4 py-2 focus-within:border-gold focus-within:ring-3 focus-within:ring-gold/15 sm:flex"
         >
           <Icon name="search" className="size-[18px] shrink-0 text-muted" />
           <label htmlFor="global-search" className="sr-only">

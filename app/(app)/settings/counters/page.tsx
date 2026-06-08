@@ -25,7 +25,7 @@ export default async function CountersPage() {
         </Link>
       </div>
 
-      <div className="overflow-hidden rounded-md border border-line bg-surface">
+      <div className="overflow-x-auto rounded-md border border-line bg-surface">
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
