@@ -5,6 +5,7 @@ import { AppNavbar } from "./app-navbar";
 import { AppSidebar } from "./app-sidebar";
 import { useMediaQuery } from "./hooks";
 import { FlashToast } from "@/components/ui/flash-toast";
+import { SEARCHABLE_PERMISSIONS } from "@/lib/rbac";
 
 /**
  * YouTube-style app shell: a sticky full-width navbar over a [sidebar | content]
@@ -27,7 +28,7 @@ export function AppShell({
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [railExpanded, setRailExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const canSearch = isSuperAdmin || permissions.includes("users.view");
+  const canSearch = isSuperAdmin || SEARCHABLE_PERMISSIONS.some((p) => permissions.includes(p));
 
   function handleMenuClick() {
     if (isDesktop) {

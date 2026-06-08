@@ -41,6 +41,15 @@ export const PERMISSIONS = [
 
 export type Permission = (typeof PERMISSIONS)[number];
 
+/** Permissions that unlock at least one global-search group (services/search.ts).
+ *  Used to gate the navbar search box so it isn't shown to staff who can't search. */
+export const SEARCHABLE_PERMISSIONS = [
+  "users.view",
+  "staff.manage",
+  "counters.manage",
+  "settlements.view",
+] as const satisfies readonly Permission[];
+
 /** The minimal actor shape needed to authorize. `branchId === null` = all-branch. */
 export type Actor = {
   id: string;

@@ -10,9 +10,10 @@ import type { ShellUser } from "./app-shell";
 /**
  * Top app bar (YouTube-style): menu button + logo/title on the left, a centered
  * search field, notifications + profile on the right. Sticky, full-width.
- * The search submits to the branch-scoped cardholder directory (/users?q=…),
- * matching name / ID / phone / email / card UID. Only shown to staff who can
- * view cardholders; hidden on phones (the rail's Cardholders link is one tap).
+ * The search submits to the global results page (/search?q=…), which spans
+ * cardholders, staff, counters, and vendors — each group permission-gated and
+ * branch-scoped. Only shown to staff who can search at least one entity; hidden
+ * on phones (the rail links are one tap).
  */
 export function AppNavbar({
   onMenuClick,
@@ -63,19 +64,19 @@ export function AppNavbar({
           <form
             role="search"
             method="get"
-            action="/users"
+            action="/search"
             className="hidden w-full max-w-xl items-center gap-2 rounded-pill border border-line-strong bg-surface-2 px-4 py-2 focus-within:border-gold focus-within:ring-3 focus-within:ring-gold/15 sm:flex"
           >
             <Icon name="search" className="size-[18px] shrink-0 text-muted" />
             <label htmlFor="global-search" className="sr-only">
-              Search cardholders by name, ID, phone, or card
+              Search cardholders, staff, counters, and vendors
             </label>
             <input
               id="global-search"
               name="q"
               type="search"
               enterKeyHint="search"
-              placeholder="Search cardholders — name, ID, phone, card…"
+              placeholder="Search cardholders, staff, counters, vendors…"
               className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-muted focus:outline-none"
             />
           </form>
