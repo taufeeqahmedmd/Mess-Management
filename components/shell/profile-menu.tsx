@@ -5,13 +5,14 @@ import Link from "next/link";
 import { Icon } from "./icons";
 import { useDismiss } from "./hooks";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
+import { ThemeControl } from "./theme-control";
 import { logoutAction } from "@/lib/auth-actions";
 import type { ShellUser } from "./app-shell";
 
 /**
  * Profile avatar + dropdown for the signed-in staff member: name + role, an
- * account link, and Sign out (server action, confirmed). Appearance follows the
- * system theme — there is no manual toggle.
+ * account link, a Light/Dark appearance toggle, and Sign out (server action,
+ * confirmed).
  */
 export function ProfileMenu({ user }: { user: ShellUser }) {
   const [open, setOpen] = useState(false);
@@ -62,10 +63,8 @@ export function ProfileMenu({ user }: { user: ShellUser }) {
           </div>
 
           <div className="border-b border-line px-4 py-3">
-            <div className="flex items-center justify-between gap-3">
-              <span className="text-xs font-medium text-ink-2">Appearance</span>
-              <span className="text-xs text-muted">Follows system theme</span>
-            </div>
+            <p className="mb-2 text-xs font-medium text-ink-2">Appearance</p>
+            <ThemeControl />
           </div>
 
           <div className="p-1.5">

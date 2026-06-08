@@ -49,22 +49,19 @@ export const viewport: Viewport = {
   ],
 };
 
-// Follow the OS colour scheme only (no manual toggle). Applied before first
-// paint to avoid a flash, and kept in sync if the system preference changes.
+// Apply the user's saved Light/Dark choice (profile dropdown) before first
+// paint to avoid a flash. Defaults to Light when no choice has been made; the
+// toggle in components/shell/theme-control.tsx keeps this in sync.
 const themeInit = `
 (function () {
   try {
-    var mq = window.matchMedia("(prefers-color-scheme: dark)");
-    var apply = function () {
-      if (mq.matches) {
-        document.documentElement.setAttribute("data-theme", "dark");
-      } else {
-        document.documentElement.removeAttribute("data-theme");
-      }
-    };
-    apply();
-    if (mq.addEventListener) mq.addEventListener("change", apply);
-    else if (mq.addListener) mq.addListener(apply);
+    var pref = null;
+    try { pref = localStorage.getItem("theme"); } catch (e) {}
+    if (pref === "dark") {
+      document.documentElement.setAttribute("data-theme", "dark");
+    } else {
+      document.documentElement.removeAttribute("data-theme");
+    }
   } catch (e) {}
 })();
 `;

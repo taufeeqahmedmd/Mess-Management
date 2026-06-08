@@ -26,10 +26,11 @@ truth is [theme.md](../../theme.md) ("Warm Cafeteria" design system). Read it be
 - Reuse the documented component patterns (stat cards `--sage`/`--gold`/plain, pill buttons,
   chips/badges, status dots, `.input--rfid`). Build a thin shared component layer rather than
   re-styling per page.
-- **Follow the system colour scheme only.** Light and dark are both supported via
-  `[data-theme="dark"]`, but the active theme is driven entirely by the OS `prefers-color-scheme`
-  (applied pre-paint and kept live in `app/layout.tsx`). **No manual theme toggle** — don't
-  reintroduce one.
+- **Light/Dark is a manual user choice.** Both are supported via `[data-theme="dark"]` on
+  `<html>`. The active theme comes from the **Appearance toggle** in the profile dropdown
+  (`components/shell/theme-control.tsx`), persisted in `localStorage` under `theme` and applied
+  pre-paint by the inline script in `app/layout.tsx`. Default is **Light**; the OS
+  `prefers-color-scheme` is no longer followed.
 
 ## Confirmation & feedback (enforced)
 

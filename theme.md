@@ -345,9 +345,10 @@ primary button `class="bg-gold hover:bg-gold-deep text-white rounded-sm shadow-g
 
 ## 9. Dark variant (parity)
 
-Dark is **driven by the OS only** (`prefers-color-scheme`) — there is no manual theme toggle. The
-inline script in `app/layout.tsx` sets/removes `[data-theme="dark"]` before first paint and keeps
-it in sync if the system preference changes. Keep the warm hue family but invert surfaces under
+Dark is a **manual user choice** via the Appearance toggle in the profile dropdown
+(`components/shell/theme-control.tsx`), persisted in `localStorage` under `theme` (default
+**Light**). The inline script in `app/layout.tsx` reads that choice and sets/removes
+`[data-theme="dark"]` before first paint. Keep the warm hue family but invert surfaces under
 `[data-theme="dark"]`:
 
 ```css
