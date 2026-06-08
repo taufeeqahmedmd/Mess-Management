@@ -423,12 +423,12 @@ model MealType {
   endTime   String  @default("00:00") @map("end_time") @db.VarChar(5)
   active    Boolean @default(true)
 
-  rates          MealRate[]
-  couponBalances CouponBalance[]
-  rechargePlans  RechargePlan[]
-  recharges      Recharge[]
-  redemptions    Redemption[]
-  couponTxns     CouponTransaction[]
+  rates           MealRate[]
+  couponBalances  CouponBalance[]
+  rechargePlans   RechargePlan[]
+  rechargeCoupons RechargeCoupon[]
+  redemptions     Redemption[]
+  couponTxns      CouponTransaction[]
 
   @@map("meal_types")
 }
@@ -481,34 +481,49 @@ model PaymentMode {
 // ---------- Money movements (ledgers) ----------
 
 model Recharge {
-  id                   BigInt         @id @default(autoincrement())
-  clientUuid           String         @unique @map("client_uuid") @db.Uuid // idempotency key
-  userId               BigInt         @map("user_id")
-  cardId               BigInt?        @map("card_id")
-  planId               BigInt?        @map("plan_id")
-  amount               Decimal        @default(0) @db.Decimal(12, 2) // money → wallet
-  mealTypeId           BigInt?        @map("meal_type_id") // set → coupon grant for this meal
-  mealCredits          Int            @default(0) @map("meal_credits")
-  validFrom            DateTime?      @map("valid_from") @db.Date
-  validTill            DateTime?      @map("valid_till") @db.Date
-  remainingAmount      Decimal        @default(0) @map("remaining_amount") @db.Decimal(12, 2)
-  remainingMealCredits Int            @default(0) @map("remaining_meal_credits")
-  paymentModeId        BigInt         @map("payment_mode_id")
-  counterId            BigInt?        @map("counter_id")
-  appUserId            BigInt         @map("app_user_id") // operator
-  status               RechargeStatus @default(posted)
-  rechargedAt          DateTime       @default(now()) @map("recharged_at") @db.Timestamptz(6)
+  id              BigInt         @id @default(autoincrement())
+  clientUuid      String         @unique @map("client_uuid") @db.Uuid // idempotency key
+  userId          BigInt         @map("user_id")
+  cardId          BigInt?        @map("card_id")
+  planId          BigInt?        @map("plan_id")
+  amount          Decimal        @default(0) @db.Decimal(12, 2) // money → wallet
+  validFrom       DateTime?      @map("valid_from") @db.Date
+  validTill       DateTime?      @map("valid_till") @db.Date
+  remainingAmount Decimal        @default(0) @map("remaining_amount") @db.Decimal(12, 2) // unspent wallet money from THIS recharge
+  paymentModeId   BigInt         @map("payment_mode_id")
+  counterId       BigInt?        @map("counter_id")
+  appUserId       BigInt         @map("app_user_id") // operator
+  status          RechargeStatus @default(posted)
+  remarks         String?        @db.VarChar(255)
+  rechargedAt     DateTime       @default(now()) @map("recharged_at") @db.Timestamptz(6)
+  editedAt        DateTime?      @map("edited_at") @db.Timestamptz(6)
 
-  user        User          @relation(fields: [userId], references: [id])
-  card        RfidCard?     @relation(fields: [cardId], references: [id])
-  plan        RechargePlan? @relation(fields: [planId], references: [id])
-  mealType    MealType?     @relation(fields: [mealTypeId], references: [id])
-  paymentMode PaymentMode   @relation(fields: [paymentModeId], references: [id])
-  counter     Counter?      @relation(fields: [counterId], references: [id])
-  appUser     AppUser       @relation(fields: [appUserId], references: [id])
+  user        User             @relation(fields: [userId], references: [id])
+  card        RfidCard?        @relation(fields: [cardId], references: [id])
+  plan        RechargePlan?    @relation(fields: [planId], references: [id])
+  paymentMode PaymentMode      @relation(fields: [paymentModeId], references: [id])
+  counter     Counter?         @relation(fields: [counterId], references: [id])
+  appUser     AppUser          @relation(fields: [appUserId], references: [id])
+  coupons     RechargeCoupon[]
 
   @@index([userId, rechargedAt])
   @@map("recharges")
+}
+
+// One meal's coupon grant within a recharge (plan.md §5 — multi-meal grants).
+// `remaining` tracks unspent coupons from this grant (FIFO-consumed at taps).
+model RechargeCoupon {
+  id         BigInt @id @default(autoincrement())
+  rechargeId BigInt @map("recharge_id")
+  mealTypeId BigInt @map("meal_type_id")
+  count      Int    @default(0) // granted
+  remaining  Int    @default(0) // unspent from this grant
+
+  recharge Recharge @relation(fields: [rechargeId], references: [id], onDelete: Cascade)
+  mealType MealType @relation(fields: [mealTypeId], references: [id])
+
+  @@unique([rechargeId, mealTypeId])
+  @@map("recharge_coupons")
 }
 
 model Redemption {
