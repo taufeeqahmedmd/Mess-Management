@@ -16,6 +16,7 @@ export type IconName =
   | "users"
   | "card"
   | "reports"
+  | "vendor"
   | "settings";
 
 const ICONS: Record<IconName, ReactNode> = {
@@ -99,6 +100,13 @@ const ICONS: Record<IconName, ReactNode> = {
     <>
       <path d="M3 3v18h18" />
       <path d="M7 16v-5M12 16V8M17 16v-3" />
+    </>
+  ),
+  vendor: (
+    <>
+      <path d="M4 9h16l-1-4H5z" />
+      <path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9" />
+      <path d="M9 20v-5h6v5" />
     </>
   ),
   settings: (

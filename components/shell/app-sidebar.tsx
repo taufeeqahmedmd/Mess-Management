@@ -12,6 +12,12 @@ const SECTIONS: NavSection[] = [
     title: "Overview",
     items: [
       { label: "Dashboard", href: "/dashboard", icon: "dashboard", permission: "dashboard.view" },
+      {
+        label: "Vendor Dashboard",
+        href: "/vendor-dashboard",
+        icon: "vendor",
+        permission: "vendorDashboard.view",
+      },
     ],
   },
   {
