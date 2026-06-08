@@ -17,7 +17,7 @@ const SECTIONS: Section[] = [
   { href: "/settings/rates", label: "Rates", desc: "Charge + vendor price matrix", permission: "rates.manage", ready: true },
   { href: "/settings/consumption", label: "Consumption Settings", desc: "Wallet/coupon, duplicate window, session", permission: "categories.manage", ready: true },
   { href: "/settings/counters", label: "Counters", desc: "Counters and operator assignment", permission: "counters.manage", ready: true },
-  { href: "/settings/staff", label: "Staff", desc: "Portal employees and roles", permission: "staff.manage", ready: false },
+  { href: "/settings/staff", label: "Staff", desc: "Portal employees and roles", permission: "staff.manage", ready: true },
 ];
 
 export default async function SettingsPage() {
