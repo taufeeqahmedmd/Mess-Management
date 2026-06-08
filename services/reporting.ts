@@ -85,13 +85,11 @@ export type ConsumptionFilter = {
 };
 
 export function redemptionWhere(f: ConsumptionFilter): Prisma.RedemptionWhereInput {
-  const counter: Prisma.CounterRelationFilter["is"] = {};
-  if (f.branchId) counter.branchId = f.branchId;
   const where: Prisma.RedemptionWhereInput = {
     status: "posted",
     redeemedAt: { gte: f.from, lt: f.toExclusive },
   };
-  if (Object.keys(counter).length > 0) where.counter = { is: counter };
+  if (f.branchId) where.counter = { is: { branchId: f.branchId } };
   if (f.mealTypeId) where.mealTypeId = f.mealTypeId;
   if (f.counterId) where.counterId = f.counterId;
   if (f.counterIds) where.counterId = { in: f.counterIds.length > 0 ? f.counterIds : [BigInt(-1)] };

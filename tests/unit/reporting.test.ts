@@ -67,19 +67,21 @@ describe("redemptionWhere", () => {
   });
 
   it("adds a branch filter via the serving counter when scoped", () => {
-    const w = redemptionWhere({ ...base, branchId: 7n });
-    expect(w.counter).toEqual({ is: { branchId: 7n } });
+    const w = redemptionWhere({ ...base, branchId: BigInt(7) });
+    expect(w.counter).toEqual({ is: { branchId: BigInt(7) } });
   });
 
   it("restricts to a counter set, and never matches when the set is empty", () => {
-    expect(redemptionWhere({ ...base, counterIds: [1n, 2n] }).counterId).toEqual({ in: [1n, 2n] });
+    expect(redemptionWhere({ ...base, counterIds: [BigInt(1), BigInt(2)] }).counterId).toEqual({
+      in: [BigInt(1), BigInt(2)],
+    });
     expect(redemptionWhere({ ...base, counterIds: [] }).counterId).toEqual({ in: [BigInt(-1)] });
   });
 
   it("passes through meal / category / paidBy filters", () => {
-    const w = redemptionWhere({ ...base, mealTypeId: 3n, categoryId: 4n, paidBy: "coupon" });
-    expect(w.mealTypeId).toBe(3n);
-    expect(w.categoryId).toBe(4n);
+    const w = redemptionWhere({ ...base, mealTypeId: BigInt(3), categoryId: BigInt(4), paidBy: "coupon" });
+    expect(w.mealTypeId).toBe(BigInt(3));
+    expect(w.categoryId).toBe(BigInt(4));
     expect(w.paidBy).toBe("coupon");
   });
 });
