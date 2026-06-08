@@ -237,8 +237,35 @@ model Category {
 
   users     User[]
   mealRates MealRate[]
+  settings  CategorySetting[]
 
   @@map("categories")
+}
+
+// Per-category consumption config (plan.md §6 — the mock's "System Settings").
+// Each category has ONE active row deciding how its cardholders' taps resolve:
+// WALLET (deduct money) or COUPON (deduct a per-meal count). Carries that
+// category's duplicate-tap window + once-per-meal-session flag.
+enum ConsumptionModel {
+  wallet
+  coupon
+}
+
+model CategorySetting {
+  id                  BigInt           @id @default(autoincrement())
+  categoryId          BigInt           @map("category_id")
+  model               ConsumptionModel @default(wallet)
+  duplicateWindow     Int              @default(0) @map("duplicate_window") // seconds; 0 = no guard
+  restrictMealSession Boolean          @default(false) @map("restrict_meal_session")
+  status              CategoryStatus   @default(active) // only the active row applies
+  createdAt           DateTime         @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt           DateTime         @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  category Category @relation(fields: [categoryId], references: [id])
+
+  // One ACTIVE setting per category → partial unique index added in migration SQL.
+  @@index([categoryId])
+  @@map("category_settings")
 }
 
 // ---------- Counters & devices ----------
@@ -408,7 +435,8 @@ model MealRate {
   mealTypeId BigInt    @map("meal_type_id")
   categoryId BigInt    @map("category_id")
   branchId   BigInt    @map("branch_id")
-  rate       Decimal   @db.Decimal(12, 2)
+  rate       Decimal   @db.Decimal(12, 2) // charged to cardholder (sale)
+  vendorRate Decimal   @map("vendor_rate") @db.Decimal(12, 2) // paid to caterer (cost) → P/L = rate - vendorRate
   validFrom  DateTime  @map("valid_from") @db.Date
   validTo    DateTime? @map("valid_to") @db.Date // NULL = current
   createdAt  DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)

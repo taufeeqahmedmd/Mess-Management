@@ -166,11 +166,37 @@ async function main() {
           categoryId: catId[cc],
           branchId: branch.id,
           rate: new Prisma.Decimal(price),
+          vendorRate: new Prisma.Decimal(price).mul(0.8).toDecimalPlaces(2), // ~80% cost
           validFrom,
         });
       }
     }
     await prisma.mealRate.createMany({ data: rows });
+  }
+
+  // --- Per-category consumption settings (one active per category) ---
+  // Student = COUPON (count), 120s duplicate window, once-per-session; others = WALLET.
+  const categoryModels: Record<
+    string,
+    { model: "wallet" | "coupon"; duplicateWindow: number; restrictMealSession: boolean }
+  > = {
+    STU: { model: "coupon", duplicateWindow: 120, restrictMealSession: true },
+    EMP: { model: "wallet", duplicateWindow: 0, restrictMealSession: false },
+    CON: { model: "wallet", duplicateWindow: 0, restrictMealSession: false },
+    GST: { model: "wallet", duplicateWindow: 0, restrictMealSession: false },
+    VIS: { model: "wallet", duplicateWindow: 0, restrictMealSession: false },
+  };
+  for (const [cc, cfg] of Object.entries(categoryModels)) {
+    if ((await prisma.categorySetting.count({ where: { categoryId: catId[cc] } })) === 0) {
+      await prisma.categorySetting.create({
+        data: {
+          categoryId: catId[cc],
+          model: cfg.model,
+          duplicateWindow: cfg.duplicateWindow,
+          restrictMealSession: cfg.restrictMealSession,
+        },
+      });
+    }
   }
 
   // --- Counters + operator assignment (Mess Incharge operates all) ---
