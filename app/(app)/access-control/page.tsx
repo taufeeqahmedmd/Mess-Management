@@ -20,7 +20,7 @@ export default async function AccessControlPage() {
   }));
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-5 sm:p-6">
+    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-5 sm:p-6">
       <div>
         <h1 className="font-display text-2xl font-semibold text-ink">Access Control</h1>
         <p className="mt-1 max-w-prose text-sm text-ink-2">

@@ -8,69 +8,101 @@ import { PERMISSIONS } from "@/lib/rbac";
 
 const PERMISSION_SET = new Set<string>(PERMISSIONS);
 
-export type SaveRoleState = { error?: string; success?: boolean };
+export type SaveRoleState = { error?: string; success?: boolean; savedRoles?: string[] };
 
 /**
- * Replace a role's permission grants from the Access Control grid. Guarded by
- * accessControl.manage; the Super Admin role is locked. Writes an audit row.
+ * Replace permission grants for every editable role from the Access Control
+ * matrix in one transaction. Guarded by accessControl.manage; the Super Admin
+ * role is locked and skipped. Only roles whose grants actually changed are
+ * touched, and each writes its own audit row.
+ *
+ * Payload shape (hidden `payload` field): { [roleId]: permissionCode[] }.
  *
  * Note: permissions ride on the JWT, so affected staff see changes after their
  * next sign-in.
  */
-export async function saveRolePermissionsAction(
+export async function saveAccessControlAction(
   _prev: SaveRoleState,
   formData: FormData,
 ): Promise<SaveRoleState> {
   const actor = await requirePermission("accessControl.manage");
 
-  const roleIdRaw = String(formData.get("roleId") ?? "");
-  let roleId: bigint;
+  let payload: Record<string, unknown>;
   try {
-    roleId = BigInt(roleIdRaw);
+    payload = JSON.parse(String(formData.get("payload") ?? "{}"));
   } catch {
-    return { error: "Invalid role." };
+    return { error: "Could not read the submitted changes." };
+  }
+  if (typeof payload !== "object" || payload === null) {
+    return { error: "Could not read the submitted changes." };
   }
 
-  const codes = formData
-    .getAll("permissions")
-    .map(String)
-    .filter((c) => PERMISSION_SET.has(c));
+  const [roles, allPerms] = await Promise.all([
+    prisma.role.findMany({
+      orderBy: { id: "asc" },
+      include: { permissions: { select: { permissionId: true } } },
+    }),
+    prisma.permission.findMany({ select: { id: true, code: true } }),
+  ]);
 
-  const role = await prisma.role.findUnique({ where: { id: roleId } });
-  if (!role) return { error: "Role not found." };
-  if (role.name === "Super Admin") {
-    return { error: "The Super Admin role cannot be modified." };
+  const idByCode = new Map(allPerms.map((p) => [p.code, p.id]));
+  const codeById = new Map(allPerms.map((p) => [p.id.toString(), p.code]));
+
+  // Build the set of role updates that actually changed, so we don't churn the
+  // ledger of audit rows for untouched roles.
+  type Update = { roleId: bigint; name: string; permIds: bigint[]; before: string[]; after: string[] };
+  const updates: Update[] = [];
+
+  for (const role of roles) {
+    if (role.name === "Super Admin") continue; // locked — always full access
+    const desiredRaw = payload[role.id.toString()];
+    if (!Array.isArray(desiredRaw)) continue; // role not present in payload
+
+    const after = [...new Set(desiredRaw.map(String).filter((c) => PERMISSION_SET.has(c)))].sort();
+    const before = role.permissions
+      .map((rp) => codeById.get(rp.permissionId.toString()))
+      .filter((c): c is string => Boolean(c))
+      .sort();
+
+    if (before.length === after.length && before.every((c, i) => c === after[i])) {
+      continue; // unchanged
+    }
+
+    updates.push({
+      roleId: role.id,
+      name: role.name,
+      permIds: after.map((c) => idByCode.get(c)).filter((id): id is bigint => id != null),
+      before,
+      after,
+    });
   }
 
-  const perms = await prisma.permission.findMany({
-    where: { code: { in: codes } },
-    select: { id: true },
-  });
-  const before = await prisma.rolePermission.findMany({
-    where: { roleId },
-    select: { permissionId: true },
-  });
+  if (updates.length === 0) {
+    return { success: true, savedRoles: [] };
+  }
 
   await prisma.$transaction(async (tx) => {
-    await tx.rolePermission.deleteMany({ where: { roleId } });
-    if (perms.length) {
-      await tx.rolePermission.createMany({
-        data: perms.map((p) => ({ roleId, permissionId: p.id })),
-      });
+    for (const u of updates) {
+      await tx.rolePermission.deleteMany({ where: { roleId: u.roleId } });
+      if (u.permIds.length) {
+        await tx.rolePermission.createMany({
+          data: u.permIds.map((permissionId) => ({ roleId: u.roleId, permissionId })),
+        });
+      }
+      await writeAudit(
+        {
+          appUserId: BigInt(actor.id),
+          action: "accessControl.update",
+          entity: "role",
+          entityId: u.roleId,
+          before: { permissions: u.before },
+          after: { permissions: u.after },
+        },
+        tx,
+      );
     }
-    await writeAudit(
-      {
-        appUserId: BigInt(actor.id),
-        action: "accessControl.update",
-        entity: "role",
-        entityId: roleId,
-        before: { permissionIds: before.map((b) => b.permissionId.toString()) },
-        after: { permissions: codes },
-      },
-      tx,
-    );
   });
 
   revalidatePath("/access-control");
-  return { success: true };
+  return { success: true, savedRoles: updates.map((u) => u.name) };
 }
