@@ -456,8 +456,8 @@ public endpoints are **Route Handlers** (need explicit POST/idempotency/CSV).
 | **6. Offline/PWA** | Service worker, IndexedDB queue, idempotent sync, sync report | Offline queue | ✅ Done |
 | **7. Dashboards & reports** | Dashboard (incl. vendor cost + P/L), **Vendor Dashboard**, consumption/balance reports, date range, CSV, audit log | Dashboard + Vendor Dashboard + Reports | ✅ Done |
 | **8. Self-service** | Public balance + filtered history download | (new) | ✅ Done |
-| **9. Vendor settlement** | Vendors + period settlements (meal counts × vendor rate → payable) | (new) | ◻ Next |
-| **10. Hardening & deploy** | Validation, rate limits, tests, audit completeness, deployment | — | ◻ |
+| **9. Vendor settlement** | Vendors + period settlements (meal counts × vendor rate → payable) | (new) | ✅ Done |
+| **10. Hardening & deploy** | Validation, rate limits, tests, audit completeness, deployment | — | ◻ Next |
 
 > Multi-branch (branches, departments, branch scoping) is folded into Phase 2 (master data) and
 > applied across all later phases. DB = **PostgreSQL** (confirmed); see `db-schema.md`.
