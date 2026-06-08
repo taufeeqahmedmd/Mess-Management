@@ -37,7 +37,7 @@ export default async function EditCategoryPage({
   };
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-5 sm:p-6">
+    <div className="flex max-w-3xl flex-col gap-6">
       <div>
         <p className="text-xs text-muted">
           <Link href="/settings/categories" className="hover:text-gold-deep">Categories</Link> / {cat.name}

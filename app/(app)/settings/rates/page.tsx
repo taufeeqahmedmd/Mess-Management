@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
@@ -30,17 +29,11 @@ export default async function RatesPage() {
   }
 
   return (
-    <div className="mx-auto flex max-w-5xl flex-col gap-6 p-5 sm:p-6">
-      <div>
-        <p className="text-xs text-muted">
-          <Link href="/settings" className="hover:text-gold-deep">Configurations</Link> / Rates
-        </p>
-        <h1 className="font-display text-2xl font-semibold text-ink">Rates</h1>
-        <p className="mt-1 text-sm text-ink-2">
-          Charge (sale) and vendor (cost) price per meal × category for{" "}
-          <span className="font-medium text-ink">{branch.name}</span>. Profit/Loss = charge − vendor.
-        </p>
-      </div>
+    <div className="flex flex-col gap-5">
+      <p className="text-sm text-ink-2">
+        Charge (sale) and vendor (cost) price per meal × category for{" "}
+        <span className="font-medium text-ink">{branch.name}</span>. Profit/Loss = charge − vendor.
+      </p>
 
       {!canEdit ? (
         <p className="rounded-sm bg-surface-2 px-3 py-2.5 text-sm text-ink-2">

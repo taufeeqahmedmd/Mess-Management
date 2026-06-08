@@ -1,4 +1,3 @@
-import Link from "next/link";
 import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
@@ -30,18 +29,12 @@ export default async function ConsumptionPage() {
   });
 
   return (
-    <div className="mx-auto flex max-w-3xl flex-col gap-6 p-5 sm:p-6">
-      <div>
-        <p className="text-xs text-muted">
-          <Link href="/settings" className="hover:text-gold-deep">Configurations</Link> / Consumption Settings
-        </p>
-        <h1 className="font-display text-2xl font-semibold text-ink">Consumption Settings</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-2">
-          How each category&rsquo;s taps resolve: <span className="font-medium">Wallet</span> deducts
-          money, <span className="font-medium">Coupon</span> deducts a per-meal count. Set the
-          duplicate-tap window and once-per-meal-session rule per category.
-        </p>
-      </div>
+    <div className="flex flex-col gap-5">
+      <p className="max-w-prose text-sm text-ink-2">
+        How each category&rsquo;s taps resolve: <span className="font-medium">Wallet</span> deducts
+        money, <span className="font-medium">Coupon</span> deducts a per-meal count. Set the
+        duplicate-tap window and once-per-meal-session rule per category.
+      </p>
 
       <ConsumptionForm rows={rows} />
     </div>

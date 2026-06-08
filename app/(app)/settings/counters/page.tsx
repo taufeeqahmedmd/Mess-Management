@@ -16,15 +16,9 @@ export default async function CountersPage() {
   });
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-5 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs text-muted">
-            <Link href="/settings" className="hover:text-gold-deep">Configurations</Link> / Counters
-          </p>
-          <h1 className="font-display text-2xl font-semibold text-ink">Counters</h1>
-          <p className="mt-1 text-sm text-ink-2">Counter devices and their assigned operators.</p>
-        </div>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-ink-2">Counter devices and their assigned operators.</p>
         <Link href="/settings/counters/new" className="rounded-sm bg-gold px-4 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep">
           Add counter
         </Link>

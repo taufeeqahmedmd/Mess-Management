@@ -12,15 +12,9 @@ export default async function CategoriesPage() {
   const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
 
   return (
-    <div className="mx-auto flex max-w-4xl flex-col gap-6 p-5 sm:p-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
-        <div>
-          <p className="text-xs text-muted">
-            <Link href="/settings" className="hover:text-gold-deep">Configurations</Link> / Categories
-          </p>
-          <h1 className="font-display text-2xl font-semibold text-ink">Categories</h1>
-          <p className="mt-1 text-sm text-ink-2">Cardholder types and their identifier rules.</p>
-        </div>
+    <div className="flex flex-col gap-5">
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <p className="text-sm text-ink-2">Cardholder types and their identifier rules.</p>
         <Link href="/settings/categories/new" className="rounded-sm bg-gold px-4 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep">
           Add category
         </Link>
