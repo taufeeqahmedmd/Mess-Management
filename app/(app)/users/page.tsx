@@ -109,7 +109,11 @@ export default async function UsersPage({
               users.map((u) => (
                 <tr key={u.id.toString()} className="border-t border-line">
                   <td className="px-4 py-3 font-mono text-ink">{u.code}</td>
-                  <td className="px-4 py-3 text-ink">{u.fullName}</td>
+                  <td className="px-4 py-3">
+                    <Link href={`/users/${u.id}`} className="text-ink transition-colors hover:text-gold-deep">
+                      {u.fullName}
+                    </Link>
+                  </td>
                   <td className="px-4 py-3 text-ink-2">{u.category.name}</td>
                   <td className="px-4 py-3 font-mono text-ink-2">{u.cards[0]?.cardUid ?? "—"}</td>
                   <td className="px-4 py-3 text-right font-mono text-ink">₹{(u.wallet?.balanceAmount ?? new Prisma.Decimal(0)).toFixed(2)}</td>
