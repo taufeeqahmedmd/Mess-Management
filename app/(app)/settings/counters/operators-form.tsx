@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { assignOperatorsAction, type OperatorsState } from "./actions";
 
 export type StaffOption = { id: string; name: string; mobile: string; role: string };
@@ -16,11 +16,18 @@ export function OperatorsForm({
   staff: StaffOption[];
   assignedIds: string[];
 }) {
-  const [state, action, pending] = useActionState(assignOperatorsAction, initial);
+  const { state, onSubmit, pending } = useConfirmedAction(assignOperatorsAction, initial, {
+    confirm: {
+      title: "Save operators",
+      message: "Update the operators assigned to this counter?",
+      confirmLabel: "Yes, save",
+    },
+    successMessage: "Operators saved.",
+  });
   const assigned = new Set(assignedIds);
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="counterId" value={counterId} />
 
       {state.error ? (

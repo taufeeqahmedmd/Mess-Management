@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { setCategoryStatusAction } from "./actions";
 
 export default async function CategoriesPage() {
@@ -58,13 +59,20 @@ export default async function CategoriesPage() {
                       <Link href={`/settings/categories/${c.id}/edit`} className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-gold-deep transition-colors hover:bg-gold/10">
                         Edit
                       </Link>
-                      <form action={setCategoryStatusAction}>
-                        <input type="hidden" name="id" value={c.id.toString()} />
-                        <input type="hidden" name="status" value={c.status === "active" ? "inactive" : "active"} />
-                        <button type="submit" className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep">
-                          {c.status === "active" ? "Deactivate" : "Activate"}
-                        </button>
-                      </form>
+                      <ConfirmActionForm
+                        action={setCategoryStatusAction}
+                        fields={{ id: c.id.toString(), status: c.status === "active" ? "inactive" : "active" }}
+                        confirm={{
+                          title: c.status === "active" ? "Deactivate category" : "Activate category",
+                          message: `${c.status === "active" ? "Deactivate" : "Activate"} “${c.name}”?`,
+                          confirmLabel: "Yes",
+                          tone: c.status === "active" ? "danger" : "default",
+                        }}
+                        successMessage={c.status === "active" ? "Category deactivated." : "Category activated."}
+                        buttonClassName="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep disabled:opacity-60"
+                      >
+                        {c.status === "active" ? "Deactivate" : "Activate"}
+                      </ConfirmActionForm>
                     </div>
                   </td>
                 </tr>

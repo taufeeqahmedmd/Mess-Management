@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { setMealActiveAction } from "./actions";
 
 export default async function MealsPage() {
@@ -51,13 +52,20 @@ export default async function MealsPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/settings/meals/${m.id}/edit`} className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-gold-deep transition-colors hover:bg-gold/10">Edit</Link>
-                      <form action={setMealActiveAction}>
-                        <input type="hidden" name="id" value={m.id.toString()} />
-                        <input type="hidden" name="active" value={m.active ? "false" : "true"} />
-                        <button type="submit" className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep">
-                          {m.active ? "Deactivate" : "Activate"}
-                        </button>
-                      </form>
+                      <ConfirmActionForm
+                        action={setMealActiveAction}
+                        fields={{ id: m.id.toString(), active: m.active ? "false" : "true" }}
+                        confirm={{
+                          title: m.active ? "Deactivate meal" : "Activate meal",
+                          message: `${m.active ? "Deactivate" : "Activate"} “${m.name}”?`,
+                          confirmLabel: "Yes",
+                          tone: m.active ? "danger" : "default",
+                        }}
+                        successMessage={m.active ? "Meal deactivated." : "Meal activated."}
+                        buttonClassName="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep disabled:opacity-60"
+                      >
+                        {m.active ? "Deactivate" : "Activate"}
+                      </ConfirmActionForm>
                     </div>
                   </td>
                 </tr>

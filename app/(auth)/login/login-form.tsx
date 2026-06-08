@@ -1,6 +1,7 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useActionState, useEffect, useRef, useState } from "react";
+import { useToast } from "@/components/ui/toast";
 import { loginAction, type LoginState } from "@/lib/auth-actions";
 
 const initial: LoginState = {};
@@ -38,6 +39,14 @@ const inputClass =
 export function LoginForm() {
   const [state, action, pending] = useActionState(loginAction, initial);
   const [show, setShow] = useState(false);
+  const toast = useToast();
+  const lastState = useRef<LoginState>(initial);
+
+  useEffect(() => {
+    if (state === lastState.current) return;
+    lastState.current = state;
+    if (state.error) toast.error(state.error);
+  }, [state, toast]);
 
   return (
     <form action={action} className="mt-8 flex flex-col gap-5" aria-label="Sign in">

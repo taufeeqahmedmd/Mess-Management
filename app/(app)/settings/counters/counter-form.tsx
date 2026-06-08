@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
 import Link from "next/link";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import type { CounterFormState } from "./actions";
 
 export type CounterData = {
@@ -17,10 +17,17 @@ const inputClass =
   "w-full rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
 
 export function CounterForm({ action, counter }: { action: Action; counter?: CounterData }) {
-  const [state, formAction, pending] = useActionState(action, {});
+  const isEdit = Boolean(counter);
+  const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
+    confirm: {
+      title: isEdit ? "Save changes" : "Create counter",
+      message: isEdit ? "Save changes to this counter?" : "Create this counter?",
+      confirmLabel: isEdit ? "Yes, save" : "Yes, create",
+    },
+  });
 
   return (
-    <form action={formAction} className="flex max-w-lg flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
       {counter ? <input type="hidden" name="id" value={counter.id} /> : null}
 
       {state.error ? (

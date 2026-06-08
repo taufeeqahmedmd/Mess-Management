@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
 import Link from "next/link";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import type { MealFormState } from "./actions";
 
 export type MealData = {
@@ -19,10 +19,17 @@ const inputClass =
   "w-full rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
 
 export function MealForm({ action, meal }: { action: Action; meal?: MealData }) {
-  const [state, formAction, pending] = useActionState(action, {});
+  const isEdit = Boolean(meal);
+  const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
+    confirm: {
+      title: isEdit ? "Save changes" : "Create meal",
+      message: isEdit ? "Save changes to this meal?" : "Create this meal?",
+      confirmLabel: isEdit ? "Yes, save" : "Yes, create",
+    },
+  });
 
   return (
-    <form action={formAction} className="flex max-w-lg flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
       {meal ? <input type="hidden" name="id" value={meal.id} /> : null}
 
       {state.error ? (

@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
 import Link from "next/link";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import type { CategoryFormState } from "./actions";
 
 export type CategoryData = {
@@ -30,10 +30,17 @@ export function CategoryForm({
   action: Action;
   category?: CategoryData;
 }) {
-  const [state, formAction, pending] = useActionState(action, {});
+  const isEdit = Boolean(category);
+  const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
+    confirm: {
+      title: isEdit ? "Save changes" : "Create category",
+      message: isEdit ? "Save changes to this category?" : "Create this category?",
+      confirmLabel: isEdit ? "Yes, save" : "Yes, create",
+    },
+  });
 
   return (
-    <form action={formAction} className="flex max-w-lg flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
       {category ? <input type="hidden" name="id" value={category.id} /> : null}
 
       {state.error ? (

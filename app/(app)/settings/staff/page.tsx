@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { setStaffStatusAction } from "./actions";
 
 export default async function StaffPage() {
@@ -55,13 +56,20 @@ export default async function StaffPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/settings/staff/${s.id}/edit`} className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-gold-deep transition-colors hover:bg-gold/10">Edit</Link>
-                      <form action={setStaffStatusAction}>
-                        <input type="hidden" name="id" value={s.id.toString()} />
-                        <input type="hidden" name="status" value={s.status === "active" ? "disabled" : "active"} />
-                        <button type="submit" className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep">
-                          {s.status === "active" ? "Disable" : "Activate"}
-                        </button>
-                      </form>
+                      <ConfirmActionForm
+                        action={setStaffStatusAction}
+                        fields={{ id: s.id.toString(), status: s.status === "active" ? "disabled" : "active" }}
+                        confirm={{
+                          title: s.status === "active" ? "Disable staff" : "Activate staff",
+                          message: `${s.status === "active" ? "Disable" : "Activate"} “${s.name}”?`,
+                          confirmLabel: "Yes",
+                          tone: s.status === "active" ? "danger" : "default",
+                        }}
+                        successMessage={s.status === "active" ? "Staff disabled." : "Staff activated."}
+                        buttonClassName="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep disabled:opacity-60"
+                      >
+                        {s.status === "active" ? "Disable" : "Activate"}
+                      </ConfirmActionForm>
                     </div>
                   </td>
                 </tr>

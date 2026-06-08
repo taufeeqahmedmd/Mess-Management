@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { issueCardAction, replaceCardAction, type CardState } from "./card-actions";
 
 const initial: CardState = {};
@@ -19,9 +19,16 @@ function Feedback({ state }: { state: CardState }) {
 }
 
 export function IssueCardForm({ userId }: { userId: string }) {
-  const [state, action, pending] = useActionState(issueCardAction, initial);
+  const { state, onSubmit, pending } = useConfirmedAction(issueCardAction, initial, {
+    confirm: {
+      title: "Issue card",
+      message: "Issue this card to the cardholder?",
+      confirmLabel: "Yes, issue",
+    },
+    successMessage: "Card issued.",
+  });
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <input type="hidden" name="userId" value={userId} />
       <Feedback state={state} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
@@ -44,9 +51,17 @@ export function IssueCardForm({ userId }: { userId: string }) {
 }
 
 export function ReplaceCardForm({ userId }: { userId: string }) {
-  const [state, action, pending] = useActionState(replaceCardAction, initial);
+  const { state, onSubmit, pending } = useConfirmedAction(replaceCardAction, initial, {
+    confirm: {
+      title: "Replace card",
+      message: "Replace the active card with this new one?",
+      confirmLabel: "Yes, replace",
+      tone: "danger",
+    },
+    successMessage: "Card replaced.",
+  });
   return (
-    <form action={action} className="flex flex-col gap-3">
+    <form onSubmit={onSubmit} className="flex flex-col gap-3">
       <input type="hidden" name="userId" value={userId} />
       <Feedback state={state} />
       <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">

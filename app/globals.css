@@ -142,3 +142,35 @@ body {
     scroll-behavior: auto !important;
   }
 }
+
+/* =========================================================================
+   Overlay primitives — toast notifications + confirm dialog.
+   Motion is honored only when the user allows it (the rule above neutralizes
+   these animations under prefers-reduced-motion).
+   ========================================================================= */
+@keyframes overlay-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes dialog-pop-in {
+  from { opacity: 0; transform: translateY(8px) scale(0.97); }
+  to { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes toast-slide-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+.animate-overlay-fade {
+  animation: overlay-fade-in var(--dur-fast) var(--ease);
+}
+
+.animate-dialog-pop {
+  animation: dialog-pop-in var(--dur) var(--ease);
+}
+
+.animate-toast-in {
+  animation: toast-slide-in var(--dur) var(--ease);
+}

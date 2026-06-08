@@ -4,6 +4,7 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { IssueCardForm, ReplaceCardForm } from "./card-forms";
 import { setCardStatusAction } from "./card-actions";
 
@@ -120,17 +121,36 @@ export default async function UserDetailPage({
                     <td className="px-4 py-2.5 text-ink-2">{fmtDate(c.expiresOn)}</td>
                     <td className="px-4 py-2.5 text-right">
                       {c.status === "active" && canDeactivate ? (
-                        <form action={setCardStatusAction} className="inline">
-                          <input type="hidden" name="cardId" value={c.id.toString()} />
-                          <input type="hidden" name="action" value="deactivate" />
-                          <button type="submit" className="rounded-sm px-2.5 py-1 text-xs font-medium text-tomato transition-colors hover:bg-tomato-soft">Deactivate</button>
-                        </form>
+                        <ConfirmActionForm
+                          action={setCardStatusAction}
+                          className="inline"
+                          fields={{ cardId: c.id.toString(), action: "deactivate" }}
+                          confirm={{
+                            title: "Deactivate card",
+                            message: `Deactivate card ${c.cardUid}?`,
+                            confirmLabel: "Yes, deactivate",
+                            tone: "danger",
+                          }}
+                          successMessage="Card deactivated."
+                          buttonClassName="rounded-sm px-2.5 py-1 text-xs font-medium text-tomato transition-colors hover:bg-tomato-soft disabled:opacity-60"
+                        >
+                          Deactivate
+                        </ConfirmActionForm>
                       ) : c.status === "blocked" && canActivate && !activeCard ? (
-                        <form action={setCardStatusAction} className="inline">
-                          <input type="hidden" name="cardId" value={c.id.toString()} />
-                          <input type="hidden" name="action" value="activate" />
-                          <button type="submit" className="rounded-sm px-2.5 py-1 text-xs font-medium text-sage-deep transition-colors hover:bg-sage-soft">Activate</button>
-                        </form>
+                        <ConfirmActionForm
+                          action={setCardStatusAction}
+                          className="inline"
+                          fields={{ cardId: c.id.toString(), action: "activate" }}
+                          confirm={{
+                            title: "Activate card",
+                            message: `Activate card ${c.cardUid}?`,
+                            confirmLabel: "Yes, activate",
+                          }}
+                          successMessage="Card activated."
+                          buttonClassName="rounded-sm px-2.5 py-1 text-xs font-medium text-sage-deep transition-colors hover:bg-sage-soft disabled:opacity-60"
+                        >
+                          Activate
+                        </ConfirmActionForm>
                       ) : (
                         <span className="text-xs text-muted-2">—</span>
                       )}

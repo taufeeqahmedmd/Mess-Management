@@ -82,7 +82,7 @@ export async function createCategoryAction(
   }
 
   revalidatePath("/settings/categories");
-  redirect("/settings/categories");
+  redirect("/settings/categories?flash=created");
 }
 
 export async function updateCategoryAction(
@@ -121,7 +121,7 @@ export async function updateCategoryAction(
   }
 
   revalidatePath("/settings/categories");
-  redirect("/settings/categories");
+  redirect("/settings/categories?flash=updated");
 }
 
 export async function setCategoryStatusAction(formData: FormData): Promise<void> {

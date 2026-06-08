@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { saveRatesAction, type RatesState } from "./actions";
 
 type Item = { id: string; name: string };
@@ -24,10 +24,17 @@ export function RatesMatrix({
   rates: RateMap;
   canEdit: boolean;
 }) {
-  const [state, action, pending] = useActionState(saveRatesAction, initial);
+  const { state, onSubmit, pending } = useConfirmedAction(saveRatesAction, initial, {
+    confirm: {
+      title: "Save rates",
+      message: "Save the current rate matrix?",
+      confirmLabel: "Yes, save",
+    },
+    successMessage: "Rates saved.",
+  });
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="branchId" value={branchId} />
 
       {state.error ? (

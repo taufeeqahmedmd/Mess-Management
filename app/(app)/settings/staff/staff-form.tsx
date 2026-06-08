@@ -1,7 +1,7 @@
 "use client";
 
-import { useActionState } from "react";
 import Link from "next/link";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import type { StaffFormState } from "./actions";
 
 export type StaffData = {
@@ -32,11 +32,17 @@ export function StaffForm({
   branches: Option[];
   canChooseBranch: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(action, {});
   const isEdit = Boolean(staff);
+  const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
+    confirm: {
+      title: isEdit ? "Save changes" : "Create staff",
+      message: isEdit ? "Save changes to this staff member?" : "Create this staff member?",
+      confirmLabel: isEdit ? "Yes, save" : "Yes, create",
+    },
+  });
 
   return (
-    <form action={formAction} className="flex max-w-lg flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
       {staff ? <input type="hidden" name="id" value={staff.id} /> : null}
 
       {state.error ? (

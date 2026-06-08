@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import Link from "next/link";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import type { UserFormState } from "./actions";
 
 export type UserData = {
@@ -40,14 +41,20 @@ export function UserForm({
   branches: Option[];
   canChooseBranch: boolean;
 }) {
-  const [state, formAction, pending] = useActionState(action, {});
   const isEdit = Boolean(user);
+  const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
+    confirm: {
+      title: isEdit ? "Save changes" : "Create cardholder",
+      message: isEdit ? "Save changes to this cardholder?" : "Create this cardholder?",
+      confirmLabel: isEdit ? "Yes, save" : "Yes, create",
+    },
+  });
   const [categoryId, setCategoryId] = useState(user?.categoryId ?? categories[0]?.id ?? "");
   const cat = categories.find((c) => c.id === categoryId);
   const idLabel = cat?.identifierLabel ?? "Identifier";
 
   return (
-    <form action={formAction} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       {user ? <input type="hidden" name="id" value={user.id} /> : null}
 
       {state.error ? (

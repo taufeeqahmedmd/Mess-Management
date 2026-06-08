@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { Suspense, useState } from "react";
 import { AppNavbar } from "./app-navbar";
 import { AppSidebar } from "./app-sidebar";
 import { useMediaQuery } from "./hooks";
+import { FlashToast } from "@/components/ui/flash-toast";
 
 /**
  * YouTube-style app shell: a sticky full-width navbar over a [sidebar | content]
@@ -37,6 +38,9 @@ export function AppShell({
 
   return (
     <div className="flex min-h-screen flex-col bg-canvas">
+      <Suspense fallback={null}>
+        <FlashToast />
+      </Suspense>
       <AppNavbar onMenuClick={handleMenuClick} user={user} />
 
       <div className="flex min-h-0 flex-1">

@@ -57,7 +57,7 @@ export async function createMealAction(
   }
 
   revalidatePath("/settings/meals");
-  redirect("/settings/meals");
+  redirect("/settings/meals?flash=created");
 }
 
 export async function updateMealAction(
@@ -96,7 +96,7 @@ export async function updateMealAction(
   }
 
   revalidatePath("/settings/meals");
-  redirect("/settings/meals");
+  redirect("/settings/meals?flash=updated");
 }
 
 export async function setMealActiveAction(formData: FormData): Promise<void> {

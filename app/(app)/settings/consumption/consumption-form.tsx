@@ -1,7 +1,8 @@
 "use client";
 
-import { useActionState, useState } from "react";
+import { useState } from "react";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { saveConsumptionAction, type ConsumptionState } from "./actions";
 
 export type ConsumptionRow = {
@@ -20,13 +21,20 @@ const MODEL_OPTIONS = [
 ];
 
 export function ConsumptionForm({ rows }: { rows: ConsumptionRow[] }) {
-  const [state, action, pending] = useActionState(saveConsumptionAction, initial);
+  const { state, onSubmit, pending } = useConfirmedAction(saveConsumptionAction, initial, {
+    confirm: {
+      title: "Save consumption settings",
+      message: "Apply these consumption settings?",
+      confirmLabel: "Yes, save",
+    },
+    successMessage: "Consumption settings saved.",
+  });
   const [models, setModels] = useState<Record<string, string[]>>(() =>
     Object.fromEntries(rows.map((r) => [r.id, r.models])),
   );
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex flex-col gap-4">
       {state.error ? (
         <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">
           {state.error}

@@ -1,6 +1,6 @@
 "use client";
 
-import { useActionState } from "react";
+import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { changePasswordAction, type ChangePasswordState } from "./actions";
 
 const initial: ChangePasswordState = {};
@@ -9,10 +9,17 @@ const inputClass =
   "w-full rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
 
 export function ChangePasswordForm() {
-  const [state, action, pending] = useActionState(changePasswordAction, initial);
+  const { state, onSubmit, pending } = useConfirmedAction(changePasswordAction, initial, {
+    confirm: {
+      title: "Update password",
+      message: "Change your account password?",
+      confirmLabel: "Yes, update",
+    },
+    successMessage: "Password updated.",
+  });
 
   return (
-    <form action={action} className="flex max-w-sm flex-col gap-4" aria-label="Change password">
+    <form onSubmit={onSubmit} className="flex max-w-sm flex-col gap-4" aria-label="Change password">
       {state.error ? (
         <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">
           {state.error}

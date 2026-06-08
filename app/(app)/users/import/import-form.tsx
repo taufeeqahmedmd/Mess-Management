@@ -1,17 +1,50 @@
 "use client";
 
-import { useActionState } from "react";
+import { useActionState, useEffect, useRef, useTransition } from "react";
+import { useConfirm } from "@/components/ui/confirm";
+import { useToast } from "@/components/ui/toast";
 import { importUsersAction, type ImportReport } from "./actions";
 
 const initial: ImportReport = {};
 
 export function ImportForm() {
-  const [state, action, pending] = useActionState(importUsersAction, initial);
+  const [state, dispatch, actionPending] = useActionState(importUsersAction, initial);
+  const confirm = useConfirm();
+  const toast = useToast();
+  const [transitionPending, startTransition] = useTransition();
+  const pending = actionPending || transitionPending;
   const done = state.total != null;
+  const lastState = useRef<ImportReport>(initial);
+
+  useEffect(() => {
+    if (state === lastState.current) return;
+    lastState.current = state;
+    if (state.error) {
+      toast.error(state.error);
+    } else if (state.total != null) {
+      const failed = state.failures?.length ?? 0;
+      toast.success(
+        `Imported ${state.created} of ${state.total} rows${failed ? `, ${failed} failed` : ""}.`,
+      );
+    }
+  }, [state, toast]);
+
+  async function onSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const ok = await confirm({
+      title: "Import cardholders",
+      message: "Import cardholders from the selected CSV file?",
+      confirmLabel: "Yes, import",
+    });
+    if (!ok) return;
+    const formData = new FormData(form);
+    startTransition(() => dispatch(formData));
+  }
 
   return (
     <div className="flex flex-col gap-5">
-      <form action={action} className="flex flex-col gap-4">
+      <form onSubmit={onSubmit} className="flex flex-col gap-4">
         <div className="flex flex-col gap-1.5">
           <label htmlFor="file" className="text-xs font-semibold text-ink-2">CSV file</label>
           <input

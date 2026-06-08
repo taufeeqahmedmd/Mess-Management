@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import { Fraunces, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
+import { Providers } from "@/components/providers";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -48,14 +49,22 @@ export const viewport: Viewport = {
   ],
 };
 
-// Set the theme before first paint to avoid a flash of the wrong theme.
+// Follow the OS colour scheme only (no manual toggle). Applied before first
+// paint to avoid a flash, and kept in sync if the system preference changes.
 const themeInit = `
 (function () {
   try {
-    var t = localStorage.getItem("theme");
-    if (t === "dark" || (!t && window.matchMedia("(prefers-color-scheme: dark)").matches)) {
-      document.documentElement.setAttribute("data-theme", "dark");
-    }
+    var mq = window.matchMedia("(prefers-color-scheme: dark)");
+    var apply = function () {
+      if (mq.matches) {
+        document.documentElement.setAttribute("data-theme", "dark");
+      } else {
+        document.documentElement.removeAttribute("data-theme");
+      }
+    };
+    apply();
+    if (mq.addEventListener) mq.addEventListener("change", apply);
+    else if (mq.addListener) mq.addListener(apply);
   } catch (e) {}
 })();
 `;
@@ -72,7 +81,9 @@ export default function RootLayout({
       <head>
         <script dangerouslySetInnerHTML={{ __html: themeInit }} />
       </head>
-      <body className="font-body bg-canvas text-ink antialiased">{children}</body>
+      <body className="font-body bg-canvas text-ink antialiased">
+        <Providers>{children}</Providers>
+      </body>
     </html>
   );
 }

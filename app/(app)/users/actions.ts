@@ -139,7 +139,7 @@ export async function createUserAction(
   }
 
   revalidatePath("/users");
-  redirect("/users");
+  redirect("/users?flash=created");
 }
 
 export async function updateUserAction(
@@ -195,7 +195,7 @@ export async function updateUserAction(
   }
 
   revalidatePath("/users");
-  redirect("/users");
+  redirect("/users?flash=updated");
 }
 
 export async function setUserStatusAction(formData: FormData): Promise<void> {

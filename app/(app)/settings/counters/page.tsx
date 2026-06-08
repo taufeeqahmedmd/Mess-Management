@@ -3,6 +3,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { setCounterStatusAction } from "./actions";
 
 export default async function CountersPage() {
@@ -53,13 +54,20 @@ export default async function CountersPage() {
                   <td className="px-4 py-3">
                     <div className="flex items-center justify-end gap-2">
                       <Link href={`/settings/counters/${c.id}/edit`} className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-gold-deep transition-colors hover:bg-gold/10">Edit</Link>
-                      <form action={setCounterStatusAction}>
-                        <input type="hidden" name="id" value={c.id.toString()} />
-                        <input type="hidden" name="status" value={c.status === "active" ? "inactive" : "active"} />
-                        <button type="submit" className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep">
-                          {c.status === "active" ? "Deactivate" : "Activate"}
-                        </button>
-                      </form>
+                      <ConfirmActionForm
+                        action={setCounterStatusAction}
+                        fields={{ id: c.id.toString(), status: c.status === "active" ? "inactive" : "active" }}
+                        confirm={{
+                          title: c.status === "active" ? "Deactivate counter" : "Activate counter",
+                          message: `${c.status === "active" ? "Deactivate" : "Activate"} “${c.name}”?`,
+                          confirmLabel: "Yes",
+                          tone: c.status === "active" ? "danger" : "default",
+                        }}
+                        successMessage={c.status === "active" ? "Counter deactivated." : "Counter activated."}
+                        buttonClassName="rounded-sm px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep disabled:opacity-60"
+                      >
+                        {c.status === "active" ? "Deactivate" : "Activate"}
+                      </ConfirmActionForm>
                     </div>
                   </td>
                 </tr>

@@ -84,7 +84,7 @@ export async function createStaffAction(
   }
 
   revalidatePath("/settings/staff");
-  redirect("/settings/staff");
+  redirect("/settings/staff?flash=created");
 }
 
 export async function updateStaffAction(
@@ -144,7 +144,7 @@ export async function updateStaffAction(
   }
 
   revalidatePath("/settings/staff");
-  redirect("/settings/staff");
+  redirect("/settings/staff?flash=updated");
 }
 
 export async function setStaffStatusAction(formData: FormData): Promise<void> {

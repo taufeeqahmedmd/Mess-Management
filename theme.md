@@ -345,7 +345,9 @@ primary button `class="bg-gold hover:bg-gold-deep text-white rounded-sm shadow-g
 
 ## 9. Dark variant (parity)
 
-For users/screens that need dark, keep the warm hue family but invert surfaces. Apply under
+Dark is **driven by the OS only** (`prefers-color-scheme`) — there is no manual theme toggle. The
+inline script in `app/layout.tsx` sets/removes `[data-theme="dark"]` before first paint and keeps
+it in sync if the system preference changes. Keep the warm hue family but invert surfaces under
 `[data-theme="dark"]`:
 
 ```css
@@ -373,7 +375,7 @@ For users/screens that need dark, keep the warm hue family but invert surfaces. 
 ```
 
 > The existing dark lime theme in [`base-theme.css`](base-theme.css) is a separate, older
-> direction. If both ship, gate them behind a theme switch; this warm system is the default.
+> direction. This warm system is the default; light vs. dark follows the OS, not a user switch.
 
 ---
 

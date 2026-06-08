@@ -26,7 +26,26 @@ truth is [theme.md](../../theme.md) ("Warm Cafeteria" design system). Read it be
 - Reuse the documented component patterns (stat cards `--sage`/`--gold`/plain, pill buttons,
   chips/badges, status dots, `.input--rfid`). Build a thin shared component layer rather than
   re-styling per page.
-- Support **light (default) and dark** via `[data-theme="dark"]`. Theme toggle in the app shell.
+- **Follow the system colour scheme only.** Light and dark are both supported via
+  `[data-theme="dark"]`, but the active theme is driven entirely by the OS `prefers-color-scheme`
+  (applied pre-paint and kept live in `app/layout.tsx`). **No manual theme toggle** — don't
+  reintroduce one.
+
+## Confirmation & feedback (enforced)
+
+- **Every change is confirmed before it is committed.** Any UI that mutates server data
+  (form submit, status toggle, block/activate, card issue/replace, sign out) must gate the write
+  behind the shared confirm dialog — the change happens only on confirm, otherwise nothing
+  changes. Use the shared helpers, don't hand-roll dialogs:
+  - `useConfirmedAction(action, initial, { confirm, successMessage })` for `useActionState` forms
+    (`components/ui/use-confirmed-action.ts`).
+  - `<ConfirmActionForm>` for inline single-button server-action forms in list pages
+    (`components/ui/confirm-action-form.tsx`).
+  - `useConfirm()` directly for bespoke flows (`components/ui/confirm.tsx`).
+- **Every change surfaces a toast.** Use `useToast()` (`components/ui/toast.tsx`). Errors and
+  non-redirecting successes toast inline; redirecting create/edit actions append `?flash=<code>`
+  and the shell's `<FlashToast>` raises the toast on the destination. Toasts complement, not
+  replace, inline field/`role="alert"` validation.
 
 ## Accessibility (enforced — see theme.md §8)
 

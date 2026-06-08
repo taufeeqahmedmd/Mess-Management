@@ -1,7 +1,16 @@
 "use client";
 
-import { useActionState, useMemo, useState } from "react";
+import {
+  useActionState,
+  useEffect,
+  useMemo,
+  useRef,
+  useState,
+  useTransition,
+} from "react";
 import { ACCESS_SCREENS } from "@/lib/access-control";
+import { useConfirm } from "@/components/ui/confirm";
+import { useToast } from "@/components/ui/toast";
 import { saveAccessControlAction, type SaveRoleState } from "./actions";
 
 type RoleData = { id: string; name: string; permissions: string[] };
@@ -18,7 +27,27 @@ function sig(set: Set<string>) {
 }
 
 export function AccessControlGrid({ roles }: { roles: RoleData[] }) {
-  const [state, action, pending] = useActionState(saveAccessControlAction, initial);
+  const [state, dispatch, actionPending] = useActionState(saveAccessControlAction, initial);
+  const confirm = useConfirm();
+  const toast = useToast();
+  const [transitionPending, startTransition] = useTransition();
+  const pending = actionPending || transitionPending;
+  const lastState = useRef<SaveRoleState>(initial);
+
+  // Surface the save outcome as a toast (in addition to the inline banner).
+  useEffect(() => {
+    if (state === lastState.current) return;
+    lastState.current = state;
+    if (state.error) {
+      toast.error(state.error);
+    } else if (state.success) {
+      toast.success(
+        state.savedRoles && state.savedRoles.length
+          ? `Permissions saved for ${state.savedRoles.join(", ")}.`
+          : "No changes to save.",
+      );
+    }
+  }, [state, toast]);
 
   // Per-role checked permission codes. The baseline (server truth) is kept
   // separately so we can dirty-check and reset.
@@ -68,13 +97,28 @@ export function AccessControlGrid({ roles }: { roles: RoleData[] }) {
     setCheckedByRole(Object.fromEntries(roles.map((r) => [r.id, new Set(r.permissions)])));
   }
 
+  async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const ok = await confirm({
+      title: "Save permission changes",
+      message: dirtyRoles.length
+        ? `Apply permission changes to ${dirtyRoles.map((r) => r.name).join(", ")}?`
+        : "Save permission changes?",
+      confirmLabel: "Yes, save",
+    });
+    if (!ok) return;
+    const formData = new FormData(form);
+    startTransition(() => dispatch(formData));
+  }
+
   const allCodes = useMemo(
     () => ACCESS_SCREENS.flatMap((s) => s.actions.map((a) => a.permission)),
     [],
   );
 
   return (
-    <form action={action} className="flex flex-col gap-4">
+    <form onSubmit={handleSubmit} className="flex flex-col gap-4">
       <input type="hidden" name="payload" value={payload} />
 
       {state.error ? (
@@ -257,7 +301,7 @@ function RowGroup({
                   className={cx(
                     "inline-flex h-7 w-7 cursor-pointer items-center justify-center rounded-full border transition-colors has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-gold/30",
                     on
-                      ? "border-sage bg-sage-soft text-sage-deep"
+                      ? "border-sage bg-sage-deep text-white"
                       : "border-line-strong bg-surface-2 text-muted hover:border-sage/50",
                     locked && "cursor-not-allowed opacity-80",
                   )}

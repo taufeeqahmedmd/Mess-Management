@@ -60,7 +60,7 @@ export async function createCounterAction(
   }
 
   revalidatePath("/settings/counters");
-  redirect("/settings/counters");
+  redirect("/settings/counters?flash=created");
 }
 
 export async function updateCounterAction(
@@ -92,7 +92,7 @@ export async function updateCounterAction(
   }
 
   revalidatePath("/settings/counters");
-  redirect("/settings/counters");
+  redirect("/settings/counters?flash=updated");
 }
 
 export async function setCounterStatusAction(formData: FormData): Promise<void> {
