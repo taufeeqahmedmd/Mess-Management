@@ -27,6 +27,7 @@ export function AppShell({
   const isDesktop = useMediaQuery("(min-width: 768px)");
   const [railExpanded, setRailExpanded] = useState(true);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const canSearch = isSuperAdmin || permissions.includes("users.view");
 
   function handleMenuClick() {
     if (isDesktop) {
@@ -41,7 +42,7 @@ export function AppShell({
       <Suspense fallback={null}>
         <FlashToast />
       </Suspense>
-      <AppNavbar onMenuClick={handleMenuClick} user={user} />
+      <AppNavbar onMenuClick={handleMenuClick} user={user} canSearch={canSearch} />
 
       <div className="flex min-h-0 flex-1">
         <AppSidebar

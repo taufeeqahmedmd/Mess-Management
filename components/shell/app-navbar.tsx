@@ -10,14 +10,18 @@ import type { ShellUser } from "./app-shell";
 /**
  * Top app bar (YouTube-style): menu button + logo/title on the left, a centered
  * search field, notifications + profile on the right. Sticky, full-width.
- * Search is presentational for Phase 0 (wiring lands with the data layer).
+ * The search submits to the branch-scoped cardholder directory (/users?q=…),
+ * matching name / ID / phone / email / card UID. Only shown to staff who can
+ * view cardholders; hidden on phones (the rail's Cardholders link is one tap).
  */
 export function AppNavbar({
   onMenuClick,
   user,
+  canSearch = false,
 }: {
   onMenuClick: () => void;
   user: ShellUser;
+  canSearch?: boolean;
 }) {
   return (
     <header className="sticky top-0 z-30 flex h-14 items-center gap-2 border-b border-line bg-surface px-3 sm:px-4">
@@ -52,24 +56,30 @@ export function AppNavbar({
         </Link>
       </div>
 
-      {/* Center: search (hidden on phones — presentational until wired; keeps the
-          flex-1 spacer so the right cluster stays pinned to the edge) */}
+      {/* Center: search → cardholder directory. Hidden on phones; the flex-1
+          spacer keeps the right cluster pinned even when the form isn't shown. */}
       <div className="flex min-w-0 flex-1 justify-center px-2">
-        <form
-          role="search"
-          className="hidden w-full max-w-xl items-center gap-2 rounded-pill border border-line-strong bg-surface-2 px-4 py-2 focus-within:border-gold focus-within:ring-3 focus-within:ring-gold/15 sm:flex"
-        >
-          <Icon name="search" className="size-[18px] shrink-0 text-muted" />
-          <label htmlFor="global-search" className="sr-only">
-            Search cardholders, cards, transactions
-          </label>
-          <input
-            id="global-search"
-            type="search"
-            placeholder="Search cardholders, cards, transactions…"
-            className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-muted focus:outline-none"
-          />
-        </form>
+        {canSearch ? (
+          <form
+            role="search"
+            method="get"
+            action="/users"
+            className="hidden w-full max-w-xl items-center gap-2 rounded-pill border border-line-strong bg-surface-2 px-4 py-2 focus-within:border-gold focus-within:ring-3 focus-within:ring-gold/15 sm:flex"
+          >
+            <Icon name="search" className="size-[18px] shrink-0 text-muted" />
+            <label htmlFor="global-search" className="sr-only">
+              Search cardholders by name, ID, phone, or card
+            </label>
+            <input
+              id="global-search"
+              name="q"
+              type="search"
+              enterKeyHint="search"
+              placeholder="Search cardholders — name, ID, phone, card…"
+              className="min-w-0 flex-1 bg-transparent text-sm text-ink placeholder:text-muted focus:outline-none"
+            />
+          </form>
+        ) : null}
       </div>
 
       {/* Right: notifications + profile */}
