@@ -9,6 +9,7 @@ import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
 import { applyRecharge, reverseRechargeRemaining } from "@/services/recharge-ledger";
 import { validateRechargeInput } from "@/services/recharge";
+import { expireRecharges, expireUserValidities } from "@/services/expiry";
 
 export type RechargeFormState = { error?: string };
 
@@ -208,4 +209,24 @@ export async function reverseRechargeAction(formData: FormData): Promise<void> {
 
   revalidatePath("/recharge");
   revalidatePath(`/users/${recharge.userId}`);
+}
+
+export type ExpiryState = { error?: string; success?: boolean; message?: string };
+
+/** Manual expiry sweep: claw back expired recharges + zero expired validities. */
+export async function runExpiryAction(): Promise<ExpiryState> {
+  const actor = await requirePermission("recharge.edit");
+  const recharges = await expireRecharges(prisma);
+  const validities = await expireUserValidities(prisma);
+  await writeAudit({
+    appUserId: BigInt(actor.id),
+    action: "expiry.run",
+    entity: "system",
+    after: { recharges, validities },
+  });
+  revalidatePath("/recharge");
+  return {
+    success: true,
+    message: `Expired ${recharges} recharge(s) and ${validities} validit${validities === 1 ? "y" : "ies"}.`,
+  };
 }

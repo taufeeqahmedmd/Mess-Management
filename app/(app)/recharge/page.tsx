@@ -6,6 +6,7 @@ import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { reverseRechargeAction } from "./actions";
+import { ExpirySweepButton } from "./expiry-button";
 
 const PAGE_SIZE = 20;
 
@@ -68,9 +69,12 @@ export default async function RechargePage({
 
   return (
     <div className="flex w-full flex-col gap-6 px-5 py-5 sm:px-8 sm:py-6">
-      <div>
-        <h1 className="font-display text-2xl font-semibold text-ink">Recharge</h1>
-        <p className="mt-1 text-sm text-ink-2">Top up a cardholder&rsquo;s wallet or grant meal coupons.</p>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <div>
+          <h1 className="font-display text-2xl font-semibold text-ink">Recharge</h1>
+          <p className="mt-1 text-sm text-ink-2">Top up a cardholder&rsquo;s wallet or grant meal coupons.</p>
+        </div>
+        {canEdit ? <ExpirySweepButton /> : null}
       </div>
 
       {canCreate ? (
