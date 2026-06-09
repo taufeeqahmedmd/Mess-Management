@@ -88,15 +88,30 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
       void syncQueue();
     };
     const goOffline = () => setOnline(false);
+    // Re-grab focus whenever the window/tab regains it, so the reader is always live.
+    const onFocus = () => inputRef.current?.focus();
     window.addEventListener("click", refocus);
+    window.addEventListener("focus", onFocus);
     window.addEventListener("online", goOnline);
     window.addEventListener("offline", goOffline);
     return () => {
       window.removeEventListener("click", refocus);
+      window.removeEventListener("focus", onFocus);
       window.removeEventListener("online", goOnline);
       window.removeEventListener("offline", goOffline);
     };
   }, []);
+
+  // After a result is shown, auto-reset to the "Tap a card" state after 5s and
+  // re-arm the reader. Each new tap restarts the timer.
+  useEffect(() => {
+    if (!result) return;
+    const t = setTimeout(() => {
+      setResult(null);
+      inputRef.current?.focus();
+    }, 2000);
+    return () => clearTimeout(t);
+  }, [result]);
 
   function beep(kind: "ok" | "bad" | "queued") {
     try {
@@ -410,17 +425,19 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
             )}
           </div>
 
+          {/* Hidden capture field — the USB reader types the card number here while
+              it stays focused, so the operator never clicks: just tap. Kept in the
+              DOM (visually hidden, not display:none) so it can hold focus. */}
           <input
             ref={inputRef}
             value={scan}
             onChange={(e) => setScan(e.target.value)}
             onKeyDown={onScanKeyDown}
             disabled={busy}
-            inputMode="text"
+            inputMode="none"
             autoComplete="off"
             aria-label="Card scan"
-            placeholder={busy ? "Reading…" : "Scan or type a card / ID, then Enter"}
-            className="w-full rounded-md border border-line-strong bg-surface px-4 py-4 text-center font-mono text-xl tracking-[0.1em] text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
+            className="sr-only"
           />
         </section>
 
