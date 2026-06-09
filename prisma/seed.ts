@@ -201,10 +201,13 @@ async function main() {
   }
 
   // --- Counters + operator assignment (Mess Incharge operates all) ---
+  // Each counter serves a subset of meals, each with its own window (one counter
+  // can perform multiple meals). Windows default to the meal's window here.
+  const mealWindow = Object.fromEntries(meals.map((m) => [m.code, { start: m.startTime, end: m.endTime }]));
   const counterDefs = [
-    { code: "C1", name: "Counter 1 (Main)" },
-    { code: "C2", name: "Counter 2 (Annex)" },
-    { code: "C3", name: "Counter 3 (Block A)" },
+    { code: "C1", name: "Counter 1 (Main)", meals: ["BRK", "LUN", "SNK", "DIN"] },
+    { code: "C2", name: "Counter 2 (Annex)", meals: ["BRK", "LUN"] },
+    { code: "C3", name: "Counter 3 (Block A)", meals: ["LUN", "DIN"] },
   ];
   for (const cd of counterDefs) {
     const counter = await prisma.counter.upsert({
@@ -219,6 +222,14 @@ async function main() {
       update: {},
       create: { counterId: counter.id, appUserId: messInchargeId },
     });
+    for (const mc of cd.meals) {
+      const w = mealWindow[mc];
+      await prisma.counterMeal.upsert({
+        where: { counterId_mealTypeId: { counterId: counter.id, mealTypeId: mealId[mc] } },
+        update: {},
+        create: { counterId: counter.id, mealTypeId: mealId[mc], startTime: w.start, endTime: w.end },
+      });
+    }
   }
 
   // --- Default settings (global). Per-category consumption config (model /

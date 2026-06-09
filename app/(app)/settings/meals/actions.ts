@@ -9,6 +9,7 @@ import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
 
 export type MealFormState = { error?: string };
+export type MealCountersState = { error?: string; success?: boolean };
 
 const time = z
   .string()
@@ -97,6 +98,68 @@ export async function updateMealAction(
 
   revalidatePath("/settings/meals");
   redirect("/settings/meals?flash=updated");
+}
+
+/**
+ * Assign which counters serve a meal, each with its own [start, end) window
+ * (settings/meals → "Counters & service windows"). Branch-scoped: only counters
+ * in the actor's branch are touched. Replaces the meal's assignments among those
+ * counters atomically (delete + recreate the checked set).
+ */
+export async function assignMealCountersAction(
+  _prev: MealCountersState,
+  formData: FormData,
+): Promise<MealCountersState> {
+  const actor = await requirePermission("meals.manage");
+
+  let mealTypeId: bigint;
+  try {
+    mealTypeId = BigInt(String(formData.get("mealId") ?? ""));
+  } catch {
+    return { error: "Invalid meal." };
+  }
+  const meal = await prisma.mealType.findUnique({ where: { id: mealTypeId } });
+  if (!meal) return { error: "Meal not found." };
+
+  const counters = await prisma.counter.findMany({
+    where: {
+      status: "active",
+      deletedAt: null,
+      ...(actor.branchId ? { branchId: BigInt(actor.branchId) } : {}),
+    },
+    select: { id: true },
+  });
+  const scopedIds = counters.map((c) => c.id);
+
+  const rows: Array<{ counterId: bigint; mealTypeId: bigint; startTime: string; endTime: string; active: boolean }> = [];
+  for (const c of counters) {
+    if (formData.get(`counter_${c.id}`) !== "on") continue;
+    const start = String(formData.get(`start_${c.id}`) ?? "").trim();
+    const end = String(formData.get(`end_${c.id}`) ?? "").trim();
+    if (!time.safeParse(start).success || !time.safeParse(end).success) {
+      return { error: "Each selected counter needs a valid HH:MM start and end time." };
+    }
+    rows.push({ counterId: c.id, mealTypeId, startTime: start, endTime: end, active: true });
+  }
+
+  await prisma.$transaction(async (tx) => {
+    await tx.counterMeal.deleteMany({ where: { mealTypeId, counterId: { in: scopedIds } } });
+    if (rows.length) await tx.counterMeal.createMany({ data: rows });
+    await writeAudit(
+      {
+        appUserId: BigInt(actor.id),
+        action: "meal.counters",
+        entity: "meal_type",
+        entityId: mealTypeId,
+        after: { counters: rows.map((r) => ({ counterId: r.counterId.toString(), startTime: r.startTime, endTime: r.endTime })) },
+      },
+      tx,
+    );
+  });
+
+  revalidatePath(`/settings/meals/${mealTypeId}/edit`);
+  revalidatePath("/settings/meals");
+  return { success: true };
 }
 
 export async function setMealActiveAction(formData: FormData): Promise<void> {

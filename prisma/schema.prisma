@@ -283,11 +283,35 @@ model Counter {
 
   branch      Branch            @relation(fields: [branchId], references: [id])
   operators   CounterOperator[]
+  meals       CounterMeal[]
   recharges   Recharge[]
   redemptions Redemption[]
 
   @@unique([branchId, code])
   @@map("counters")
+}
+
+// A meal a counter serves, with its own service window (one counter can serve
+// several meals — breakfast, lunch, …). These per-counter windows override the
+// meal's default window for taps at this counter; the tap engine resolves the
+// active meal for the tap's counter (services/counter-meals.ts windowsForCounter,
+// with a fallback to the global meal windows when a counter has no rows).
+model CounterMeal {
+  id         BigInt   @id @default(autoincrement())
+  counterId  BigInt   @map("counter_id")
+  mealTypeId BigInt   @map("meal_type_id")
+  startTime  String   @default("00:00") @map("start_time") @db.VarChar(5) // "HH:MM"; overnight handled in service
+  endTime    String   @default("00:00") @map("end_time") @db.VarChar(5)
+  active     Boolean  @default(true)
+  createdAt  DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt  DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  counter  Counter  @relation(fields: [counterId], references: [id], onDelete: Cascade)
+  mealType MealType @relation(fields: [mealTypeId], references: [id])
+
+  @@unique([counterId, mealTypeId])
+  @@index([mealTypeId])
+  @@map("counter_meals")
 }
 
 model CounterOperator {
@@ -429,6 +453,7 @@ model MealType {
   rechargeCoupons RechargeCoupon[]
   redemptions     Redemption[]
   couponTxns      CouponTransaction[]
+  counterMeals    CounterMeal[]
 
   @@map("meal_types")
 }
