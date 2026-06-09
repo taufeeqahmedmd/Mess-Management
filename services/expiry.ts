@@ -71,10 +71,18 @@ export async function expireUserValidityInTx(
   await tx.user.update({ where: { id: userId }, data: { validityExpired: true } });
 }
 
-/** Claw back the remaining of every posted recharge past its validTill; mark expired. */
-export async function expireRecharges(client: PrismaClient): Promise<number> {
+/**
+ * Claw back the remaining of every posted recharge past its validTill; mark
+ * expired. `branchId` scopes the sweep to one branch (the cardholder's); pass
+ * null for an all-branch (Super Admin) sweep.
+ */
+export async function expireRecharges(client: PrismaClient, branchId: bigint | null = null): Promise<number> {
   const due = await client.recharge.findMany({
-    where: { status: "posted", validTill: { not: null, lt: todayUtc() } },
+    where: {
+      status: "posted",
+      validTill: { not: null, lt: todayUtc() },
+      ...(branchId !== null ? { user: { branchId } } : {}),
+    },
     select: { id: true },
   });
   let count = 0;
@@ -85,10 +93,17 @@ export async function expireRecharges(client: PrismaClient): Promise<number> {
   return count;
 }
 
-/** Zero wallet + coupons for every cardholder past their cardExpiryDate. */
-export async function expireUserValidities(client: PrismaClient): Promise<number> {
+/**
+ * Zero wallet + coupons for every cardholder past their cardExpiryDate.
+ * `branchId` scopes the sweep to one branch; pass null for an all-branch sweep.
+ */
+export async function expireUserValidities(client: PrismaClient, branchId: bigint | null = null): Promise<number> {
   const due = await client.user.findMany({
-    where: { validityExpired: false, cardExpiryDate: { not: null, lt: todayUtc() } },
+    where: {
+      validityExpired: false,
+      cardExpiryDate: { not: null, lt: todayUtc() },
+      ...(branchId !== null ? { branchId } : {}),
+    },
     select: { id: true },
   });
   for (const u of due) {

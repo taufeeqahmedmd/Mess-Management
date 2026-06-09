@@ -26,8 +26,24 @@ function parse(formData: FormData) {
   };
 }
 
-async function resolveBranchId(actor: Actor): Promise<bigint> {
+/**
+ * Resolve which branch a new counter belongs to. A scoped actor is pinned to
+ * their own branch. An all-branch (Super Admin) actor may pass an explicit
+ * branchId (validated to exist) — only falling back to the first branch when
+ * none is supplied, so a counter isn't silently mis-filed under the wrong branch.
+ */
+async function resolveBranchId(actor: Actor, requestedBranchId: string): Promise<bigint | null> {
   if (actor.branchId) return BigInt(actor.branchId);
+  if (requestedBranchId) {
+    let id: bigint;
+    try {
+      id = BigInt(requestedBranchId);
+    } catch {
+      return null;
+    }
+    const branch = await prisma.branch.findUnique({ where: { id }, select: { id: true } });
+    return branch ? branch.id : null;
+  }
   const b = await prisma.branch.findFirstOrThrow({ orderBy: { id: "asc" } });
   return b.id;
 }
@@ -40,7 +56,8 @@ export async function createCounterAction(
   const parsed = counterSchema.safeParse(parse(formData));
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const data = parsed.data;
-  const branchId = await resolveBranchId(actor);
+  const branchId = await resolveBranchId(actor, String(formData.get("branchId") ?? "").trim());
+  if (branchId === null) return { error: "Select a valid branch." };
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -75,6 +92,9 @@ export async function updateCounterAction(
 
   const before = await prisma.counter.findUnique({ where: { id } });
   if (!before) return { error: "Counter not found." };
+  if (actor.branchId && before.branchId.toString() !== actor.branchId) {
+    return { error: "Out of your branch scope." };
+  }
 
   try {
     await prisma.$transaction(async (tx) => {
@@ -102,6 +122,7 @@ export async function setCounterStatusAction(formData: FormData): Promise<void> 
 
   const before = await prisma.counter.findUnique({ where: { id } });
   if (!before) return;
+  if (actor.branchId && before.branchId.toString() !== actor.branchId) return; // out of scope
 
   await prisma.$transaction(async (tx) => {
     await tx.counter.update({ where: { id }, data: { status } });
@@ -123,6 +144,9 @@ export async function assignOperatorsAction(
 
   const counter = await prisma.counter.findUnique({ where: { id: counterId } });
   if (!counter) return { error: "Counter not found." };
+  if (actor.branchId && counter.branchId.toString() !== actor.branchId) {
+    return { error: "Out of your branch scope." };
+  }
 
   const requested = formData.getAll("operators").map((v) => {
     try {
@@ -133,8 +157,14 @@ export async function assignOperatorsAction(
   });
   const requestedIds = requested.filter((v): v is bigint => v !== null);
 
+  // Only staff in this counter's branch (or all-branch staff) may operate it —
+  // prevents attaching another branch's staff as operators.
   const validStaff = await prisma.appUser.findMany({
-    where: { id: { in: requestedIds }, deletedAt: null },
+    where: {
+      id: { in: requestedIds },
+      deletedAt: null,
+      OR: [{ branchId: counter.branchId }, { branchId: null }],
+    },
     select: { id: true },
   });
   const validIds = validStaff.map((s) => s.id);

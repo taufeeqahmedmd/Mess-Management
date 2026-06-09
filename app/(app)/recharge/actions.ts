@@ -1,11 +1,11 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { redirect } from "next/navigation";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
+import { readClientUuid } from "@/lib/idempotency";
 import { writeAudit } from "@/lib/audit";
 import { applyRecharge, reverseRechargeRemaining } from "@/services/recharge-ledger";
 import { validateRechargeInput } from "@/services/recharge";
@@ -30,6 +30,7 @@ export async function createRechargeAction(
   const paymentModeId = String(formData.get("paymentModeId") ?? "").trim();
   const validTillStr = String(formData.get("validTill") ?? "").trim();
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  const clientUuid = readClientUuid(formData);
 
   const coupons: { mealTypeId: string; count: number }[] = [];
   for (const [key, value] of formData.entries()) {
@@ -68,7 +69,7 @@ export async function createRechargeAction(
         counterId: null,
         appUserId: BigInt(actor.id),
         remarks,
-        clientUuid: randomUUID(),
+        clientUuid,
       });
       await writeAudit(
         {
@@ -117,6 +118,7 @@ export async function editRechargeAction(
   const paymentModeId = String(formData.get("paymentModeId") ?? "").trim();
   const validTillStr = String(formData.get("validTill") ?? "").trim();
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
+  const clientUuid = readClientUuid(formData);
 
   const coupons: { mealTypeId: string; count: number }[] = [];
   for (const [key, value] of formData.entries()) {
@@ -157,7 +159,7 @@ export async function editRechargeAction(
         counterId: null,
         appUserId: BigInt(actor.id),
         remarks,
-        clientUuid: randomUUID(),
+        clientUuid,
       });
       await writeAudit(
         {
@@ -213,16 +215,19 @@ export async function reverseRechargeAction(formData: FormData): Promise<void> {
 
 export type ExpiryState = { error?: string; success?: boolean; message?: string };
 
-/** Manual expiry sweep: claw back expired recharges + zero expired validities. */
+/** Manual expiry sweep: claw back expired recharges + zero expired validities.
+ *  Scoped to the actor's branch — a single-branch admin can't trigger expiry
+ *  (money + validity changes) across other branches. All-branch → every branch. */
 export async function runExpiryAction(): Promise<ExpiryState> {
   const actor = await requirePermission("recharge.edit");
-  const recharges = await expireRecharges(prisma);
-  const validities = await expireUserValidities(prisma);
+  const branchId = actor.branchId ? BigInt(actor.branchId) : null;
+  const recharges = await expireRecharges(prisma, branchId);
+  const validities = await expireUserValidities(prisma, branchId);
   await writeAudit({
     appUserId: BigInt(actor.id),
     action: "expiry.run",
     entity: "system",
-    after: { recharges, validities },
+    after: { recharges, validities, branchId: branchId?.toString() ?? "all" },
   });
   revalidatePath("/recharge");
   return {

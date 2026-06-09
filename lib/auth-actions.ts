@@ -1,7 +1,7 @@
 "use server";
 
 import { AuthError } from "next-auth";
-import { signIn, signOut } from "./auth";
+import { signIn, signOut, credentialsSchema } from "./auth";
 
 export type LoginState = { error?: string };
 
@@ -10,12 +10,15 @@ export async function loginAction(
   _prev: LoginState,
   formData: FormData,
 ): Promise<LoginState> {
-  const mobile = String(formData.get("mobile") ?? "").trim();
-  const password = String(formData.get("password") ?? "");
-
-  if (!mobile || !password) {
+  // Validate at the boundary with the same schema the provider re-checks server-side.
+  const parsed = credentialsSchema.safeParse({
+    mobile: formData.get("mobile"),
+    password: formData.get("password"),
+  });
+  if (!parsed.success) {
     return { error: "Enter your mobile number and password." };
   }
+  const { mobile, password } = parsed.data;
 
   try {
     await signIn("credentials", { mobile, password, redirectTo: "/dashboard" });
@@ -29,6 +32,11 @@ export async function loginAction(
   }
 }
 
+/**
+ * Clear the session WITHOUT redirecting. The redirect throws a NEXT_REDIRECT
+ * control-flow signal which a client try/catch would swallow; instead the caller
+ * (SignOutButton) navigates to /login after this resolves.
+ */
 export async function logoutAction(): Promise<void> {
-  await signOut({ redirectTo: "/login" });
+  await signOut({ redirect: false });
 }

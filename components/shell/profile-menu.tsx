@@ -4,9 +4,8 @@ import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "./icons";
 import { useDismiss } from "./hooks";
-import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { ThemeControl } from "./theme-control";
-import { logoutAction } from "@/lib/auth-actions";
+import { SignOutButton } from "./sign-out-button";
 import type { ShellUser } from "./app-shell";
 
 /**
@@ -68,19 +67,10 @@ export function ProfileMenu({ user }: { user: ShellUser }) {
           </div>
 
           <div className="p-1.5">
-            <ConfirmActionForm
-              action={logoutAction}
-              confirm={{
-                title: "Sign out",
-                message: "Sign out of your account?",
-                confirmLabel: "Sign out",
-                cancelLabel: "Stay signed in",
-              }}
-              buttonClassName="flex w-full items-center gap-3 rounded-sm px-3 py-2 text-sm text-ink-2 transition-colors hover:bg-tomato-soft hover:text-tomato disabled:opacity-60"
-            >
+            <SignOutButton className="flex w-full items-center gap-3 rounded-sm px-3 py-2 text-sm text-ink-2 transition-colors hover:bg-tomato-soft hover:text-tomato disabled:opacity-60">
               <Icon name="logout" className="size-[18px]" />
               Sign out
-            </ConfirmActionForm>
+            </SignOutButton>
           </div>
         </div>
       ) : null}

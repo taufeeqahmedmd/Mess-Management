@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useSyncExternalStore } from "react";
 import { Icon, type IconName } from "./icons";
 
 /**
@@ -8,6 +8,10 @@ import { Icon, type IconName } from "./icons";
  * choice is persisted in localStorage under `theme` and applied by flipping
  * `[data-theme="dark"]` on <html> — matching the pre-paint init script in
  * `app/layout.tsx`. Defaults to Light when no choice has been made.
+ *
+ * Backed by `useSyncExternalStore`: the server snapshot is always "light" (no
+ * hydration mismatch), and after hydration the real persisted value is read —
+ * without a setState-in-effect (which the React Compiler lint flags).
  */
 type Theme = "light" | "dark";
 
@@ -18,6 +22,27 @@ const OPTIONS: { value: Theme; label: string; icon: IconName }[] = [
   { value: "dark", label: "Dark", icon: "moon" },
 ];
 
+const listeners = new Set<() => void>();
+
+function subscribe(cb: () => void) {
+  listeners.add(cb);
+  return () => {
+    listeners.delete(cb);
+  };
+}
+
+function getSnapshot(): Theme {
+  try {
+    return localStorage.getItem(STORAGE_KEY) === "dark" ? "dark" : "light";
+  } catch {
+    return "light";
+  }
+}
+
+function getServerSnapshot(): Theme {
+  return "light";
+}
+
 function applyTheme(theme: Theme) {
   if (theme === "dark") {
     document.documentElement.setAttribute("data-theme", "dark");
@@ -27,28 +52,16 @@ function applyTheme(theme: Theme) {
 }
 
 export function ThemeControl() {
-  const [theme, setTheme] = useState<Theme>("light");
-
-  // Read the persisted choice after mount (avoids a hydration mismatch; the
-  // inline script has already applied it to the DOM before paint).
-  useEffect(() => {
-    let stored: string | null = null;
-    try {
-      stored = localStorage.getItem(STORAGE_KEY);
-    } catch {
-      /* localStorage unavailable — fall back to the default */
-    }
-    setTheme(stored === "dark" ? "dark" : "light");
-  }, []);
+  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   function select(next: Theme) {
-    setTheme(next);
     try {
       localStorage.setItem(STORAGE_KEY, next);
     } catch {
       /* ignore — still apply for this session */
     }
     applyTheme(next);
+    listeners.forEach((l) => l());
   }
 
   return (

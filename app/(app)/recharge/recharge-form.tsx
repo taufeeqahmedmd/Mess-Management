@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import type { RechargeFormState } from "./actions";
@@ -39,6 +40,10 @@ export function RechargeForm({
   initial?: RechargeInitial;
 }) {
   const isEdit = Boolean(rechargeId);
+  // Idempotency key generated once per form render: a double-submit (or a
+  // network retry) reuses it, so the UNIQUE client_uuid makes the second post a
+  // safe no-op instead of a double credit (database.md).
+  const [clientTxId] = useState(() => crypto.randomUUID());
   const { state, onSubmit, pending } = useConfirmedAction(action, initialState, {
     confirm: {
       title: isEdit ? "Confirm changes" : "Confirm recharge",
@@ -53,6 +58,7 @@ export function RechargeForm({
   return (
     <form onSubmit={onSubmit} className="flex max-w-xl flex-col gap-5">
       <input type="hidden" name="userId" value={userId} />
+      <input type="hidden" name="clientTxId" value={clientTxId} />
       {rechargeId ? <input type="hidden" name="rechargeId" value={rechargeId} /> : null}
 
       {state.error ? (
@@ -82,7 +88,7 @@ export function RechargeForm({
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
           {meals.map((m) => (
             <label key={m.id} className="flex flex-col gap-1">
-              <span className="text-xs text-muted">{m.name}</span>
+              <span className="text-xs text-ink-2">{m.name}</span>
               <input
                 name={`coupon_${m.id}`}
                 inputMode="numeric"

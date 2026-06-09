@@ -5,21 +5,14 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
+import { isMoney, rateRowsSchema } from "@/services/rates";
 
 export type RatesEditorState = { error?: string; success?: boolean };
-
-const MONEY = /^\d+(\.\d{1,2})?$/;
 
 function todayUtc(): Date {
   const n = new Date();
   return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
 }
-
-type IncomingRow = {
-  counterIds?: string[];
-  mealId?: string;
-  cells?: Record<string, { charge?: string; vendor?: string }>;
-};
 
 /**
  * Save the rates editor rows (settings/rates — one table). Each row is a meal
@@ -48,13 +41,17 @@ export async function saveRatesAction(
     return { error: "Invalid branch." };
   }
 
-  let rows: IncomingRow[];
+  let parsedJson: unknown;
   try {
-    const parsed = JSON.parse(String(formData.get("rows") ?? "[]"));
-    rows = Array.isArray(parsed) ? parsed : [];
+    parsedJson = JSON.parse(String(formData.get("rows") ?? "[]"));
   } catch {
     return { error: "Couldn't read the rate rows. Please try again." };
   }
+  const rowsResult = rateRowsSchema.safeParse(parsedJson);
+  if (!rowsResult.success) {
+    return { error: "Couldn't read the rate rows. Please try again." };
+  }
+  const rows = rowsResult.data;
 
   const [branchCounters, activeMeals, activeCategories] = await Promise.all([
     prisma.counter.findMany({ where: { branchId, status: "active", deletedAt: null }, select: { id: true } }),
@@ -86,7 +83,7 @@ export async function saveRatesAction(
       const vendor = String(cell?.vendor ?? "").trim();
       if (!charge && !vendor) continue;
       if (!charge || !vendor) return { error: "Each filled cell needs both a charge and a vendor amount." };
-      if (!MONEY.test(charge) || !MONEY.test(vendor)) return { error: "Amounts must be numbers with at most 2 decimals." };
+      if (!isMoney(charge) || !isMoney(vendor)) return { error: "Amounts must be numbers with at most 2 decimals." };
 
       const rate = new Prisma.Decimal(charge);
       const vendorRate = new Prisma.Decimal(vendor);
@@ -102,9 +99,32 @@ export async function saveRatesAction(
   }
 
   const today = todayUtc();
+  const yesterday = new Date(today);
+  yesterday.setUTCDate(yesterday.getUTCDate() - 1);
+
   await prisma.$transaction(async (tx) => {
-    // Replace the branch's current rates (defaults + counter-specific) with the rows.
-    await tx.mealRate.deleteMany({ where: { branchId, validTo: null } });
+    // Replace the branch's current rate set, preserving auditable history
+    // (db-schema.md: rates are date-versioned via valid_from/valid_to). Rows that
+    // were in effect on a prior day are CLOSED (valid_to = yesterday) so past
+    // redemptions remain re-derivable against the rate that applied then; rows
+    // created today carry no elapsed history and are simply replaced. After this
+    // there is exactly one current (valid_to = NULL) row per key — backed by the
+    // partial unique indexes in the meal_rates migration.
+    const current = await tx.mealRate.findMany({
+      where: { branchId, validTo: null },
+      select: { id: true, validFrom: true },
+    });
+    const priorDayIds: bigint[] = [];
+    const sameDayIds: bigint[] = [];
+    for (const r of current) {
+      (r.validFrom.getTime() < today.getTime() ? priorDayIds : sameDayIds).push(r.id);
+    }
+    if (priorDayIds.length > 0) {
+      await tx.mealRate.updateMany({ where: { id: { in: priorDayIds } }, data: { validTo: yesterday } });
+    }
+    if (sameDayIds.length > 0) {
+      await tx.mealRate.deleteMany({ where: { id: { in: sameDayIds } } });
+    }
     if (ops.length > 0) {
       await tx.mealRate.createMany({ data: ops.map((o) => ({ ...o, branchId, validFrom: today })) });
     }

@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
-import { activeMealNow, minutesOfDay, type MealWindow } from "./meal-window";
+import { activeMealNow, type MealWindow } from "./meal-window";
 import { expireUserValidityInTx } from "./expiry";
+import { localDateValue, localDayRange, minutesOfDayInZone } from "@/lib/time";
 
 /**
  * The tap (consumption) engine — plan.md §6.1, run inside one `$transaction`.
@@ -11,7 +12,39 @@ import { expireUserValidityInTx } from "./expiry";
  * cardholder has any ACTIVE recharge, consumption is earmarked to what those
  * recharges cover ("MEAL NOT RECHARGED"). On approve: a redemptions row + an
  * append-only DR ledger row + FIFO-decrement of recharge `remaining`.
+ *
+ * Concurrency (database.md "optimistic locking"): the cached balance row
+ * (wallet / coupon_balance) is debited with a version-guarded `updateMany`. If a
+ * concurrent tap bumped the version first, the guard matches 0 rows and the
+ * engine throws `TapConflictError`; the caller (`lib/run-tap`) retries the whole
+ * transaction. The retry re-reads fresh state, so it also re-evaluates the
+ * duplicate-window / once-per-session guards against the now-committed redemption
+ * — closing the read-then-write race on those checks without a DB trigger.
  */
+
+/** Thrown when an optimistic-lock guard loses a race; the caller retries. */
+export class TapConflictError extends Error {
+  constructor() {
+    super("Tap optimistic-lock conflict — retry");
+    this.name = "TapConflictError";
+  }
+}
+
+/** True for errors a tap transaction should retry: version conflicts, the
+ *  Postgres write-conflict/deadlock code, and a duplicate `client_uuid` (a
+ *  concurrent replay of the same tap — the retry returns the original result). */
+export function isRetryableTapError(e: unknown): boolean {
+  if (e instanceof TapConflictError) return true;
+  if (e instanceof Prisma.PrismaClientKnownRequestError) {
+    if (e.code === "P2034") return true; // write conflict / deadlock
+    if (e.code === "P2002") {
+      const target = e.meta?.target;
+      const fields = Array.isArray(target) ? target.join(",") : String(target ?? "");
+      return fields.includes("client_uuid");
+    }
+  }
+  return false;
+}
 
 export type TapStatus = "APPROVED" | "REJECTED" | "BLOCKED";
 
@@ -41,13 +74,12 @@ export type TapParams = {
   clientUuid: string;
   operatorId: bigint;
   at: Date;
+  /** Set to the sync instant when this tap is being replayed from the offline
+   *  queue; stamped on the redemption inside the same transaction. */
+  syncedAt?: Date | null;
 };
 
 const ZERO = new Prisma.Decimal(0);
-
-function startOfUtcDay(d: Date): Date {
-  return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate()));
-}
 
 type LoadedUser = Prisma.UserGetPayload<{ include: { category: true; wallet: true } }>;
 
@@ -67,8 +99,12 @@ export async function tapEngine(
   tx: Prisma.TransactionClient,
   p: TapParams,
 ): Promise<TapResult> {
-  const today = startOfUtcDay(p.at);
-  const nowMin = minutesOfDay(p.at);
+  // All date/time reasoning is in the branch-local timezone (lib/time): `today`
+  // (a UTC-midnight Date) compares against `@db.Date` columns; `dayStart/dayEnd`
+  // are instants for filtering `redeemed_at`; `nowMin` matches meal windows.
+  const today = localDateValue(p.at);
+  const { start: dayStart, end: dayEnd } = localDayRange(p.at);
+  const nowMin = minutesOfDayInZone(p.at);
 
   // 1. Idempotency — replay returns the original APPROVED result.
   const existing = await tx.redemption.findUnique({
@@ -154,11 +190,10 @@ export async function tapEngine(
     if (dup) return result("BLOCKED", "ALREADY UTILIZED", meal);
   }
 
-  // 9. Once per meal session (today).
+  // 9. Once per meal session (today, branch-local).
   if (restrictSession) {
-    const endDay = new Date(today.getTime() + 24 * 3600 * 1000);
     const sess = await tx.redemption.findFirst({
-      where: { userId: user.id, mealTypeId: mealId, status: "posted", redeemedAt: { gte: today, lt: endDay } },
+      where: { userId: user.id, mealTypeId: mealId, status: "posted", redeemedAt: { gte: dayStart, lt: dayEnd } },
     });
     if (sess) return result("BLOCKED", "SESSION USED", meal);
   }
@@ -186,8 +221,13 @@ export async function tapEngine(
   });
   const hasActiveRecharge = activeRecharges.length > 0;
 
-  // 12. Decide payment — coupon first, then wallet.
-  let decision: { paidBy: "coupon" | "wallet"; charged: Prisma.Decimal } | null = null;
+  // 12. Decide payment — coupon first, then wallet. The cached-balance row's
+  // `version` read here is carried into the commit's version-guarded update so a
+  // concurrent tap can't debit the same balance twice (database.md).
+  let decision:
+    | { paidBy: "coupon"; charged: Prisma.Decimal; version: number }
+    | { paidBy: "wallet"; charged: Prisma.Decimal; version: number }
+    | null = null;
   let lastReason = "INSUFFICIENT BALANCE";
 
   if (models.includes("coupon")) {
@@ -200,20 +240,45 @@ export async function tapEngine(
     });
     if (hasActiveRecharge && availableCoupons < 1) lastReason = "MEAL NOT RECHARGED";
     else if (!cb || cb.count < 1) lastReason = "INSUFFICIENT COUPON";
-    else decision = { paidBy: "coupon", charged: ZERO };
+    else decision = { paidBy: "coupon", charged: ZERO, version: cb.version };
   }
 
   if (!decision && models.includes("wallet")) {
     const availableAmount = activeRecharges.reduce<Prisma.Decimal>((s, r) => s.plus(r.remainingAmount), ZERO);
     const balance = user.wallet?.balanceAmount ?? ZERO;
     if (hasActiveRecharge && availableAmount.lt(price)) lastReason = "MEAL NOT RECHARGED";
-    else if (balance.lt(price)) lastReason = "INSUFFICIENT BALANCE";
-    else decision = { paidBy: "wallet", charged: price };
+    else if (!user.wallet || balance.lt(price)) lastReason = "INSUFFICIENT BALANCE";
+    else decision = { paidBy: "wallet", charged: price, version: user.wallet.version };
   }
 
   if (!decision) return result("REJECTED", lastReason, meal);
 
-  // 13. Commit: redemption + DR ledger row + FIFO decrement.
+  // 13. Commit: debit the cached balance under an optimistic-lock guard FIRST, so
+  // a lost race aborts before any ledger/redemption row is written, then post the
+  // redemption + append-only DR ledger row + FIFO decrement of recharge remainders.
+  let walletAfter = user.wallet?.balanceAmount ?? ZERO;
+  let couponAfter = 0;
+
+  if (decision.paidBy === "coupon") {
+    const upd = await tx.couponBalance.updateMany({
+      where: { userId: user.id, mealTypeId: mealId, version: decision.version, count: { gte: 1 } },
+      data: { count: { decrement: 1 }, version: { increment: 1 } },
+    });
+    if (upd.count !== 1) throw new TapConflictError();
+    const cb = await tx.couponBalance.findUnique({
+      where: { userId_mealTypeId: { userId: user.id, mealTypeId: mealId } },
+    });
+    couponAfter = cb?.count ?? 0;
+  } else {
+    const upd = await tx.wallet.updateMany({
+      where: { userId: user.id, version: decision.version, balanceAmount: { gte: price } },
+      data: { balanceAmount: { decrement: price }, version: { increment: 1 } },
+    });
+    if (upd.count !== 1) throw new TapConflictError();
+    const wallet = await tx.wallet.findUnique({ where: { userId: user.id } });
+    walletAfter = wallet?.balanceAmount ?? ZERO;
+  }
+
   const redemption = await tx.redemption.create({
     data: {
       clientUuid: p.clientUuid,
@@ -229,16 +294,11 @@ export async function tapEngine(
       appUserId: p.operatorId,
       status: "posted",
       redeemedAt: p.at,
+      syncedAt: p.syncedAt ?? null,
     },
   });
 
-  let walletAfter = user.wallet?.balanceAmount ?? ZERO;
-
   if (decision.paidBy === "coupon") {
-    const cb = await tx.couponBalance.update({
-      where: { userId_mealTypeId: { userId: user.id, mealTypeId: mealId } },
-      data: { count: { decrement: 1 }, version: { increment: 1 } },
-    });
     await tx.couponTransaction.create({
       data: {
         userId: user.id,
@@ -247,7 +307,7 @@ export async function tapEngine(
         sourceTable: "redemption",
         sourceId: redemption.id,
         count: 1,
-        balanceAfter: cb.count,
+        balanceAfter: couponAfter,
       },
     });
     // FIFO: decrement one active recharge's remaining coupon for this meal.
@@ -259,21 +319,16 @@ export async function tapEngine(
       }
     }
   } else {
-    const wallet = await tx.wallet.update({
-      where: { userId: user.id },
-      data: { balanceAmount: { decrement: price }, version: { increment: 1 } },
-    });
-    walletAfter = wallet.balanceAmount;
     await tx.walletTransaction.create({
       data: {
-        walletId: wallet.id,
+        walletId: user.wallet!.id,
         userId: user.id,
         txnType: "DR",
         sourceTable: "redemption",
         sourceId: redemption.id,
         amount: price,
-        balanceAfter: wallet.balanceAmount,
-        reference: "tap",
+        balanceAfter: walletAfter,
+        reference: p.syncedAt ? "tap (synced)" : "tap",
       },
     });
     // FIFO: consume `price` across active recharges' remainingAmount.

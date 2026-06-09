@@ -102,7 +102,7 @@ export function ConsumptionForm({ rows }: { rows: ConsumptionRow[] }) {
                   name={`restrict_${r.id}`}
                   defaultChecked={r.restrictMealSession}
                   aria-label={`${r.name} restrict to once per meal session`}
-                  className="size-4 accent-[var(--gold)]"
+                  className="size-4 accent-gold"
                 />
               </div>
             </div>

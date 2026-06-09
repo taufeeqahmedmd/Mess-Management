@@ -1,10 +1,10 @@
 "use server";
 
-import { randomUUID } from "node:crypto";
 import { revalidatePath } from "next/cache";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
+import { deterministicUuid } from "@/lib/idempotency";
 import { writeAudit } from "@/lib/audit";
 import { parseCsv } from "@/lib/csv";
 import { applyRecharge } from "@/services/recharge-ledger";
@@ -98,6 +98,16 @@ export async function importRechargesAction(
         if (Number.isNaN(validTill.getTime())) throw new Error("invalid validTill date (use YYYY-MM-DD)");
       }
 
+      // Deterministic per-row key: re-uploading the identical file is a safe
+      // no-op (UNIQUE client_uuid) rather than a double credit (database.md).
+      const couponSig = coupons
+        .map((c) => `${c.mealTypeId}:${c.count}`)
+        .sort()
+        .join("|");
+      const clientUuid = deterministicUuid(
+        `recharge-import:${code}:${amount}:${couponSig}:${validTillStr}:${rowNum}`,
+      );
+
       await prisma.$transaction((tx) =>
         applyRecharge(tx, {
           userId: user.id,
@@ -109,12 +119,16 @@ export async function importRechargesAction(
           counterId: null,
           appUserId: BigInt(actor.id),
           remarks: at(idx.remarks) || null,
-          clientUuid: randomUUID(),
+          clientUuid,
         }),
       );
       created++;
     } catch (e) {
-      failures.push({ row: rowNum, message: e instanceof Error ? e.message : "error" });
+      if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
+        failures.push({ row: rowNum, message: "already imported (duplicate row)" });
+      } else {
+        failures.push({ row: rowNum, message: e instanceof Error ? e.message : "error" });
+      }
     }
   }
 

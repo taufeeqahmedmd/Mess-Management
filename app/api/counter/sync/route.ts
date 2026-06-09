@@ -4,7 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { writeAudit } from "@/lib/audit";
-import { tapEngine } from "@/services/consumption";
+import { runTap } from "@/lib/run-tap";
 
 const schema = z.object({
   counterId: z.string(),
@@ -56,36 +56,54 @@ export async function POST(req: Request) {
     name?: string;
     charged?: string;
     meal?: string;
+    // True when an optimistically-accepted offline tap did NOT apply on replay
+    // (e.g. balance ran out) — the offline overspend the sync report must surface
+    // honestly (database.md: "flag negative reconciliations, don't hide them").
+    negativeReconciliation?: boolean;
   }> = [];
 
   for (const tap of parsed.data.taps) {
-    const parsedAt = new Date(tap.at);
-    const at = Number.isNaN(parsedAt.getTime()) ? new Date() : parsedAt;
-
-    const result = await prisma.$transaction((tx) =>
-      tapEngine(tx, {
-        cardUid: tap.cardUid,
-        counterId,
-        clientUuid: tap.clientTxId,
-        operatorId: BigInt(actor.id),
-        at,
-      }),
-    );
-
-    if (result.status === "APPROVED" && result.redemptionId) {
-      await prisma.redemption
-        .update({ where: { id: BigInt(result.redemptionId) }, data: { syncedAt: new Date() } })
-        .catch(() => {});
+    const at = new Date(tap.at);
+    // A queued tap without a valid original time can't be evaluated against the
+    // right meal window / rate / session — reject it honestly rather than charge
+    // it as if it happened now (which could apply the wrong meal's price).
+    if (Number.isNaN(at.getTime())) {
+      results.push({ clientTxId: tap.clientTxId, status: "REJECTED", reason: "BAD TIMESTAMP", negativeReconciliation: true });
+      continue;
     }
 
-    results.push({
-      clientTxId: tap.clientTxId,
-      status: result.status,
-      reason: result.reason,
-      name: result.cardholder?.name,
-      charged: result.charged,
-      meal: result.meal?.name,
-    });
+    try {
+      const result = await runTap(
+        {
+          cardUid: tap.cardUid,
+          counterId,
+          clientUuid: tap.clientTxId,
+          operatorId: BigInt(actor.id),
+          at,
+          syncedAt: new Date(),
+        },
+        { appUserId: BigInt(actor.id), counterId },
+      );
+
+      results.push({
+        clientTxId: tap.clientTxId,
+        status: result.status,
+        reason: result.reason,
+        name: result.cardholder?.name,
+        charged: result.charged,
+        meal: result.meal?.name,
+        // Anything other than APPROVED for a tap the operator already served is a
+        // negative reconciliation.
+        negativeReconciliation: result.status !== "APPROVED",
+      });
+    } catch {
+      // One tap failing (e.g. exhausted retries / transient DB error) must not
+      // abort the whole batch and rob the rest of their per-tap report. Report it
+      // and move on; runTap is idempotent, so this tap can be retried on the next
+      // sync without double-charging. Do NOT mark it negative — it's unresolved,
+      // not a confirmed overspend, and it stays queued client-side.
+      results.push({ clientTxId: tap.clientTxId, status: "ERROR", reason: "SYNC FAILED — will retry" });
+    }
   }
 
   const summary = {
@@ -93,6 +111,8 @@ export async function POST(req: Request) {
     approved: results.filter((r) => r.status === "APPROVED").length,
     rejected: results.filter((r) => r.status === "REJECTED").length,
     blocked: results.filter((r) => r.status === "BLOCKED").length,
+    errored: results.filter((r) => r.status === "ERROR").length,
+    negativeReconciliations: results.filter((r) => r.negativeReconciliation).length,
   };
   await writeAudit({
     appUserId: BigInt(actor.id),
