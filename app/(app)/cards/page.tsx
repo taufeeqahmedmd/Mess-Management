@@ -1,40 +1,54 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
+import { Prisma, type CardEventType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 
 const PAGE_SIZE = 25;
 
-function cardStatusDot(status: string) {
-  if (status === "active") return "bg-sage";
-  if (status === "blocked") return "bg-tomato";
-  return "bg-muted-2"; // lost / retired
-}
+// view → which card-event types to show. Default is the replacement log.
+const VIEWS: Record<string, { label: string; types?: CardEventType[] }> = {
+  replaced: { label: "Replacements", types: ["replace"] },
+  issued: { label: "Issued", types: ["issue"] },
+  all: { label: "All events" },
+};
 
-function fmtDate(d: Date | null) {
-  return d ? d.toISOString().slice(0, 10) : "—";
+const EVENT_META: Record<string, { label: string; dot: string }> = {
+  replace: { label: "Replaced", dot: "bg-gold" },
+  issue: { label: "Issued", dot: "bg-sage" },
+  activate: { label: "Activated", dot: "bg-sage" },
+  deactivate: { label: "Deactivated", dot: "bg-muted-2" },
+  lost: { label: "Lost", dot: "bg-tomato" },
+  retire: { label: "Retired", dot: "bg-muted-2" },
+};
+
+function fmtDateTime(d: Date) {
+  return d.toISOString().slice(0, 16).replace("T", " ");
 }
 
 export default async function CardsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; view?: string; page?: string }>;
 }) {
   const actor = await requireActor();
   if (!can(actor, "cards.view")) redirect("/dashboard");
 
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
+  const view = sp.view && VIEWS[sp.view] ? sp.view : "replaced";
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
 
-  const where: Prisma.RfidCardWhereInput = {
+  const types = VIEWS[view].types;
+  const where: Prisma.CardEventWhereInput = {
+    ...(types ? { type: { in: types } } : {}),
     ...(actor.branchId ? { user: { branchId: BigInt(actor.branchId) } } : {}),
     ...(q
       ? {
           OR: [
-            { cardUid: { contains: q, mode: "insensitive" } },
+            { oldUid: { contains: q, mode: "insensitive" } },
+            { newUid: { contains: q, mode: "insensitive" } },
             { user: { fullName: { contains: q, mode: "insensitive" } } },
             { user: { code: { contains: q, mode: "insensitive" } } },
           ],
@@ -42,29 +56,49 @@ export default async function CardsPage({
       : {}),
   };
 
-  const [cards, total] = await Promise.all([
-    prisma.rfidCard.findMany({
+  const [events, total] = await Promise.all([
+    prisma.cardEvent.findMany({
       where,
-      include: { user: { include: { category: true } } },
-      orderBy: [{ status: "asc" }, { id: "desc" }],
+      include: { user: { include: { category: true } }, appUser: true },
+      orderBy: { id: "desc" },
       skip: (page - 1) * PAGE_SIZE,
       take: PAGE_SIZE,
     }),
-    prisma.rfidCard.count({ where }),
+    prisma.cardEvent.count({ where }),
   ]);
   const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
-  const qs = (p: number) => `?${new URLSearchParams({ ...(q ? { q } : {}), page: String(p) })}`;
+  const qs = (extra: Record<string, string>) =>
+    `?${new URLSearchParams({ ...(q ? { q } : {}), view, ...extra })}`;
 
   return (
     <div className="flex w-full flex-col gap-6 px-5 py-5 sm:px-8 sm:py-6">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-ink">RFID Cards</h1>
+        <h1 className="font-display text-2xl font-semibold text-ink">Card History</h1>
         <p className="mt-1 text-sm text-ink-2">
-          {total} card{total === 1 ? "" : "s"}. Issue, replace, and block cards from a cardholder&rsquo;s page.
+          Replacements and lifecycle events for RFID cards. Issue, replace, or block a card from a
+          cardholder&rsquo;s page.
         </p>
       </div>
 
+      <div className="flex flex-wrap items-center gap-1.5">
+        {Object.entries(VIEWS).map(([key, v]) => {
+          const active = key === view;
+          return (
+            <Link
+              key={key}
+              href={`/cards?${new URLSearchParams({ ...(q ? { q } : {}), view: key })}`}
+              className={`rounded-pill px-3 py-1.5 text-sm font-medium transition-colors ${
+                active ? "bg-gold-soft text-ink" : "text-ink-2 hover:bg-gold/10 hover:text-gold-deep"
+              }`}
+            >
+              {v.label}
+            </Link>
+          );
+        })}
+      </div>
+
       <form method="get" className="flex max-w-md gap-2">
+        <input type="hidden" name="view" value={view} />
         <input
           name="q"
           defaultValue={q}
@@ -75,7 +109,7 @@ export default async function CardsPage({
           Search
         </button>
         {q ? (
-          <Link href="/cards" className="rounded-sm px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:text-ink-2">Clear</Link>
+          <Link href={`/cards?view=${view}`} className="rounded-sm px-3 py-2.5 text-sm font-medium text-muted transition-colors hover:text-ink-2">Clear</Link>
         ) : null}
       </form>
 
@@ -83,40 +117,50 @@ export default async function CardsPage({
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
-              <th className="px-4 py-3 font-semibold">Card UID</th>
+              <th className="px-4 py-3 font-semibold">When</th>
               <th className="px-4 py-3 font-semibold">Cardholder</th>
-              <th className="px-4 py-3 font-semibold">Category</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 font-semibold">Issued</th>
-              <th className="px-4 py-3 font-semibold">Expires</th>
-              <th className="px-4 py-3 text-right font-semibold">Manage</th>
+              <th className="px-4 py-3 font-semibold">Event</th>
+              <th className="px-4 py-3 font-semibold">Card change</th>
+              <th className="px-4 py-3 font-semibold">Reason</th>
+              <th className="px-4 py-3 font-semibold">By</th>
             </tr>
           </thead>
           <tbody>
-            {cards.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-ink-2">{q ? "No cards match your search." : "No cards issued yet."}</td></tr>
+            {events.length === 0 ? (
+              <tr>
+                <td colSpan={6} className="px-4 py-10 text-center text-ink-2">
+                  {q ? "No card events match your search." : `No ${VIEWS[view].label.toLowerCase()} yet.`}
+                </td>
+              </tr>
             ) : (
-              cards.map((c) => (
-                <tr key={c.id.toString()} className="border-t border-line">
-                  <td className="px-4 py-3 font-mono text-ink">{c.cardUid}</td>
-                  <td className="px-4 py-3">
-                    <Link href={`/users/${c.userId}`} className="text-ink transition-colors hover:text-gold-deep">{c.user.fullName}</Link>
-                    <span className="ml-1 font-mono text-xs text-muted">{c.user.code}</span>
-                  </td>
-                  <td className="px-4 py-3 text-ink-2">{c.user.category.name}</td>
-                  <td className="px-4 py-3">
-                    <span className="inline-flex items-center gap-1.5 text-ink-2">
-                      <span className={`size-2 rounded-pill ${cardStatusDot(c.status)}`} />
-                      {c.status[0].toUpperCase() + c.status.slice(1)}
-                    </span>
-                  </td>
-                  <td className="px-4 py-3 text-ink-2">{fmtDate(c.issuedAt)}</td>
-                  <td className="px-4 py-3 text-ink-2">{fmtDate(c.expiresOn)}</td>
-                  <td className="px-4 py-3 text-right">
-                    <Link href={`/users/${c.userId}`} className="rounded-sm px-2.5 py-1.5 text-xs font-medium text-gold-deep transition-colors hover:bg-gold/10">Manage</Link>
-                  </td>
-                </tr>
-              ))
+              events.map((e) => {
+                const meta = EVENT_META[e.type] ?? { label: e.type, dot: "bg-muted-2" };
+                return (
+                  <tr key={e.id.toString()} className="border-t border-line">
+                    <td className="px-4 py-3 font-mono text-xs text-ink-2">{fmtDateTime(e.createdAt)}</td>
+                    <td className="px-4 py-3">
+                      <Link href={`/users/${e.userId}`} className="text-ink transition-colors hover:text-gold-deep">
+                        {e.user.fullName}
+                      </Link>
+                      <span className="ml-1 font-mono text-xs text-muted">{e.user.code}</span>
+                    </td>
+                    <td className="px-4 py-3">
+                      <span className="inline-flex items-center gap-1.5 text-ink-2">
+                        <span className={`size-2 rounded-pill ${meta.dot}`} />
+                        {meta.label}
+                      </span>
+                    </td>
+                    <td className="px-4 py-3 font-mono text-xs">
+                      {e.oldUid ? <span className="text-muted line-through">{e.oldUid}</span> : null}
+                      {e.oldUid && e.newUid ? <span className="px-1 text-muted-2">→</span> : null}
+                      {e.newUid ? <span className="text-ink">{e.newUid}</span> : null}
+                      {!e.oldUid && !e.newUid ? <span className="text-muted-2">—</span> : null}
+                    </td>
+                    <td className="px-4 py-3 text-ink-2">{e.reason ?? "—"}</td>
+                    <td className="px-4 py-3 text-ink-2">{e.appUser?.name ?? "—"}</td>
+                  </tr>
+                );
+              })
             )}
           </tbody>
         </table>
@@ -126,8 +170,8 @@ export default async function CardsPage({
         <div className="flex items-center justify-between gap-3 text-sm">
           <span className="text-ink-2">Page {page} of {totalPages}</span>
           <div className="flex gap-2">
-            {page > 1 ? <Link href={qs(page - 1)} className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep">Previous</Link> : null}
-            {page < totalPages ? <Link href={qs(page + 1)} className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep">Next</Link> : null}
+            {page > 1 ? <Link href={qs({ page: String(page - 1) })} className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep">Previous</Link> : null}
+            {page < totalPages ? <Link href={qs({ page: String(page + 1) })} className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep">Next</Link> : null}
           </div>
         </div>
       ) : null}
