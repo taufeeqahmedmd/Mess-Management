@@ -22,16 +22,23 @@ No application code changes are required — production config is all env + infr
 ## 2. Install runtime
 
 ```bash
-# Node 20 LTS (Next 16 needs >=18.18; Prisma 6.5 runs fine on 20)
+# Node 20 LTS (Next 16 needs >=18.18; Prisma 6.5 runs fine on 20) + nginx, git,
+# and TLS tooling — all resolvable from the Ubuntu/nodesource repos.
 curl -fsSL https://deb.nodesource.com/setup_20.x | sudo -E bash -
-sudo apt-get install -y nodejs nginx git
+sudo apt-get install -y nodejs nginx git certbot python3-certbot-nginx
 
-# Docker + compose plugin
-sudo apt-get install -y docker.io docker-compose-plugin
-sudo usermod -aG docker ubuntu   # re-login for this to take effect
+# Docker Engine + compose plugin from Docker's OFFICIAL repo.
+# (Ubuntu's repos don't carry docker-compose-plugin, and `docker.io` ships no
+#  `docker compose` v2 on 22.04 — so add Docker's repo.)
+sudo install -m 0755 -d /etc/apt/keyrings
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg -o /etc/apt/keyrings/docker.asc
+sudo chmod a+r /etc/apt/keyrings/docker.asc
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.asc] https://download.docker.com/linux/ubuntu $(. /etc/os-release && echo $VERSION_CODENAME) stable" \
+  | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io docker-buildx-plugin docker-compose-plugin
 
-# TLS tooling (used in step 7, once DNS is live)
-sudo apt-get install -y certbot python3-certbot-nginx
+sudo usermod -aG docker ubuntu   # log out / back in for the group to apply
 ```
 
 ## 3. Get the code + env
@@ -81,19 +88,41 @@ journalctl -u mess -f                     # live logs
 
 ## 7. nginx + TLS
 
+nginx won't validate a `listen ... ssl` block until a certificate exists, and
+`certbot --nginx` can't run until nginx validates — a chicken-and-egg. So issue
+the cert with a temporary HTTP-only config first, then swap in the full TLS
+config (this preserves our custom `/sw.js` no-cache + forwarded-header blocks,
+which a certbot-generated block would not).
+
+First confirm DNS resolves to this instance: `dig +short <subdomain>`.
+
 ```bash
-sudo cp deploy/nginx.conf /etc/nginx/sites-available/mess
 sudo ln -s /etc/nginx/sites-available/mess /etc/nginx/sites-enabled/mess
-# edit server_name in the file to your real subdomain
+
+# 1) Temporary HTTP-only config so nginx validates + can serve the ACME challenge
+sudo tee /etc/nginx/sites-available/mess > /dev/null <<'EOF'
+server {
+    listen 80;
+    server_name mess.yourdomain.com;
+    location /.well-known/acme-challenge/ { root /var/www/html; }
+    location / { return 200 'ok'; }
+}
+EOF
 sudo nginx -t && sudo systemctl reload nginx
 
-# Once your subdomain's DNS A record points at this instance's public IP:
-sudo certbot --nginx -d mess.yourdomain.com
+# 2) Obtain the cert via webroot (does not modify the nginx config)
+sudo certbot certonly --webroot -w /var/www/html -d mess.yourdomain.com
+
+# 3) Install the real proxy config, then uncomment the two ssl_certificate
+#    lines in deploy/nginx.conf (pointing at /etc/letsencrypt/live/<domain>/)
+#    and set server_name to your subdomain before copying it in:
+sudo cp deploy/nginx.conf /etc/nginx/sites-available/mess
+sudo nginx -t && sudo systemctl reload nginx
 ```
 
-certbot installs the cert, fills in the `:443` ssl lines, and sets up
-auto-renewal. **HTTPS is mandatory** — the counter's offline service worker
-(`public/sw.js`) and Auth.js secure cookies will not work over plain HTTP.
+**HTTPS is mandatory** — the counter's offline service worker (`public/sw.js`)
+and Auth.js secure cookies will not work over plain HTTP. Renewal is automatic
+via `certbot.timer` (`systemctl status certbot.timer`).
 
 ## 8. Nightly backups
 
