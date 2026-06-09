@@ -284,6 +284,7 @@ model Counter {
   branch      Branch            @relation(fields: [branchId], references: [id])
   operators   CounterOperator[]
   meals       CounterMeal[]
+  rates       MealRate[]
   recharges   Recharge[]
   redemptions Redemption[]
 
@@ -463,6 +464,7 @@ model MealRate {
   mealTypeId BigInt    @map("meal_type_id")
   categoryId BigInt    @map("category_id")
   branchId   BigInt    @map("branch_id")
+  counterId  BigInt?   @map("counter_id") // NULL = branch-wide default; set = counter-specific override (resolved first at tap time)
   rate       Decimal   @db.Decimal(12, 2) // charged to cardholder (sale)
   vendorRate Decimal   @map("vendor_rate") @db.Decimal(12, 2) // paid to caterer (cost) → P/L = rate - vendorRate
   validFrom  DateTime  @map("valid_from") @db.Date
@@ -472,8 +474,10 @@ model MealRate {
   mealType MealType @relation(fields: [mealTypeId], references: [id])
   category Category @relation(fields: [categoryId], references: [id])
   branch   Branch   @relation(fields: [branchId], references: [id])
+  counter  Counter? @relation(fields: [counterId], references: [id])
 
   @@index([branchId, mealTypeId, categoryId, validFrom])
+  @@index([counterId, mealTypeId, categoryId, validFrom])
   @@map("meal_rates")
 }
 
