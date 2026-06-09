@@ -1,4 +1,5 @@
 import type { Metadata, Viewport } from "next";
+import Script from "next/script";
 import { Fraunces, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
@@ -75,10 +76,12 @@ export default function RootLayout({
       suppressHydrationWarning
       className={`${fraunces.variable} ${interTight.variable} ${jetbrainsMono.variable}`}
     >
-      <head>
-        <script dangerouslySetInnerHTML={{ __html: themeInit }} />
-      </head>
       <body className="font-body bg-canvas text-ink antialiased">
+        {/* Applies the saved Light/Dark choice before hydration (no flash), via
+            next/script so React doesn't warn about an inline <script> element. */}
+        <Script id="theme-init" strategy="beforeInteractive">
+          {themeInit}
+        </Script>
         <Providers>{children}</Providers>
       </body>
     </html>

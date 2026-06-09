@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import {
   enqueueTap,
   getQueuedTaps,
@@ -51,6 +51,18 @@ function dotFor(status: TapResult["status"]) {
   return "bg-tomato";
 }
 
+// Online status as an external store: SSR + first client render use the stable
+// server snapshot (true), then it tracks navigator.onLine. Avoids the Node-23
+// `navigator` hydration mismatch and a setState-in-effect.
+function subscribeOnline(callback: () => void) {
+  window.addEventListener("online", callback);
+  window.addEventListener("offline", callback);
+  return () => {
+    window.removeEventListener("online", callback);
+    window.removeEventListener("offline", callback);
+  };
+}
+
 export function CounterScreen({ counters, operatorName }: { counters: Counter[]; operatorName: string }) {
   const [counterId, setCounterId] = useState(counters[0]?.id ?? "");
   const [scan, setScan] = useState("");
@@ -61,7 +73,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
   const [syncing, setSyncing] = useState(false);
   const [syncReport, setSyncReport] = useState<{ approved: number; rejected: number; blocked: number } | null>(null);
   const [syncError, setSyncError] = useState<string | null>(null);
-  const [online, setOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
+  const online = useSyncExternalStore(subscribeOnline, () => navigator.onLine, () => true);
 
   const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<AudioContext | null>(null);
@@ -83,22 +95,16 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
       if (target?.closest("button, select, a, input, [role='button']")) return;
       inputRef.current?.focus();
     };
-    const goOnline = () => {
-      setOnline(true);
-      void syncQueue();
-    };
-    const goOffline = () => setOnline(false);
     // Re-grab focus whenever the window/tab regains it, so the reader is always live.
     const onFocus = () => inputRef.current?.focus();
+    const reSync = () => void syncQueue(); // flush the offline queue on reconnect
     window.addEventListener("click", refocus);
     window.addEventListener("focus", onFocus);
-    window.addEventListener("online", goOnline);
-    window.addEventListener("offline", goOffline);
+    window.addEventListener("online", reSync);
     return () => {
       window.removeEventListener("click", refocus);
       window.removeEventListener("focus", onFocus);
-      window.removeEventListener("online", goOnline);
-      window.removeEventListener("offline", goOffline);
+      window.removeEventListener("online", reSync);
     };
   }, []);
 
