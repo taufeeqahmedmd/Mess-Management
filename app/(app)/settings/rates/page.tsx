@@ -2,12 +2,8 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
-import { inr } from "@/lib/format";
-import { PL } from "@/components/reports/breakdown-table";
-import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { RatesMatrix } from "./rates-matrix";
-import { CounterRateForm } from "./counter-rate-form";
-import { removeCounterRateAction } from "./counter-rate-actions";
+import { CounterRatesEditor, type InitialRow } from "./counter-rates-editor";
 
 export default async function RatesPage() {
   const actor = await requireActor();
@@ -34,8 +30,6 @@ export default async function RatesPage() {
     }),
     prisma.mealRate.findMany({
       where: { branchId: branch.id, counterId: { not: null }, validTo: null },
-      include: { mealType: true, category: true, counter: true },
-      orderBy: [{ mealType: { startTime: "asc" } }, { category: { name: "asc" } }],
     }),
   ]);
 
@@ -44,11 +38,26 @@ export default async function RatesPage() {
     rateMap[`${r.mealTypeId}:${r.categoryId}`] = { rate: r.rate.toFixed(2), vendor: r.vendorRate.toFixed(2) };
   }
 
-  // mealId → [counterId] (which counters serve each meal).
-  const mealCounters: Record<string, string[]> = {};
+  // counterId → [mealId] (only the meals each counter serves).
+  const mealsByCounter: Record<string, string[]> = {};
   for (const cm of counterMeals) {
-    (mealCounters[cm.mealTypeId.toString()] ??= []).push(cm.counterId.toString());
+    (mealsByCounter[cm.counterId.toString()] ??= []).push(cm.mealTypeId.toString());
   }
+
+  // Existing counter overrides → one editor row per (counter, meal) with category cells.
+  const rowMap = new Map<string, InitialRow>();
+  for (const o of overrides) {
+    const counterId = o.counterId!.toString();
+    const mealId = o.mealTypeId.toString();
+    const key = `${counterId}:${mealId}`;
+    let row = rowMap.get(key);
+    if (!row) {
+      row = { counterId, mealId, cells: {} };
+      rowMap.set(key, row);
+    }
+    row.cells[o.categoryId.toString()] = { charge: o.rate.toFixed(2), vendor: o.vendorRate.toFixed(2) };
+  }
+  const initialRows = [...rowMap.values()];
 
   return (
     <div className="flex flex-col gap-8">
@@ -82,80 +91,26 @@ export default async function RatesPage() {
         <div>
           <h2 className="font-display text-lg font-semibold text-ink">Per-counter rates</h2>
           <p className="mt-1 text-sm text-ink-2">
-            Override the rate for a meal × category at specific counters. Pick a meal, choose its
-            counters (only counters that serve that meal are shown — Select all to apply at once),
-            and set the charge and vendor. A counter without an override uses the default above.
+            Add a row per counter to override its rates. Choose a counter, then a meal it serves, then
+            set the charge and vendor per category — add as many rows as you need. A counter without a
+            row here uses the default rates above.
           </p>
         </div>
 
         {canEdit ? (
-          <CounterRateForm
+          <CounterRatesEditor
+            branchId={branch.id.toString()}
+            counters={counters.map((c) => ({ id: c.id.toString(), name: c.name, code: c.code }))}
             meals={meals.map((m) => ({ id: m.id.toString(), name: m.name }))}
             categories={categories.map((c) => ({ id: c.id.toString(), name: c.name }))}
-            counters={counters.map((c) => ({ id: c.id.toString(), name: c.name, code: c.code }))}
-            mealCounters={mealCounters}
+            mealsByCounter={mealsByCounter}
+            initialRows={initialRows}
           />
-        ) : null}
-
-        <div className="overflow-x-auto rounded-md border border-line bg-surface">
-          <table className="w-full text-sm">
-            <thead>
-              <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
-                <th className="px-4 py-3 font-semibold">Counter</th>
-                <th className="px-4 py-3 font-semibold">Meal</th>
-                <th className="px-4 py-3 font-semibold">Category</th>
-                <th className="px-4 py-3 text-right font-semibold">Charge</th>
-                <th className="px-4 py-3 text-right font-semibold">Vendor</th>
-                <th className="px-4 py-3 text-right font-semibold">P&amp;L</th>
-                {canEdit ? <th className="px-4 py-3 text-right font-semibold">Action</th> : null}
-              </tr>
-            </thead>
-            <tbody>
-              {overrides.length === 0 ? (
-                <tr>
-                  <td colSpan={canEdit ? 7 : 6} className="px-4 py-8 text-center text-ink-2">
-                    No per-counter overrides yet. Counters use the default rates.
-                  </td>
-                </tr>
-              ) : (
-                overrides.map((o) => (
-                  <tr key={o.id.toString()} className="border-t border-line">
-                    <td className="px-4 py-3 text-ink">
-                      {o.counter?.name}
-                      <span className="ml-1 font-mono text-xs text-muted">{o.counter?.code}</span>
-                    </td>
-                    <td className="px-4 py-3 text-ink-2">{o.mealType.name}</td>
-                    <td className="px-4 py-3 text-ink-2">{o.category.name}</td>
-                    <td className="px-4 py-3 text-right font-mono text-ink-2">{inr(o.rate)}</td>
-                    <td className="px-4 py-3 text-right font-mono text-ink-2">{inr(o.vendorRate)}</td>
-                    <td className="px-4 py-3 text-right">
-                      <PL value={o.rate.minus(o.vendorRate)} />
-                    </td>
-                    {canEdit ? (
-                      <td className="px-4 py-3 text-right">
-                        <ConfirmActionForm
-                          action={removeCounterRateAction}
-                          className="inline"
-                          fields={{ id: o.id.toString() }}
-                          confirm={{
-                            title: "Remove override",
-                            message: `Remove the ${o.mealType.name} / ${o.category.name} rate at ${o.counter?.name}? It will fall back to the default.`,
-                            confirmLabel: "Yes, remove",
-                            tone: "danger",
-                          }}
-                          successMessage="Override removed."
-                          buttonClassName="rounded-sm px-2.5 py-1 text-xs font-medium text-tomato transition-colors hover:bg-tomato-soft"
-                        >
-                          Remove
-                        </ConfirmActionForm>
-                      </td>
-                    ) : null}
-                  </tr>
-                ))
-              )}
-            </tbody>
-          </table>
-        </div>
+        ) : (
+          <p className="rounded-sm bg-surface-2 px-3 py-2.5 text-sm text-ink-2">
+            You need both Rates and Vendor Rates permissions to edit per-counter rates.
+          </p>
+        )}
       </section>
     </div>
   );
