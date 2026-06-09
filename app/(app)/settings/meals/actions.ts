@@ -42,11 +42,37 @@ export async function createMealAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const data = parsed.data;
 
+  // Optional counter service windows (counter_<id> / start_<id> / end_<id>),
+  // assigned in the same step from the New-meal form. Validate before creating.
+  const counters = await prisma.counter.findMany({
+    where: {
+      status: "active",
+      deletedAt: null,
+      ...(actor.branchId ? { branchId: BigInt(actor.branchId) } : {}),
+    },
+    select: { id: true },
+  });
+  const counterRows: Array<{ counterId: bigint; startTime: string; endTime: string }> = [];
+  for (const c of counters) {
+    if (formData.get(`counter_${c.id}`) !== "on") continue;
+    const start = String(formData.get(`start_${c.id}`) ?? "").trim();
+    const end = String(formData.get(`end_${c.id}`) ?? "").trim();
+    if (!time.safeParse(start).success || !time.safeParse(end).success) {
+      return { error: "Each selected counter needs a valid HH:MM start and end time." };
+    }
+    counterRows.push({ counterId: c.id, startTime: start, endTime: end });
+  }
+
   try {
     await prisma.$transaction(async (tx) => {
       const created = await tx.mealType.create({ data });
+      if (counterRows.length > 0) {
+        await tx.counterMeal.createMany({
+          data: counterRows.map((r) => ({ counterId: r.counterId, mealTypeId: created.id, startTime: r.startTime, endTime: r.endTime, active: true })),
+        });
+      }
       await writeAudit(
-        { appUserId: BigInt(actor.id), action: "meal.create", entity: "meal_type", entityId: created.id, after: data },
+        { appUserId: BigInt(actor.id), action: "meal.create", entity: "meal_type", entityId: created.id, after: { ...data, counters: counterRows.length } },
         tx,
       );
     });
