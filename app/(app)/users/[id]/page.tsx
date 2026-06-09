@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
+import { inr } from "@/lib/format";
 import { IssueCardForm, ReplaceCardForm } from "./card-forms";
 import { setCardStatusAction } from "./card-actions";
 
@@ -13,6 +14,18 @@ function cardStatusDot(status: string) {
   if (status === "blocked") return "bg-tomato";
   return "bg-muted-2";
 }
+
+function rechargeStatusDot(status: string) {
+  if (status === "posted") return "bg-sage";
+  if (status === "expired") return "bg-muted-2";
+  return "bg-tomato"; // reversed
+}
+
+function fmtDateTime(d: Date) {
+  return d.toISOString().slice(0, 16).replace("T", " ");
+}
+
+const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 
 function fmtDate(d: Date | null) {
   return d ? d.toISOString().slice(0, 10) : "—";
@@ -42,6 +55,17 @@ export default async function UserDetailPage({
       wallet: true,
       cards: { orderBy: { id: "desc" } },
       cardEvents: { orderBy: { id: "desc" }, take: 30, include: { appUser: true } },
+      couponBalances: { include: { mealType: true }, orderBy: { mealTypeId: "asc" } },
+      recharges: {
+        orderBy: { id: "desc" },
+        take: 100,
+        include: { paymentMode: true, appUser: true, coupons: { include: { mealType: true } } },
+      },
+      redemptions: {
+        orderBy: { redeemedAt: "desc" },
+        take: 100,
+        include: { mealType: true, counter: true },
+      },
     },
   });
   if (!u || u.deletedAt) notFound();
@@ -161,6 +185,110 @@ export default async function UserDetailPage({
             </table>
           </div>
         ) : null}
+      </section>
+
+      {/* Coupon balances */}
+      <section className="flex flex-col gap-3 rounded-md border border-line bg-surface p-5">
+        <h2 className="font-display text-lg font-semibold text-ink">Coupon balances</h2>
+        {u.couponBalances.filter((b) => b.count > 0).length === 0 ? (
+          <p className="text-sm text-ink-2">No meal coupons.</p>
+        ) : (
+          <div className="flex flex-wrap gap-2">
+            {u.couponBalances
+              .filter((b) => b.count > 0)
+              .map((b) => (
+                <span key={b.id.toString()} className="inline-flex items-center gap-1.5 rounded-pill bg-surface-2 px-3 py-1 text-sm text-ink-2">
+                  {b.mealType.name}
+                  <span className="font-mono font-semibold text-ink">{b.count}</span>
+                </span>
+              ))}
+          </div>
+        )}
+      </section>
+
+      {/* Recharge history */}
+      <section className="flex flex-col gap-3 rounded-md border border-line bg-surface p-5">
+        <h2 className="font-display text-lg font-semibold text-ink">Recharge history</h2>
+        {u.recharges.length === 0 ? (
+          <p className="text-sm text-ink-2">No recharges yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-line">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
+                  <th className="px-4 py-2.5 font-semibold">Date</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">Value</th>
+                  <th className="px-4 py-2.5 font-semibold">Coupons</th>
+                  <th className="px-4 py-2.5 font-semibold">Mode</th>
+                  <th className="px-4 py-2.5 font-semibold">Status</th>
+                  <th className="px-4 py-2.5 font-semibold">By</th>
+                </tr>
+              </thead>
+              <tbody>
+                {u.recharges.map((r) => {
+                  const coupons = r.coupons.filter((c) => c.count > 0).map((c) => `${c.mealType.code}×${c.count}`).join(", ");
+                  return (
+                    <tr key={r.id.toString()} className="border-t border-line">
+                      <td className="px-4 py-2.5">
+                        <Link href={`/recharge/${r.id}`} className="font-mono text-ink-2 transition-colors hover:text-gold-deep">
+                          {fmtDate(r.rechargedAt)}
+                        </Link>
+                      </td>
+                      <td className="px-4 py-2.5 text-right font-mono text-ink">{inr(r.amount)}</td>
+                      <td className="px-4 py-2.5 text-ink-2">{coupons || "—"}</td>
+                      <td className="px-4 py-2.5 text-ink-2">{r.paymentMode.name}</td>
+                      <td className="px-4 py-2.5">
+                        <span className="inline-flex items-center gap-1.5 text-ink-2">
+                          <span className={`size-2 rounded-pill ${rechargeStatusDot(r.status)}`} />
+                          {cap(r.status)}
+                        </span>
+                      </td>
+                      <td className="px-4 py-2.5 text-ink-2">{r.appUser?.name ?? "—"}</td>
+                    </tr>
+                  );
+                })}
+              </tbody>
+            </table>
+          </div>
+        )}
+      </section>
+
+      {/* Meal (consumption) history */}
+      <section className="flex flex-col gap-3 rounded-md border border-line bg-surface p-5">
+        <h2 className="font-display text-lg font-semibold text-ink">Meal history</h2>
+        {u.redemptions.length === 0 ? (
+          <p className="text-sm text-ink-2">No meals taken yet.</p>
+        ) : (
+          <div className="overflow-x-auto rounded-md border border-line">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
+                  <th className="px-4 py-2.5 font-semibold">When</th>
+                  <th className="px-4 py-2.5 font-semibold">Meal</th>
+                  <th className="px-4 py-2.5 font-semibold">Counter</th>
+                  <th className="px-4 py-2.5 font-semibold">Paid by</th>
+                  <th className="px-4 py-2.5 text-right font-semibold">Charged</th>
+                </tr>
+              </thead>
+              <tbody>
+                {u.redemptions.map((d) => (
+                  <tr key={d.id.toString()} className="border-t border-line">
+                    <td className="px-4 py-2.5 font-mono text-xs text-ink-2">{fmtDateTime(d.redeemedAt)}</td>
+                    <td className="px-4 py-2.5 text-ink">{d.mealType.name}</td>
+                    <td className="px-4 py-2.5 text-ink-2">{d.counter.name}</td>
+                    <td className="px-4 py-2.5">
+                      <span className="inline-flex items-center gap-1.5 text-ink-2">
+                        <span className={`size-2 rounded-pill ${d.paidBy === "coupon" ? "bg-gold" : "bg-sage"}`} />
+                        {d.paidBy ? cap(d.paidBy) : "—"}
+                      </span>
+                    </td>
+                    <td className="px-4 py-2.5 text-right font-mono text-ink-2">{inr(d.amount)}</td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        )}
       </section>
 
       {/* History */}

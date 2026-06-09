@@ -227,7 +227,7 @@ model Department {
 
 model Category {
   id                 BigInt         @id @default(autoincrement())
-  code               String         @unique @db.VarChar(30)
+  code               String         @db.VarChar(30) // human label only — NOT unique; the stable key is `id`
   name               String         @unique @db.VarChar(80)
   identifierLabel    String         @default("ID") @map("identifier_label") @db.VarChar(60)
   identifierRegex    String?        @map("identifier_regex") @db.VarChar(120)
@@ -568,9 +568,9 @@ model Redemption {
   counterId    BigInt           @map("counter_id")
   categoryId   BigInt?          @map("category_id") // snapshot
   paidBy       PaidBy?          @map("paid_by")
-  rateApplied  Decimal          @map("rate_applied") @db.Decimal(12, 2)
-  amount       Decimal          @db.Decimal(12, 2) // 0 when paid_by = coupon
-  vendorAmount Decimal          @default(0) @map("vendor_amount") @db.Decimal(12, 2) // cost snapshot → P/L = amount - vendorAmount
+  rateApplied  Decimal          @map("rate_applied") @db.Decimal(12, 2) // meal value (revenue); reports use Σ rateApplied as Sale
+  amount       Decimal          @db.Decimal(12, 2) // cash debited at the tap; 0 when paid_by = coupon (prepaid at recharge)
+  vendorAmount Decimal          @default(0) @map("vendor_amount") @db.Decimal(12, 2) // cost snapshot → P/L = rateApplied - vendorAmount
   appUserId    BigInt           @map("app_user_id") // operator
   status       RedemptionStatus @default(posted)
   redeemedAt   DateTime         @default(now()) @map("redeemed_at") @db.Timestamptz(6)

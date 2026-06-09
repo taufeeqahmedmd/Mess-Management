@@ -10,7 +10,12 @@ export default async function CategoriesPage() {
   const actor = await requireActor();
   if (!can(actor, "categories.manage")) redirect("/dashboard");
 
-  const categories = await prisma.category.findMany({ orderBy: { name: "asc" } });
+  // Operational screen: identify/sort by the per-category Identifier label, with
+  // Name as a deterministic tiebreaker (the label isn't unique). Reports still
+  // consolidate by category_id and present the Name — see services/reporting.ts.
+  const categories = await prisma.category.findMany({
+    orderBy: [{ identifierLabel: "asc" }, { name: "asc" }],
+  });
 
   return (
     <div className="flex flex-col gap-5">
@@ -25,9 +30,9 @@ export default async function CategoriesPage() {
         <table className="w-full text-sm">
           <thead>
             <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
+              <th className="px-4 py-3 font-semibold">Identifier</th>
               <th className="px-4 py-3 font-semibold">Code</th>
               <th className="px-4 py-3 font-semibold">Name</th>
-              <th className="px-4 py-3 font-semibold">Identifier</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
@@ -42,12 +47,12 @@ export default async function CategoriesPage() {
             ) : (
               categories.map((c) => (
                 <tr key={c.id.toString()} className="border-t border-line">
-                  <td className="px-4 py-3 font-mono text-ink">{c.code}</td>
-                  <td className="px-4 py-3 text-ink">{c.name}</td>
-                  <td className="px-4 py-3 text-ink-2">
+                  <td className="px-4 py-3 text-ink">
                     {c.identifierLabel}
                     {c.identifierRequired ? "" : " (optional)"}
                   </td>
+                  <td className="px-4 py-3 font-mono text-ink-2">{c.code}</td>
+                  <td className="px-4 py-3 text-ink-2">{c.name}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5 text-ink-2">
                       <span className={`size-2 rounded-pill ${c.status === "active" ? "bg-sage" : "bg-muted-2"}`} />

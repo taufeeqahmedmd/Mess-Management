@@ -1,0 +1,142 @@
+/* Re-skin react-date-range to the "Warm Cafeteria" tokens (theme.md). The
+   library ships a blue default; we override surfaces, text, the today marker,
+   and hover/preview borders to the gold/sage palette. Selected-range fill comes
+   from `rangeColors` (var(--gold)) passed in the component. Works in light/dark
+   because every value resolves a CSS custom property. */
+
+.rdrCalendarWrapper,
+.rdrDateRangeWrapper {
+  background: var(--surface);
+  color: var(--ink);
+  font-family: inherit;
+  border-radius: var(--radius-md, 12px);
+}
+
+.rdrMonthAndYearWrapper,
+.rdrMonthName,
+.rdrWeekDay {
+  color: var(--muted);
+}
+
+.rdrMonthAndYearPickers select {
+  color: var(--ink);
+}
+
+.rdrMonthPicker select,
+.rdrYearPicker select {
+  background-color: var(--surface-2);
+  border-radius: 6px;
+}
+
+.rdrNextPrevButton {
+  background: var(--surface-2);
+  border: 1px solid var(--line-strong, transparent);
+}
+.rdrNextPrevButton:hover {
+  background: var(--gold-soft);
+}
+.rdrPprevButton i {
+  border-color: transparent var(--ink-2) transparent transparent;
+}
+.rdrNextButton i {
+  border-color: transparent transparent transparent var(--ink-2);
+}
+
+.rdrDayNumber span {
+  color: var(--ink);
+}
+.rdrDayPassive .rdrDayNumber span,
+.rdrDayDisabled .rdrDayNumber span {
+  color: var(--muted-2, var(--muted));
+}
+.rdrDayDisabled {
+  background-color: transparent;
+}
+
+/* Today marker → gold underline dot. */
+.rdrDayToday .rdrDayNumber span:after {
+  background: var(--gold);
+}
+
+/* Hover / in-progress range preview → gold border. */
+.rdrDayStartPreview,
+.rdrDayInPreview,
+.rdrDayEndPreview {
+  border-color: var(--gold-deep);
+}
+
+/* Selected days keep readable ink on the gold fill. */
+.rdrStartEdge,
+.rdrEndEdge,
+.rdrInRange {
+  color: var(--gold) !important;
+}
+.rdrDay:not(.rdrDayPassive) .rdrInRange ~ .rdrDayNumber span,
+.rdrSelected ~ .rdrDayNumber span,
+.rdrStartEdge ~ .rdrDayNumber span,
+.rdrEndEdge ~ .rdrDayNumber span {
+  color: var(--ink);
+}
+
+.rdrDateDisplayItem,
+.rdrDateDisplayItemActive {
+  background: var(--surface-2);
+  border-color: var(--line-strong, transparent);
+}
+.rdrDateDisplayItem input {
+  color: var(--ink);
+}
+.rdrDateDisplayItemActive {
+  border-color: var(--gold);
+}
+
+/* Left preset sidebar (Today / Yesterday / This Week …). */
+.rdrDefinedRangesWrapper {
+  width: 130px;
+  background: var(--surface);
+  border-right: 1px solid var(--line);
+}
+.rdrStaticRange {
+  background: transparent;
+  border-bottom: 1px solid var(--line);
+}
+.rdrStaticRangeLabel {
+  color: var(--ink-2);
+  font-size: 13px;
+}
+.rdrStaticRange:hover .rdrStaticRangeLabel,
+.rdrStaticRange:focus .rdrStaticRangeLabel {
+  background: var(--gold-soft);
+  color: var(--gold-deep);
+}
+.rdrStaticRangeSelected .rdrStaticRangeLabel {
+  color: var(--gold-deep) !important;
+  font-weight: 600;
+}
+
+/* Narrow screens: stack the presets as a wrapping row above the calendar so the
+   popover collapses to the calendar's width and fits a phone (instead of a
+   480px-wide side-by-side that overflows). */
+@media (max-width: 540px) {
+  .rdrDateRangePickerWrapper {
+    flex-direction: column;
+  }
+  .rdrDefinedRangesWrapper {
+    width: 100% !important;
+    border-right: none;
+    border-bottom: 1px solid var(--line);
+  }
+  .rdrStaticRanges {
+    flex-direction: row;
+    flex-wrap: wrap;
+  }
+  .rdrStaticRange {
+    flex: 1 0 33%;
+    border-bottom: none;
+    border-right: 1px solid var(--line);
+    text-align: center;
+  }
+  .rdrInputRanges {
+    display: none;
+  }
+}

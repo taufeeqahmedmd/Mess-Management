@@ -1,0 +1,25 @@
+# systemd unit for the Next.js app (single-box EC2, Option A).
+# Install:
+#   sudo cp deploy/mess.service /etc/systemd/system/mess.service
+#   # edit User / WorkingDirectory below to match your setup
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now mess
+# Logs:  journalctl -u mess -f
+[Unit]
+Description=Mess Management (Next.js)
+After=network.target docker.service
+Wants=docker.service
+
+[Service]
+Type=simple
+User=ubuntu
+WorkingDirectory=/home/ubuntu/mess-management
+# Next.js loads .env / .env.production from WorkingDirectory automatically.
+ExecStart=/usr/bin/npm run start
+Restart=on-failure
+RestartSec=5
+# Give Next a moment to bind before systemd considers it up.
+TimeoutStartSec=30
+
+[Install]
+WantedBy=multi-user.target

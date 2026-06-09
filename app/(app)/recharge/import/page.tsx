@@ -16,8 +16,8 @@ export default async function ImportRechargesPage() {
         </p>
         <h1 className="font-display text-2xl font-semibold text-ink">Import recharges</h1>
         <p className="mt-1 text-sm text-ink-2">
-          Bulk-apply recharges from a CSV. Each valid row credits a cardholder&rsquo;s wallet and/or
-          coupons; invalid rows are reported and skipped.{" "}
+          Bulk-apply recharges from a CSV. Each valid row grants a cardholder&rsquo;s meal coupons
+          and records the recharge value; invalid rows are reported and skipped.{" "}
           <a href="/api/recharges/sample" className="font-medium text-gold-deep hover:underline">
             Download a sample template
           </a>

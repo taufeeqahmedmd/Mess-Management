@@ -1,36 +1,52 @@
+"use client";
+
 /**
- * Shared reporting date-range filter (server component — native GET form, no
- * client JS). `hidden` re-emits other query params (meal/counter filters, etc.)
+ * Shared reporting date-range filter. Native GET form (so server components read
+ * `from`/`to` from searchParams) with the themed react-date-range popup driving
+ * two hidden inputs. `hidden` re-emits other query params (meal/counter filters)
  * so applying a range doesn't drop them. Used by the dashboard, vendor
  * dashboard, and reports.
  */
+
+import { useState } from "react";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
+
 export function DateRangeForm({
   action,
   fromStr,
   toStr,
   hidden = {},
   children,
+  maxToday = false,
 }: {
   action: string;
   fromStr: string;
   toStr: string;
   hidden?: Record<string, string | undefined>;
   children?: React.ReactNode;
+  maxToday?: boolean;
 }) {
-  const field =
-    "rounded-sm border border-line-strong bg-surface-2 px-3 py-2 text-sm text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+  const [from, setFrom] = useState(fromStr);
+  const [to, setTo] = useState(toStr);
+
   return (
     <form method="get" action={action} className="flex flex-wrap items-end gap-3">
       {Object.entries(hidden).map(([k, v]) =>
         v ? <input key={k} type="hidden" name={k} value={v} /> : null,
       )}
+      <input type="hidden" name="from" value={from} />
+      <input type="hidden" name="to" value={to} />
       <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
-        From
-        <input type="date" name="from" defaultValue={fromStr} max={toStr} className={field} />
-      </label>
-      <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
-        To
-        <input type="date" name="to" defaultValue={toStr} className={field} />
+        Date range
+        <DateRangePicker
+          from={from}
+          to={to}
+          maxToday={maxToday}
+          onChange={(f, t) => {
+            setFrom(f);
+            setTo(t);
+          }}
+        />
       </label>
       {children}
       <button

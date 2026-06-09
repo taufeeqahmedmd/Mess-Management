@@ -48,7 +48,7 @@ describe("profitLoss", () => {
   it("is sale − cost", () => {
     expect(profitLoss(D("100.00"), D("70.00")).toFixed(2)).toBe("30.00");
   });
-  it("goes negative when cost exceeds sale (coupon meals have 0 sale)", () => {
+  it("goes negative when cost exceeds sale", () => {
     expect(profitLoss(D("0.00"), D("45.00")).toFixed(2)).toBe("-45.00");
   });
   it("keeps two-decimal money precision", () => {

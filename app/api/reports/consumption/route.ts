@@ -69,9 +69,9 @@ export async function GET(req: Request) {
     r.mealType.name,
     r.counter.name,
     r.paidBy ?? "",
-    r.amount.toFixed(2),
+    r.rateApplied.toFixed(2),
     r.vendorAmount.toFixed(2),
-    r.amount.minus(r.vendorAmount).toFixed(2),
+    r.rateApplied.minus(r.vendorAmount).toFixed(2),
   ]);
 
   const csv = toCsv([HEADER, ...body]);

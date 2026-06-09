@@ -54,9 +54,10 @@ export function RechargeImportForm() {
             className="block w-full max-w-md text-sm text-ink-2 file:mr-3 file:rounded-sm file:border-0 file:bg-gold-soft file:px-4 file:py-2 file:text-sm file:font-semibold file:text-gold-deep hover:file:bg-gold/20"
           />
           <p className="text-xs text-muted">
-            Columns: identifier, amount, one column per meal code (coupon count), paymentMode,
-            validTill, remarks. Only <span className="font-medium">identifier</span> plus a wallet
-            amount or at least one coupon is required.
+            Columns: RFID, one column per meal (e.g. &ldquo;BKF Coupons&rdquo;), paymentMode,
+            validTill, remarks. Only <span className="font-medium">RFID</span> plus at least one
+            coupon count is required; the wallet value is computed from coupons × rate. Dates accept
+            YYYY-MM-DD or DD-MM-YYYY.
           </p>
         </div>
 

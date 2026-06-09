@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { SettlementFormState } from "./actions";
 
 export type VendorOption = { id: string; code: string; name: string };
@@ -34,6 +36,9 @@ export function SettlementForm({
       confirmLabel: "Yes, generate",
     },
   });
+
+  const [start, setStart] = useState(defaultStart);
+  const [end, setEnd] = useState(defaultEnd);
 
   return (
     <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
@@ -80,15 +85,19 @@ export function SettlementForm({
         )}
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="periodStart" className="text-xs font-semibold text-ink-2">Period start</label>
-          <input id="periodStart" name="periodStart" type="date" required defaultValue={defaultStart} className={inputClass} />
-        </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="periodEnd" className="text-xs font-semibold text-ink-2">Period end</label>
-          <input id="periodEnd" name="periodEnd" type="date" required defaultValue={defaultEnd} className={inputClass} />
-        </div>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-semibold text-ink-2">Settlement period</span>
+        <input type="hidden" name="periodStart" value={start} />
+        <input type="hidden" name="periodEnd" value={end} />
+        <DateRangePicker
+          from={start}
+          to={end}
+          ariaLabel="Settlement period"
+          onChange={(s, e) => {
+            setStart(s);
+            setEnd(e);
+          }}
+        />
       </div>
 
       <div className="mt-2 flex items-center gap-3">

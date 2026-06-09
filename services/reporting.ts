@@ -3,7 +3,9 @@
  * branch-scoped read-only aggregate queries over the posted ledger. Money stays
  * `Decimal` end-to-end — callers format with `.toFixed(2)` only at render.
  *
- * Sale  = Σ redemption.amount       (charged to cardholder; 0 for coupon taps)
+ * Sale  = Σ redemption.rateApplied  (value of the meal served — its configured
+ *         rate; a coupon tap debits 0 cash at the counter, but the meal still
+ *         carries its rate as revenue, prepaid earlier at recharge)
  * Cost  = Σ redemption.vendorAmount (payable to the caterer/vendor)
  * P/L   = Sale − Cost
  *
@@ -111,9 +113,12 @@ export async function consumptionSummary(db: Db, f: ConsumptionFilter): Promise<
   const agg = await db.redemption.aggregate({
     where: redemptionWhere(f),
     _count: { _all: true },
-    _sum: { amount: true, vendorAmount: true },
+    _sum: { rateApplied: true, vendorAmount: true },
   });
-  const sale = agg._sum.amount ?? ZERO;
+  // Sale = value of meals served (rateApplied), NOT cash debited at the tap.
+  // Coupon taps debit 0 at the counter (prepaid at recharge), so summing `amount`
+  // would book real vendor cost against ₹0 sale → a phantom loss.
+  const sale = agg._sum.rateApplied ?? ZERO;
   const cost = agg._sum.vendorAmount ?? ZERO;
   return { count: agg._count._all, sale, cost, pl: profitLoss(sale, cost) };
 }
@@ -164,7 +169,7 @@ async function usageBy(db: Db, dim: Dimension, f: ConsumptionFilter): Promise<Br
     by: [dim],
     where: redemptionWhere(f),
     _count: { _all: true },
-    _sum: { amount: true, vendorAmount: true },
+    _sum: { rateApplied: true, vendorAmount: true },
   });
 
   const ids = groups.map((g) => g[dim]).filter((v): v is bigint => v != null);
@@ -186,7 +191,7 @@ async function usageBy(db: Db, dim: Dimension, f: ConsumptionFilter): Promise<Br
     .map((g) => {
       const raw = g[dim];
       const id = raw == null ? "" : raw.toString();
-      return toBreakdown(id, raw == null ? "—" : labels.get(id) ?? "—", g._count._all, g._sum.amount, g._sum.vendorAmount);
+      return toBreakdown(id, raw == null ? "—" : labels.get(id) ?? "—", g._count._all, g._sum.rateApplied, g._sum.vendorAmount);
     })
     .sort((a, b) => b.count - a.count);
 }

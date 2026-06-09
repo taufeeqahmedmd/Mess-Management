@@ -1,0 +1,3590 @@
+{
+  "branches": [
+    {
+      "id": "1",
+      "code": "MAIN",
+      "name": "Main Campus",
+      "address": "HQ",
+      "status": "active",
+      "createdBy": null,
+      "updatedBy": null,
+      "createdAt": "2026-06-08T09:49:08.320Z",
+      "updatedAt": "2026-06-08T09:49:08.320Z",
+      "deletedAt": null
+    }
+  ],
+  "roles": [
+    {
+      "id": "1",
+      "name": "Super Admin",
+      "description": null,
+      "createdAt": "2026-06-08T09:49:08.450Z"
+    },
+    {
+      "id": "2",
+      "name": "Admin",
+      "description": null,
+      "createdAt": "2026-06-08T09:49:08.617Z"
+    },
+    {
+      "id": "3",
+      "name": "Mess Incharge",
+      "description": null,
+      "createdAt": "2026-06-08T09:49:08.779Z"
+    },
+    {
+      "id": "4",
+      "name": "Accountant",
+      "description": null,
+      "createdAt": "2026-06-08T09:49:08.795Z"
+    },
+    {
+      "id": "5",
+      "name": "Management",
+      "description": null,
+      "createdAt": "2026-06-08T09:49:08.858Z"
+    }
+  ],
+  "permissions": [
+    {
+      "id": "1",
+      "code": "vendorDashboard.view",
+      "module": "vendorDashboard",
+      "description": null
+    },
+    {
+      "id": "2",
+      "code": "roles.manage",
+      "module": "roles",
+      "description": null
+    },
+    {
+      "id": "3",
+      "code": "users.view",
+      "module": "users",
+      "description": null
+    },
+    {
+      "id": "4",
+      "code": "staff.manage",
+      "module": "staff",
+      "description": null
+    },
+    {
+      "id": "5",
+      "code": "recharge.view",
+      "module": "recharge",
+      "description": null
+    },
+    {
+      "id": "6",
+      "code": "accessControl.manage",
+      "module": "accessControl",
+      "description": null
+    },
+    {
+      "id": "7",
+      "code": "users.create",
+      "module": "users",
+      "description": null
+    },
+    {
+      "id": "8",
+      "code": "recharge.create",
+      "module": "recharge",
+      "description": null
+    },
+    {
+      "id": "9",
+      "code": "recharge.delete",
+      "module": "recharge",
+      "description": null
+    },
+    {
+      "id": "10",
+      "code": "cards.activate",
+      "module": "cards",
+      "description": null
+    },
+    {
+      "id": "11",
+      "code": "vendorRates.manage",
+      "module": "vendorRates",
+      "description": null
+    },
+    {
+      "id": "12",
+      "code": "cards.deactivate",
+      "module": "cards",
+      "description": null
+    },
+    {
+      "id": "13",
+      "code": "users.import",
+      "module": "users",
+      "description": null
+    },
+    {
+      "id": "14",
+      "code": "recharge.edit",
+      "module": "recharge",
+      "description": null
+    },
+    {
+      "id": "15",
+      "code": "reports.view",
+      "module": "reports",
+      "description": null
+    },
+    {
+      "id": "16",
+      "code": "users.edit",
+      "module": "users",
+      "description": null
+    },
+    {
+      "id": "17",
+      "code": "settings.manage",
+      "module": "settings",
+      "description": null
+    },
+    {
+      "id": "18",
+      "code": "categories.manage",
+      "module": "categories",
+      "description": null
+    },
+    {
+      "id": "19",
+      "code": "counters.manage",
+      "module": "counters",
+      "description": null
+    },
+    {
+      "id": "20",
+      "code": "dashboard.view",
+      "module": "dashboard",
+      "description": null
+    },
+    {
+      "id": "21",
+      "code": "rates.manage",
+      "module": "rates",
+      "description": null
+    },
+    {
+      "id": "22",
+      "code": "cards.replace",
+      "module": "cards",
+      "description": null
+    },
+    {
+      "id": "23",
+      "code": "users.delete",
+      "module": "users",
+      "description": null
+    },
+    {
+      "id": "24",
+      "code": "counter.operate",
+      "module": "counter",
+      "description": null
+    },
+    {
+      "id": "25",
+      "code": "meals.manage",
+      "module": "meals",
+      "description": null
+    },
+    {
+      "id": "26",
+      "code": "recharge.import",
+      "module": "recharge",
+      "description": null
+    },
+    {
+      "id": "27",
+      "code": "cards.view",
+      "module": "cards",
+      "description": null
+    },
+    {
+      "id": "28",
+      "code": "settlements.manage",
+      "module": "settlements",
+      "description": null
+    },
+    {
+      "id": "29",
+      "code": "settlements.view",
+      "module": "settlements",
+      "description": null
+    }
+  ],
+  "rolePermissions": [
+    {
+      "id": "1",
+      "roleId": "1",
+      "permissionId": "20"
+    },
+    {
+      "id": "2",
+      "roleId": "1",
+      "permissionId": "1"
+    },
+    {
+      "id": "3",
+      "roleId": "1",
+      "permissionId": "3"
+    },
+    {
+      "id": "4",
+      "roleId": "1",
+      "permissionId": "7"
+    },
+    {
+      "id": "5",
+      "roleId": "1",
+      "permissionId": "16"
+    },
+    {
+      "id": "6",
+      "roleId": "1",
+      "permissionId": "23"
+    },
+    {
+      "id": "7",
+      "roleId": "1",
+      "permissionId": "13"
+    },
+    {
+      "id": "8",
+      "roleId": "1",
+      "permissionId": "27"
+    },
+    {
+      "id": "9",
+      "roleId": "1",
+      "permissionId": "22"
+    },
+    {
+      "id": "10",
+      "roleId": "1",
+      "permissionId": "10"
+    },
+    {
+      "id": "11",
+      "roleId": "1",
+      "permissionId": "12"
+    },
+    {
+      "id": "12",
+      "roleId": "1",
+      "permissionId": "5"
+    },
+    {
+      "id": "13",
+      "roleId": "1",
+      "permissionId": "8"
+    },
+    {
+      "id": "14",
+      "roleId": "1",
+      "permissionId": "14"
+    },
+    {
+      "id": "15",
+      "roleId": "1",
+      "permissionId": "9"
+    },
+    {
+      "id": "16",
+      "roleId": "1",
+      "permissionId": "26"
+    },
+    {
+      "id": "17",
+      "roleId": "1",
+      "permissionId": "24"
+    },
+    {
+      "id": "18",
+      "roleId": "1",
+      "permissionId": "18"
+    },
+    {
+      "id": "19",
+      "roleId": "1",
+      "permissionId": "25"
+    },
+    {
+      "id": "20",
+      "roleId": "1",
+      "permissionId": "21"
+    },
+    {
+      "id": "21",
+      "roleId": "1",
+      "permissionId": "11"
+    },
+    {
+      "id": "22",
+      "roleId": "1",
+      "permissionId": "19"
+    },
+    {
+      "id": "23",
+      "roleId": "1",
+      "permissionId": "15"
+    },
+    {
+      "id": "24",
+      "roleId": "1",
+      "permissionId": "17"
+    },
+    {
+      "id": "25",
+      "roleId": "1",
+      "permissionId": "2"
+    },
+    {
+      "id": "26",
+      "roleId": "1",
+      "permissionId": "4"
+    },
+    {
+      "id": "27",
+      "roleId": "1",
+      "permissionId": "6"
+    },
+    {
+      "id": "55",
+      "roleId": "3",
+      "permissionId": "24"
+    },
+    {
+      "id": "56",
+      "roleId": "3",
+      "permissionId": "1"
+    },
+    {
+      "id": "57",
+      "roleId": "4",
+      "permissionId": "20"
+    },
+    {
+      "id": "58",
+      "roleId": "4",
+      "permissionId": "3"
+    },
+    {
+      "id": "59",
+      "roleId": "4",
+      "permissionId": "27"
+    },
+    {
+      "id": "60",
+      "roleId": "4",
+      "permissionId": "22"
+    },
+    {
+      "id": "61",
+      "roleId": "4",
+      "permissionId": "10"
+    },
+    {
+      "id": "62",
+      "roleId": "4",
+      "permissionId": "12"
+    },
+    {
+      "id": "63",
+      "roleId": "4",
+      "permissionId": "5"
+    },
+    {
+      "id": "64",
+      "roleId": "4",
+      "permissionId": "8"
+    },
+    {
+      "id": "65",
+      "roleId": "4",
+      "permissionId": "14"
+    },
+    {
+      "id": "66",
+      "roleId": "4",
+      "permissionId": "26"
+    },
+    {
+      "id": "67",
+      "roleId": "4",
+      "permissionId": "15"
+    },
+    {
+      "id": "129",
+      "roleId": "5",
+      "permissionId": "20"
+    },
+    {
+      "id": "130",
+      "roleId": "5",
+      "permissionId": "15"
+    },
+    {
+      "id": "131",
+      "roleId": "5",
+      "permissionId": "3"
+    },
+    {
+      "id": "132",
+      "roleId": "5",
+      "permissionId": "27"
+    },
+    {
+      "id": "133",
+      "roleId": "5",
+      "permissionId": "5"
+    },
+    {
+      "id": "134",
+      "roleId": "1",
+      "permissionId": "29"
+    },
+    {
+      "id": "135",
+      "roleId": "1",
+      "permissionId": "28"
+    },
+    {
+      "id": "138",
+      "roleId": "4",
+      "permissionId": "29"
+    },
+    {
+      "id": "139",
+      "roleId": "4",
+      "permissionId": "28"
+    },
+    {
+      "id": "140",
+      "roleId": "5",
+      "permissionId": "29"
+    },
+    {
+      "id": "141",
+      "roleId": "2",
+      "permissionId": "10"
+    },
+    {
+      "id": "142",
+      "roleId": "2",
+      "permissionId": "12"
+    },
+    {
+      "id": "143",
+      "roleId": "2",
+      "permissionId": "22"
+    },
+    {
+      "id": "144",
+      "roleId": "2",
+      "permissionId": "27"
+    },
+    {
+      "id": "145",
+      "roleId": "2",
+      "permissionId": "18"
+    },
+    {
+      "id": "146",
+      "roleId": "2",
+      "permissionId": "24"
+    },
+    {
+      "id": "147",
+      "roleId": "2",
+      "permissionId": "19"
+    },
+    {
+      "id": "148",
+      "roleId": "2",
+      "permissionId": "20"
+    },
+    {
+      "id": "149",
+      "roleId": "2",
+      "permissionId": "25"
+    },
+    {
+      "id": "150",
+      "roleId": "2",
+      "permissionId": "21"
+    },
+    {
+      "id": "151",
+      "roleId": "2",
+      "permissionId": "8"
+    },
+    {
+      "id": "152",
+      "roleId": "2",
+      "permissionId": "9"
+    },
+    {
+      "id": "153",
+      "roleId": "2",
+      "permissionId": "14"
+    },
+    {
+      "id": "154",
+      "roleId": "2",
+      "permissionId": "26"
+    },
+    {
+      "id": "155",
+      "roleId": "2",
+      "permissionId": "5"
+    },
+    {
+      "id": "156",
+      "roleId": "2",
+      "permissionId": "15"
+    },
+    {
+      "id": "157",
+      "roleId": "2",
+      "permissionId": "17"
+    },
+    {
+      "id": "158",
+      "roleId": "2",
+      "permissionId": "28"
+    },
+    {
+      "id": "159",
+      "roleId": "2",
+      "permissionId": "29"
+    },
+    {
+      "id": "160",
+      "roleId": "2",
+      "permissionId": "7"
+    },
+    {
+      "id": "161",
+      "roleId": "2",
+      "permissionId": "23"
+    },
+    {
+      "id": "162",
+      "roleId": "2",
+      "permissionId": "16"
+    },
+    {
+      "id": "163",
+      "roleId": "2",
+      "permissionId": "13"
+    },
+    {
+      "id": "164",
+      "roleId": "2",
+      "permissionId": "3"
+    },
+    {
+      "id": "165",
+      "roleId": "2",
+      "permissionId": "1"
+    },
+    {
+      "id": "166",
+      "roleId": "2",
+      "permissionId": "11"
+    }
+  ],
+  "appUsers": [
+    {
+      "id": "6",
+      "name": "Mohammad Taufeeq",
+      "mobile": "9182472279",
+      "email": null,
+      "passwordHash": "$2b$10$11mujYGqey5xjTKHIeragewwL2Isq6X7asbfCzy0CkP9DY7wgEYyq",
+      "roleId": "1",
+      "branchId": "1",
+      "status": "active",
+      "lastLoginAt": "2026-06-09T06:51:18.015Z",
+      "failedLogins": 0,
+      "lockedUntil": null,
+      "createdAt": "2026-06-08T10:52:46.504Z",
+      "updatedAt": "2026-06-09T06:51:18.018Z",
+      "deletedAt": null
+    },
+    {
+      "id": "3",
+      "name": "Mess Incharge",
+      "mobile": "9000000002",
+      "email": null,
+      "passwordHash": "$2b$10$ogNXNZcz/.cievuDEsRQU.YOsEnXG2Y7CT9.3q1xSIQqaxc9IvI.W",
+      "roleId": "3",
+      "branchId": "1",
+      "status": "disabled",
+      "lastLoginAt": null,
+      "failedLogins": 0,
+      "lockedUntil": null,
+      "createdAt": "2026-06-08T09:49:08.983Z",
+      "updatedAt": "2026-06-08T10:52:11.962Z",
+      "deletedAt": null
+    },
+    {
+      "id": "5",
+      "name": "Management",
+      "mobile": "9000000004",
+      "email": null,
+      "passwordHash": "$2b$10$ogNXNZcz/.cievuDEsRQU.YOsEnXG2Y7CT9.3q1xSIQqaxc9IvI.W",
+      "roleId": "5",
+      "branchId": "1",
+      "status": "disabled",
+      "lastLoginAt": null,
+      "failedLogins": 0,
+      "lockedUntil": null,
+      "createdAt": "2026-06-08T09:49:08.995Z",
+      "updatedAt": "2026-06-08T10:52:13.053Z",
+      "deletedAt": null
+    },
+    {
+      "id": "2",
+      "name": "Admin User",
+      "mobile": "9000000001",
+      "email": null,
+      "passwordHash": "$2b$10$ogNXNZcz/.cievuDEsRQU.YOsEnXG2Y7CT9.3q1xSIQqaxc9IvI.W",
+      "roleId": "2",
+      "branchId": "1",
+      "status": "disabled",
+      "lastLoginAt": null,
+      "failedLogins": 0,
+      "lockedUntil": null,
+      "createdAt": "2026-06-08T09:49:08.977Z",
+      "updatedAt": "2026-06-08T10:52:13.879Z",
+      "deletedAt": null
+    },
+    {
+      "id": "4",
+      "name": "Accountant",
+      "mobile": "9000000003",
+      "email": null,
+      "passwordHash": "$2b$10$ogNXNZcz/.cievuDEsRQU.YOsEnXG2Y7CT9.3q1xSIQqaxc9IvI.W",
+      "roleId": "4",
+      "branchId": "1",
+      "status": "disabled",
+      "lastLoginAt": null,
+      "failedLogins": 0,
+      "lockedUntil": null,
+      "createdAt": "2026-06-08T09:49:08.989Z",
+      "updatedAt": "2026-06-08T10:52:14.905Z",
+      "deletedAt": null
+    },
+    {
+      "id": "1",
+      "name": "Srikanth",
+      "mobile": "9281122104",
+      "email": null,
+      "passwordHash": "$2b$10$ogNXNZcz/.cievuDEsRQU.YOsEnXG2Y7CT9.3q1xSIQqaxc9IvI.W",
+      "roleId": "1",
+      "branchId": null,
+      "status": "active",
+      "lastLoginAt": "2026-06-09T05:43:24.596Z",
+      "failedLogins": 0,
+      "lockedUntil": null,
+      "createdAt": "2026-06-08T09:49:08.967Z",
+      "updatedAt": "2026-06-09T05:43:24.599Z",
+      "deletedAt": null
+    }
+  ],
+  "departments": [],
+  "categories": [
+    {
+      "id": "1",
+      "code": "STU",
+      "name": "Student",
+      "identifierLabel": "Admission No.",
+      "identifierRegex": null,
+      "identifierRequired": true,
+      "identifierUnique": true,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.001Z"
+    },
+    {
+      "id": "2",
+      "code": "EMP",
+      "name": "Employee",
+      "identifierLabel": "Employee ID",
+      "identifierRegex": null,
+      "identifierRequired": true,
+      "identifierUnique": true,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.011Z"
+    },
+    {
+      "id": "3",
+      "code": "CON",
+      "name": "Contractor",
+      "identifierLabel": "Contractor ID",
+      "identifierRegex": null,
+      "identifierRequired": true,
+      "identifierUnique": true,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.017Z"
+    },
+    {
+      "id": "4",
+      "code": "GST",
+      "name": "Guest",
+      "identifierLabel": "Guest ID",
+      "identifierRegex": null,
+      "identifierRequired": false,
+      "identifierUnique": true,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.023Z"
+    },
+    {
+      "id": "5",
+      "code": "VIS",
+      "name": "Visitor",
+      "identifierLabel": "Visitor ID",
+      "identifierRegex": null,
+      "identifierRequired": false,
+      "identifierUnique": true,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.029Z"
+    },
+    {
+      "id": "6",
+      "code": "HLP",
+      "name": "Helpers",
+      "identifierLabel": "Helpers ID",
+      "identifierRegex": null,
+      "identifierRequired": true,
+      "identifierUnique": true,
+      "status": "active",
+      "createdAt": "2026-06-08T09:58:49.512Z"
+    },
+    {
+      "id": "7",
+      "code": "TST",
+      "name": "TEST",
+      "identifierLabel": "Test ID",
+      "identifierRegex": null,
+      "identifierRequired": true,
+      "identifierUnique": true,
+      "status": "inactive",
+      "createdAt": "2026-06-09T07:03:12.730Z"
+    }
+  ],
+  "categorySettings": [
+    {
+      "id": "1",
+      "categoryId": "1",
+      "models": [
+        "coupon"
+      ],
+      "duplicateWindow": 10,
+      "restrictMealSession": false,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.097Z",
+      "updatedAt": "2026-06-09T04:53:38.372Z"
+    },
+    {
+      "id": "2",
+      "categoryId": "2",
+      "models": [
+        "wallet",
+        "coupon"
+      ],
+      "duplicateWindow": 20,
+      "restrictMealSession": false,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.102Z",
+      "updatedAt": "2026-06-09T04:53:38.382Z"
+    },
+    {
+      "id": "3",
+      "categoryId": "3",
+      "models": [
+        "wallet",
+        "coupon"
+      ],
+      "duplicateWindow": 0,
+      "restrictMealSession": false,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.107Z",
+      "updatedAt": "2026-06-09T04:53:38.390Z"
+    },
+    {
+      "id": "4",
+      "categoryId": "4",
+      "models": [
+        "wallet"
+      ],
+      "duplicateWindow": 0,
+      "restrictMealSession": false,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.112Z",
+      "updatedAt": "2026-06-09T04:53:38.398Z"
+    },
+    {
+      "id": "5",
+      "categoryId": "5",
+      "models": [
+        "wallet"
+      ],
+      "duplicateWindow": 0,
+      "restrictMealSession": false,
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.116Z",
+      "updatedAt": "2026-06-09T04:53:38.406Z"
+    },
+    {
+      "id": "6",
+      "categoryId": "6",
+      "models": [
+        "wallet"
+      ],
+      "duplicateWindow": 0,
+      "restrictMealSession": false,
+      "status": "active",
+      "createdAt": "2026-06-08T11:51:34.933Z",
+      "updatedAt": "2026-06-09T04:53:38.414Z"
+    }
+  ],
+  "counters": [
+    {
+      "id": "1",
+      "branchId": "1",
+      "code": "C1",
+      "name": "Counter 1 (Main)",
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.119Z",
+      "updatedAt": "2026-06-08T09:49:09.119Z",
+      "deletedAt": null
+    },
+    {
+      "id": "2",
+      "branchId": "1",
+      "code": "C2",
+      "name": "Counter 2 (Annex)",
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.136Z",
+      "updatedAt": "2026-06-08T09:49:09.136Z",
+      "deletedAt": null
+    },
+    {
+      "id": "3",
+      "branchId": "1",
+      "code": "C3",
+      "name": "Counter 3 (Block A)",
+      "status": "active",
+      "createdAt": "2026-06-08T09:49:09.147Z",
+      "updatedAt": "2026-06-08T09:49:09.147Z",
+      "deletedAt": null
+    }
+  ],
+  "counterMeals": [
+    {
+      "id": "3",
+      "counterId": "1",
+      "mealTypeId": "2",
+      "startTime": "11:30",
+      "endTime": "15:00",
+      "active": true,
+      "createdAt": "2026-06-09T06:04:58.170Z",
+      "updatedAt": "2026-06-09T06:04:58.170Z"
+    },
+    {
+      "id": "4",
+      "counterId": "1",
+      "mealTypeId": "3",
+      "startTime": "16:00",
+      "endTime": "18:00",
+      "active": true,
+      "createdAt": "2026-06-09T06:04:58.176Z",
+      "updatedAt": "2026-06-09T06:04:58.176Z"
+    },
+    {
+      "id": "5",
+      "counterId": "1",
+      "mealTypeId": "4",
+      "startTime": "19:00",
+      "endTime": "22:00",
+      "active": true,
+      "createdAt": "2026-06-09T06:04:58.181Z",
+      "updatedAt": "2026-06-09T06:04:58.181Z"
+    },
+    {
+      "id": "7",
+      "counterId": "2",
+      "mealTypeId": "2",
+      "startTime": "11:30",
+      "endTime": "15:00",
+      "active": true,
+      "createdAt": "2026-06-09T06:04:58.199Z",
+      "updatedAt": "2026-06-09T06:04:58.199Z"
+    },
+    {
+      "id": "8",
+      "counterId": "3",
+      "mealTypeId": "2",
+      "startTime": "11:30",
+      "endTime": "15:00",
+      "active": true,
+      "createdAt": "2026-06-09T06:04:58.211Z",
+      "updatedAt": "2026-06-09T06:04:58.211Z"
+    },
+    {
+      "id": "9",
+      "counterId": "3",
+      "mealTypeId": "4",
+      "startTime": "19:00",
+      "endTime": "22:00",
+      "active": true,
+      "createdAt": "2026-06-09T06:04:58.216Z",
+      "updatedAt": "2026-06-09T06:04:58.216Z"
+    },
+    {
+      "id": "10",
+      "counterId": "1",
+      "mealTypeId": "1",
+      "startTime": "07:00",
+      "endTime": "11:00",
+      "active": true,
+      "createdAt": "2026-06-09T06:08:56.607Z",
+      "updatedAt": "2026-06-09T06:08:56.607Z"
+    },
+    {
+      "id": "11",
+      "counterId": "2",
+      "mealTypeId": "1",
+      "startTime": "07:00",
+      "endTime": "11:00",
+      "active": true,
+      "createdAt": "2026-06-09T06:08:56.607Z",
+      "updatedAt": "2026-06-09T06:08:56.607Z"
+    },
+    {
+      "id": "12",
+      "counterId": "3",
+      "mealTypeId": "1",
+      "startTime": "08:00",
+      "endTime": "10:30",
+      "active": true,
+      "createdAt": "2026-06-09T06:08:56.607Z",
+      "updatedAt": "2026-06-09T06:08:56.607Z"
+    }
+  ],
+  "counterOperators": [
+    {
+      "id": "2",
+      "counterId": "2",
+      "appUserId": "3"
+    },
+    {
+      "id": "3",
+      "counterId": "3",
+      "appUserId": "3"
+    },
+    {
+      "id": "5",
+      "counterId": "1",
+      "appUserId": "6"
+    },
+    {
+      "id": "6",
+      "counterId": "1",
+      "appUserId": "3"
+    }
+  ],
+  "users": [
+    {
+      "id": "1",
+      "code": "ADM2024001",
+      "fullName": "Aarav Sharma",
+      "phone": "9810000001",
+      "email": null,
+      "categoryId": "1",
+      "departmentId": null,
+      "branchId": "1",
+      "photoUrl": null,
+      "kycRef": null,
+      "status": "active",
+      "cardExpiryDate": null,
+      "validityExpired": false,
+      "createdBy": null,
+      "createdAt": "2026-06-08T11:17:36.264Z",
+      "updatedAt": "2026-06-08T11:17:36.264Z",
+      "deletedAt": null
+    },
+    {
+      "id": "2",
+      "code": "ADM2024002",
+      "fullName": "Diya Patel",
+      "phone": "9810000002",
+      "email": null,
+      "categoryId": "1",
+      "departmentId": null,
+      "branchId": "1",
+      "photoUrl": null,
+      "kycRef": null,
+      "status": "active",
+      "cardExpiryDate": null,
+      "validityExpired": false,
+      "createdBy": null,
+      "createdAt": "2026-06-08T11:17:36.298Z",
+      "updatedAt": "2026-06-08T11:17:36.298Z",
+      "deletedAt": null
+    },
+    {
+      "id": "4",
+      "code": "KIAD0088",
+      "fullName": "Mohammad Taufeeq",
+      "phone": "9182472279",
+      "email": "taufeeq@k-innovative.com",
+      "categoryId": "2",
+      "departmentId": null,
+      "branchId": "1",
+      "photoUrl": null,
+      "kycRef": null,
+      "status": "active",
+      "cardExpiryDate": "2026-06-30T00:00:00.000Z",
+      "validityExpired": false,
+      "createdBy": "6",
+      "createdAt": "2026-06-08T11:28:28.865Z",
+      "updatedAt": "2026-06-09T04:42:11.096Z",
+      "deletedAt": null
+    },
+    {
+      "id": "3",
+      "code": "EMP1001",
+      "fullName": "Rahul Verma",
+      "phone": "9810000003",
+      "email": null,
+      "categoryId": "1",
+      "departmentId": null,
+      "branchId": "1",
+      "photoUrl": null,
+      "kycRef": null,
+      "status": "active",
+      "cardExpiryDate": "2026-06-10T00:00:00.000Z",
+      "validityExpired": false,
+      "createdBy": null,
+      "createdAt": "2026-06-08T11:17:36.313Z",
+      "updatedAt": "2026-06-09T04:51:56.939Z",
+      "deletedAt": null
+    }
+  ],
+  "rfidCards": [
+    {
+      "id": "1",
+      "cardUid": "1000000001",
+      "userId": "1",
+      "status": "active",
+      "issuedAt": "2026-06-08T11:17:36.277Z",
+      "expiresOn": null,
+      "blockedAt": null,
+      "createdAt": "2026-06-08T11:17:36.279Z",
+      "updatedAt": "2026-06-08T11:17:36.279Z"
+    },
+    {
+      "id": "2",
+      "cardUid": "1000000002",
+      "userId": "2",
+      "status": "active",
+      "issuedAt": "2026-06-08T11:17:36.302Z",
+      "expiresOn": null,
+      "blockedAt": null,
+      "createdAt": "2026-06-08T11:17:36.304Z",
+      "updatedAt": "2026-06-08T11:17:36.304Z"
+    },
+    {
+      "id": "3",
+      "cardUid": "1000000003",
+      "userId": "3",
+      "status": "retired",
+      "issuedAt": "2026-06-08T11:17:36.317Z",
+      "expiresOn": null,
+      "blockedAt": null,
+      "createdAt": "2026-06-08T11:17:36.318Z",
+      "updatedAt": "2026-06-09T04:23:53.682Z"
+    },
+    {
+      "id": "13",
+      "cardUid": "4159847522",
+      "userId": "3",
+      "status": "active",
+      "issuedAt": "2026-06-09T04:23:53.685Z",
+      "expiresOn": null,
+      "blockedAt": null,
+      "createdAt": "2026-06-09T04:23:53.687Z",
+      "updatedAt": "2026-06-09T04:23:53.687Z"
+    }
+  ],
+  "cardEvents": [
+    {
+      "id": "1",
+      "cardId": "1",
+      "userId": "1",
+      "type": "issue",
+      "oldUid": null,
+      "newUid": "1000000001",
+      "reason": null,
+      "appUserId": null,
+      "createdAt": "2026-06-08T11:17:36.286Z"
+    },
+    {
+      "id": "2",
+      "cardId": "2",
+      "userId": "2",
+      "type": "issue",
+      "oldUid": null,
+      "newUid": "1000000002",
+      "reason": null,
+      "appUserId": null,
+      "createdAt": "2026-06-08T11:17:36.305Z"
+    },
+    {
+      "id": "3",
+      "cardId": "3",
+      "userId": "3",
+      "type": "issue",
+      "oldUid": null,
+      "newUid": "1000000003",
+      "reason": null,
+      "appUserId": null,
+      "createdAt": "2026-06-08T11:17:36.321Z"
+    },
+    {
+      "id": "5",
+      "cardId": "13",
+      "userId": "3",
+      "type": "replace",
+      "oldUid": "1000000003",
+      "newUid": "4159847522",
+      "reason": null,
+      "appUserId": "6",
+      "createdAt": "2026-06-09T04:23:53.695Z"
+    }
+  ],
+  "wallets": [
+    {
+      "id": "1",
+      "userId": "1",
+      "balanceAmount": "500",
+      "currency": "INR",
+      "version": 0,
+      "updatedAt": "2026-06-08T11:17:36.272Z"
+    },
+    {
+      "id": "2",
+      "userId": "2",
+      "balanceAmount": "0",
+      "currency": "INR",
+      "version": 0,
+      "updatedAt": "2026-06-08T11:17:36.300Z"
+    },
+    {
+      "id": "4",
+      "userId": "4",
+      "balanceAmount": "1000",
+      "currency": "INR",
+      "version": 3,
+      "updatedAt": "2026-06-09T04:42:25.198Z"
+    },
+    {
+      "id": "3",
+      "userId": "3",
+      "balanceAmount": "2095",
+      "currency": "INR",
+      "version": 4,
+      "updatedAt": "2026-06-09T04:43:53.478Z"
+    }
+  ],
+  "couponBalances": [
+    {
+      "id": "9",
+      "userId": "3",
+      "mealTypeId": "3",
+      "count": 10,
+      "version": 1,
+      "updatedAt": "2026-06-09T04:43:53.587Z"
+    },
+    {
+      "id": "10",
+      "userId": "3",
+      "mealTypeId": "4",
+      "count": 10,
+      "version": 1,
+      "updatedAt": "2026-06-09T04:43:53.603Z"
+    },
+    {
+      "id": "7",
+      "userId": "3",
+      "mealTypeId": "1",
+      "count": 8,
+      "version": 3,
+      "updatedAt": "2026-06-09T04:53:41.652Z"
+    },
+    {
+      "id": "8",
+      "userId": "3",
+      "mealTypeId": "2",
+      "count": 0,
+      "version": 11,
+      "updatedAt": "2026-06-09T09:26:00.063Z"
+    }
+  ],
+  "mealTypes": [
+    {
+      "id": "2",
+      "code": "LUN",
+      "name": "Lunch",
+      "startTime": "11:30",
+      "endTime": "15:00",
+      "active": true
+    },
+    {
+      "id": "3",
+      "code": "SNK",
+      "name": "Snacks",
+      "startTime": "16:00",
+      "endTime": "18:00",
+      "active": true
+    },
+    {
+      "id": "4",
+      "code": "DIN",
+      "name": "Dinner",
+      "startTime": "19:00",
+      "endTime": "22:00",
+      "active": true
+    },
+    {
+      "id": "1",
+      "code": "BRK",
+      "name": "Breakfast",
+      "startTime": "07:00",
+      "endTime": "11:00",
+      "active": true
+    },
+    {
+      "id": "5",
+      "code": "TST",
+      "name": "Test",
+      "startTime": "00:00",
+      "endTime": "23:59",
+      "active": false
+    }
+  ],
+  "mealRates": [
+    {
+      "id": "52",
+      "mealTypeId": "1",
+      "categoryId": "1",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "25",
+      "vendorRate": "20",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "53",
+      "mealTypeId": "1",
+      "categoryId": "2",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "35",
+      "vendorRate": "28",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "54",
+      "mealTypeId": "1",
+      "categoryId": "3",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "35",
+      "vendorRate": "28",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "55",
+      "mealTypeId": "1",
+      "categoryId": "4",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "50",
+      "vendorRate": "40",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "56",
+      "mealTypeId": "1",
+      "categoryId": "5",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "50",
+      "vendorRate": "40",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "57",
+      "mealTypeId": "2",
+      "categoryId": "1",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "45",
+      "vendorRate": "36",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "58",
+      "mealTypeId": "2",
+      "categoryId": "2",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "60",
+      "vendorRate": "48",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "59",
+      "mealTypeId": "2",
+      "categoryId": "3",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "60",
+      "vendorRate": "48",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "60",
+      "mealTypeId": "2",
+      "categoryId": "4",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "90",
+      "vendorRate": "72",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "61",
+      "mealTypeId": "2",
+      "categoryId": "5",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "90",
+      "vendorRate": "72",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "62",
+      "mealTypeId": "3",
+      "categoryId": "1",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "15",
+      "vendorRate": "12",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "63",
+      "mealTypeId": "3",
+      "categoryId": "2",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "20",
+      "vendorRate": "16",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "64",
+      "mealTypeId": "3",
+      "categoryId": "3",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "20",
+      "vendorRate": "16",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "65",
+      "mealTypeId": "3",
+      "categoryId": "4",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "30",
+      "vendorRate": "24",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "66",
+      "mealTypeId": "3",
+      "categoryId": "5",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "30",
+      "vendorRate": "24",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "67",
+      "mealTypeId": "4",
+      "categoryId": "1",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "45",
+      "vendorRate": "36",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "68",
+      "mealTypeId": "4",
+      "categoryId": "2",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "60",
+      "vendorRate": "48",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "69",
+      "mealTypeId": "4",
+      "categoryId": "3",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "60",
+      "vendorRate": "48",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "70",
+      "mealTypeId": "4",
+      "categoryId": "4",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "90",
+      "vendorRate": "72",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "71",
+      "mealTypeId": "4",
+      "categoryId": "5",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "90",
+      "vendorRate": "72",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "72",
+      "mealTypeId": "4",
+      "categoryId": "6",
+      "branchId": "1",
+      "counterId": null,
+      "rate": "20",
+      "vendorRate": "15",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "73",
+      "mealTypeId": "2",
+      "categoryId": "2",
+      "branchId": "1",
+      "counterId": "2",
+      "rate": "70",
+      "vendorRate": "50",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "74",
+      "mealTypeId": "4",
+      "categoryId": "2",
+      "branchId": "1",
+      "counterId": "3",
+      "rate": "80",
+      "vendorRate": "60",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    },
+    {
+      "id": "75",
+      "mealTypeId": "4",
+      "categoryId": "2",
+      "branchId": "1",
+      "counterId": "1",
+      "rate": "60",
+      "vendorRate": "48",
+      "validFrom": "2026-06-09T00:00:00.000Z",
+      "validTo": null,
+      "createdAt": "2026-06-09T07:01:50.015Z"
+    }
+  ],
+  "rechargePlans": [],
+  "paymentModes": [
+    {
+      "id": "1",
+      "code": "CASH",
+      "name": "Cash",
+      "active": true
+    },
+    {
+      "id": "2",
+      "code": "CARD",
+      "name": "Card",
+      "active": true
+    },
+    {
+      "id": "3",
+      "code": "UPI",
+      "name": "UPI",
+      "active": true
+    },
+    {
+      "id": "4",
+      "code": "OTHER",
+      "name": "Other",
+      "active": true
+    }
+  ],
+  "recharges": [
+    {
+      "id": "8",
+      "clientUuid": "8ef086d1-a9b6-4d9f-86c3-968abafef43d",
+      "userId": "4",
+      "cardId": null,
+      "planId": null,
+      "amount": "1000",
+      "validFrom": null,
+      "validTill": null,
+      "remainingAmount": "1000",
+      "paymentModeId": "2",
+      "counterId": null,
+      "appUserId": "6",
+      "status": "posted",
+      "remarks": null,
+      "rechargedAt": "2026-06-09T04:42:25.189Z",
+      "editedAt": null
+    },
+    {
+      "id": "9",
+      "clientUuid": "e0702396-486d-46ab-953c-abe923c14c4a",
+      "userId": "3",
+      "cardId": null,
+      "planId": null,
+      "amount": "1000",
+      "validFrom": null,
+      "validTill": null,
+      "remainingAmount": "1000",
+      "paymentModeId": "1",
+      "counterId": null,
+      "appUserId": "6",
+      "status": "posted",
+      "remarks": null,
+      "rechargedAt": "2026-06-09T04:43:53.463Z",
+      "editedAt": null
+    }
+  ],
+  "rechargeCoupons": [
+    {
+      "id": "9",
+      "rechargeId": "9",
+      "mealTypeId": "3",
+      "count": 10,
+      "remaining": 10
+    },
+    {
+      "id": "10",
+      "rechargeId": "9",
+      "mealTypeId": "4",
+      "count": 10,
+      "remaining": 10
+    },
+    {
+      "id": "7",
+      "rechargeId": "9",
+      "mealTypeId": "1",
+      "count": 10,
+      "remaining": 8
+    },
+    {
+      "id": "8",
+      "rechargeId": "9",
+      "mealTypeId": "2",
+      "count": 10,
+      "remaining": 0
+    }
+  ],
+  "redemptions": [
+    {
+      "id": "12",
+      "clientUuid": "be0ac9c7-ee87-4de8-b400-ac6dd841bdf2",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "1",
+      "counterId": "1",
+      "categoryId": "2",
+      "paidBy": "wallet",
+      "rateApplied": "35",
+      "amount": "35",
+      "vendorAmount": "28",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T04:24:54.615Z",
+      "syncedAt": null
+    },
+    {
+      "id": "13",
+      "clientUuid": "68180302-0547-4d97-9993-49dacff4dbb5",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "1",
+      "counterId": "1",
+      "categoryId": "2",
+      "paidBy": "wallet",
+      "rateApplied": "35",
+      "amount": "35",
+      "vendorAmount": "28",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T04:30:10.043Z",
+      "syncedAt": null
+    },
+    {
+      "id": "14",
+      "clientUuid": "7214f461-45df-494a-a905-470463d12301",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "1",
+      "counterId": "1",
+      "categoryId": "2",
+      "paidBy": "wallet",
+      "rateApplied": "35",
+      "amount": "35",
+      "vendorAmount": "28",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T04:30:33.580Z",
+      "syncedAt": null
+    },
+    {
+      "id": "15",
+      "clientUuid": "6da40f81-7d41-4e48-ac6a-da32b3937cb1",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "1",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "25",
+      "amount": "0",
+      "vendorAmount": "20",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T04:52:36.032Z",
+      "syncedAt": null
+    },
+    {
+      "id": "16",
+      "clientUuid": "b9a1fb6b-01f7-44c0-b9d4-0c9b852f7926",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "1",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "25",
+      "amount": "0",
+      "vendorAmount": "20",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T04:53:41.578Z",
+      "syncedAt": null
+    },
+    {
+      "id": "17",
+      "clientUuid": "331487a5-2007-4c42-aaa3-1dc06f75109d",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:12:20.472Z",
+      "syncedAt": null
+    },
+    {
+      "id": "18",
+      "clientUuid": "d56277e9-1975-40e1-91e7-def15e12cf0f",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:12:37.995Z",
+      "syncedAt": null
+    },
+    {
+      "id": "19",
+      "clientUuid": "7b6375aa-d966-42ae-97df-cfe708880841",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:13:09.021Z",
+      "syncedAt": null
+    },
+    {
+      "id": "20",
+      "clientUuid": "c87af7de-a23f-4636-9845-fbb122a8ccad",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:13:46.124Z",
+      "syncedAt": null
+    },
+    {
+      "id": "21",
+      "clientUuid": "d4218cfb-2573-42c3-a75c-209fc92c2130",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:15:48.751Z",
+      "syncedAt": null
+    },
+    {
+      "id": "22",
+      "clientUuid": "5fc5694f-9565-406d-bf2a-5531feb40a56",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:23:46.955Z",
+      "syncedAt": null
+    },
+    {
+      "id": "23",
+      "clientUuid": "e5b27562-ca0b-4a4b-975e-eb333ffd84fb",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:24:01.320Z",
+      "syncedAt": null
+    },
+    {
+      "id": "24",
+      "clientUuid": "0c015162-b2eb-4218-b086-5734838b2a8b",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:25:01.234Z",
+      "syncedAt": "2026-06-09T09:25:26.880Z"
+    },
+    {
+      "id": "25",
+      "clientUuid": "2717266b-f234-4840-b8df-ac55cbbef019",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:25:34.757Z",
+      "syncedAt": null
+    },
+    {
+      "id": "26",
+      "clientUuid": "4ef9a707-fd2d-4415-80c9-b670a8e1a1d4",
+      "userId": "3",
+      "cardId": "13",
+      "mealTypeId": "2",
+      "counterId": "1",
+      "categoryId": "1",
+      "paidBy": "coupon",
+      "rateApplied": "45",
+      "amount": "0",
+      "vendorAmount": "36",
+      "appUserId": "6",
+      "status": "posted",
+      "redeemedAt": "2026-06-09T09:25:46.680Z",
+      "syncedAt": "2026-06-09T09:25:59.890Z"
+    }
+  ],
+  "walletTransactions": [
+    {
+      "id": "16",
+      "walletId": "4",
+      "userId": "4",
+      "txnType": "CR",
+      "sourceTable": "recharge",
+      "sourceId": "7",
+      "amount": "1000",
+      "balanceAfter": "1000",
+      "reference": "recharge",
+      "createdAt": "2026-06-09T04:13:59.111Z"
+    },
+    {
+      "id": "17",
+      "walletId": "4",
+      "userId": "4",
+      "txnType": "DR",
+      "sourceTable": "reversal",
+      "sourceId": "7",
+      "amount": "1000",
+      "balanceAfter": "0",
+      "reference": "reversal",
+      "createdAt": "2026-06-09T04:20:44.280Z"
+    },
+    {
+      "id": "18",
+      "walletId": "3",
+      "userId": "3",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "12",
+      "amount": "35",
+      "balanceAfter": "1165",
+      "reference": "tap",
+      "createdAt": "2026-06-09T04:24:54.735Z"
+    },
+    {
+      "id": "19",
+      "walletId": "3",
+      "userId": "3",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "13",
+      "amount": "35",
+      "balanceAfter": "1130",
+      "reference": "tap",
+      "createdAt": "2026-06-09T04:30:10.128Z"
+    },
+    {
+      "id": "20",
+      "walletId": "3",
+      "userId": "3",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "14",
+      "amount": "35",
+      "balanceAfter": "1095",
+      "reference": "tap",
+      "createdAt": "2026-06-09T04:30:33.651Z"
+    },
+    {
+      "id": "21",
+      "walletId": "4",
+      "userId": "4",
+      "txnType": "CR",
+      "sourceTable": "recharge",
+      "sourceId": "8",
+      "amount": "1000",
+      "balanceAfter": "1000",
+      "reference": "recharge",
+      "createdAt": "2026-06-09T04:42:25.206Z"
+    },
+    {
+      "id": "22",
+      "walletId": "3",
+      "userId": "3",
+      "txnType": "CR",
+      "sourceTable": "recharge",
+      "sourceId": "9",
+      "amount": "1000",
+      "balanceAfter": "2095",
+      "reference": "recharge",
+      "createdAt": "2026-06-09T04:43:53.538Z"
+    }
+  ],
+  "couponTransactions": [
+    {
+      "id": "11",
+      "userId": "3",
+      "mealTypeId": "1",
+      "txnType": "CR",
+      "sourceTable": "recharge",
+      "sourceId": "9",
+      "count": 10,
+      "balanceAfter": 10,
+      "createdAt": "2026-06-09T04:43:53.563Z"
+    },
+    {
+      "id": "12",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "CR",
+      "sourceTable": "recharge",
+      "sourceId": "9",
+      "count": 10,
+      "balanceAfter": 10,
+      "createdAt": "2026-06-09T04:43:53.579Z"
+    },
+    {
+      "id": "13",
+      "userId": "3",
+      "mealTypeId": "3",
+      "txnType": "CR",
+      "sourceTable": "recharge",
+      "sourceId": "9",
+      "count": 10,
+      "balanceAfter": 10,
+      "createdAt": "2026-06-09T04:43:53.591Z"
+    },
+    {
+      "id": "14",
+      "userId": "3",
+      "mealTypeId": "4",
+      "txnType": "CR",
+      "sourceTable": "recharge",
+      "sourceId": "9",
+      "count": 10,
+      "balanceAfter": 10,
+      "createdAt": "2026-06-09T04:43:53.608Z"
+    },
+    {
+      "id": "15",
+      "userId": "3",
+      "mealTypeId": "1",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "15",
+      "count": 1,
+      "balanceAfter": 9,
+      "createdAt": "2026-06-09T04:52:36.159Z"
+    },
+    {
+      "id": "16",
+      "userId": "3",
+      "mealTypeId": "1",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "16",
+      "count": 1,
+      "balanceAfter": 8,
+      "createdAt": "2026-06-09T04:53:41.676Z"
+    },
+    {
+      "id": "21",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "17",
+      "count": 1,
+      "balanceAfter": 9,
+      "createdAt": "2026-06-09T09:12:20.589Z"
+    },
+    {
+      "id": "22",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "18",
+      "count": 1,
+      "balanceAfter": 8,
+      "createdAt": "2026-06-09T09:12:38.092Z"
+    },
+    {
+      "id": "23",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "19",
+      "count": 1,
+      "balanceAfter": 7,
+      "createdAt": "2026-06-09T09:13:09.102Z"
+    },
+    {
+      "id": "24",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "20",
+      "count": 1,
+      "balanceAfter": 6,
+      "createdAt": "2026-06-09T09:13:46.182Z"
+    },
+    {
+      "id": "25",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "21",
+      "count": 1,
+      "balanceAfter": 5,
+      "createdAt": "2026-06-09T09:15:48.861Z"
+    },
+    {
+      "id": "26",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "22",
+      "count": 1,
+      "balanceAfter": 4,
+      "createdAt": "2026-06-09T09:23:47.066Z"
+    },
+    {
+      "id": "27",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "23",
+      "count": 1,
+      "balanceAfter": 3,
+      "createdAt": "2026-06-09T09:24:01.418Z"
+    },
+    {
+      "id": "28",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "24",
+      "count": 1,
+      "balanceAfter": 2,
+      "createdAt": "2026-06-09T09:25:27.013Z"
+    },
+    {
+      "id": "29",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "25",
+      "count": 1,
+      "balanceAfter": 1,
+      "createdAt": "2026-06-09T09:25:34.803Z"
+    },
+    {
+      "id": "30",
+      "userId": "3",
+      "mealTypeId": "2",
+      "txnType": "DR",
+      "sourceTable": "redemption",
+      "sourceId": "26",
+      "count": 1,
+      "balanceAfter": 0,
+      "createdAt": "2026-06-09T09:26:00.090Z"
+    }
+  ],
+  "reversals": [],
+  "vendors": [],
+  "vendorSettlements": [],
+  "offlineQueue": [],
+  "auditLog": [
+    {
+      "id": "1",
+      "appUserId": "1",
+      "action": "category.create",
+      "entity": "category",
+      "entityId": "6",
+      "beforeJson": null,
+      "afterJson": {
+        "code": "HLP",
+        "name": "Helpers",
+        "status": "active",
+        "identifierLabel": "Helpers ID",
+        "identifierRegex": null,
+        "identifierUnique": true,
+        "identifierRequired": true
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T09:58:49.521Z"
+    },
+    {
+      "id": "2",
+      "appUserId": "1",
+      "action": "accessControl.update",
+      "entity": "role",
+      "entityId": "2",
+      "beforeJson": {
+        "permissions": [
+          "accessControl.manage",
+          "cards.activate",
+          "cards.deactivate",
+          "cards.replace",
+          "cards.view",
+          "categories.manage",
+          "counter.operate",
+          "counters.manage",
+          "dashboard.view",
+          "meals.manage",
+          "rates.manage",
+          "recharge.create",
+          "recharge.delete",
+          "recharge.edit",
+          "recharge.import",
+          "recharge.view",
+          "reports.view",
+          "roles.manage",
+          "settings.manage",
+          "staff.manage",
+          "users.create",
+          "users.delete",
+          "users.edit",
+          "users.import",
+          "users.view",
+          "vendorDashboard.view",
+          "vendorRates.manage"
+        ]
+      },
+      "afterJson": {
+        "permissions": [
+          "accessControl.manage",
+          "cards.activate",
+          "cards.deactivate",
+          "cards.replace",
+          "cards.view",
+          "categories.manage",
+          "counter.operate",
+          "counters.manage",
+          "meals.manage",
+          "rates.manage",
+          "recharge.create",
+          "recharge.delete",
+          "recharge.edit",
+          "recharge.import",
+          "recharge.view",
+          "reports.view",
+          "roles.manage",
+          "settings.manage",
+          "staff.manage",
+          "users.create",
+          "users.delete",
+          "users.edit",
+          "users.import",
+          "users.view",
+          "vendorDashboard.view",
+          "vendorRates.manage"
+        ]
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.11187.4 Chrome/146.0.7680.216 Electron/41.6.1 Safari/537.36 MSIX",
+      "createdAt": "2026-06-08T10:37:50.838Z"
+    },
+    {
+      "id": "3",
+      "appUserId": "1",
+      "action": "accessControl.update",
+      "entity": "role",
+      "entityId": "2",
+      "beforeJson": {
+        "permissions": [
+          "accessControl.manage",
+          "cards.activate",
+          "cards.deactivate",
+          "cards.replace",
+          "cards.view",
+          "categories.manage",
+          "counter.operate",
+          "counters.manage",
+          "meals.manage",
+          "rates.manage",
+          "recharge.create",
+          "recharge.delete",
+          "recharge.edit",
+          "recharge.import",
+          "recharge.view",
+          "reports.view",
+          "roles.manage",
+          "settings.manage",
+          "staff.manage",
+          "users.create",
+          "users.delete",
+          "users.edit",
+          "users.import",
+          "users.view",
+          "vendorDashboard.view",
+          "vendorRates.manage"
+        ]
+      },
+      "afterJson": {
+        "permissions": [
+          "accessControl.manage",
+          "cards.activate",
+          "cards.deactivate",
+          "cards.replace",
+          "cards.view",
+          "categories.manage",
+          "counter.operate",
+          "counters.manage",
+          "dashboard.view",
+          "meals.manage",
+          "rates.manage",
+          "recharge.create",
+          "recharge.delete",
+          "recharge.edit",
+          "recharge.import",
+          "recharge.view",
+          "reports.view",
+          "roles.manage",
+          "settings.manage",
+          "staff.manage",
+          "users.create",
+          "users.delete",
+          "users.edit",
+          "users.import",
+          "users.view",
+          "vendorDashboard.view",
+          "vendorRates.manage"
+        ]
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.11187.4 Chrome/146.0.7680.216 Electron/41.6.1 Safari/537.36 MSIX",
+      "createdAt": "2026-06-08T10:38:16.141Z"
+    },
+    {
+      "id": "4",
+      "appUserId": "1",
+      "action": "staff.status",
+      "entity": "app_user",
+      "entityId": "3",
+      "beforeJson": {
+        "status": "active"
+      },
+      "afterJson": {
+        "status": "disabled"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T10:52:11.971Z"
+    },
+    {
+      "id": "5",
+      "appUserId": "1",
+      "action": "staff.status",
+      "entity": "app_user",
+      "entityId": "5",
+      "beforeJson": {
+        "status": "active"
+      },
+      "afterJson": {
+        "status": "disabled"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T10:52:13.056Z"
+    },
+    {
+      "id": "6",
+      "appUserId": "1",
+      "action": "staff.status",
+      "entity": "app_user",
+      "entityId": "2",
+      "beforeJson": {
+        "status": "active"
+      },
+      "afterJson": {
+        "status": "disabled"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T10:52:13.882Z"
+    },
+    {
+      "id": "7",
+      "appUserId": "1",
+      "action": "staff.status",
+      "entity": "app_user",
+      "entityId": "4",
+      "beforeJson": {
+        "status": "active"
+      },
+      "afterJson": {
+        "status": "disabled"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T10:52:14.907Z"
+    },
+    {
+      "id": "8",
+      "appUserId": "1",
+      "action": "staff.create",
+      "entity": "app_user",
+      "entityId": "6",
+      "beforeJson": null,
+      "afterJson": {
+        "name": "Mohammad Taufeeq",
+        "mobile": "9182472279",
+        "roleId": "3",
+        "branchId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T10:52:46.511Z"
+    },
+    {
+      "id": "9",
+      "appUserId": "1",
+      "action": "staff.update",
+      "entity": "app_user",
+      "entityId": "6",
+      "beforeJson": {
+        "name": "Mohammad Taufeeq",
+        "mobile": "9182472279",
+        "roleId": "3",
+        "status": "active",
+        "branchId": "1"
+      },
+      "afterJson": {
+        "name": "Mohammad Taufeeq",
+        "mobile": "9182472279",
+        "roleId": "4",
+        "status": "active",
+        "branchId": "1",
+        "passwordChanged": false
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T10:53:59.257Z"
+    },
+    {
+      "id": "10",
+      "appUserId": "1",
+      "action": "staff.update",
+      "entity": "app_user",
+      "entityId": "6",
+      "beforeJson": {
+        "name": "Mohammad Taufeeq",
+        "mobile": "9182472279",
+        "roleId": "4",
+        "status": "active",
+        "branchId": "1"
+      },
+      "afterJson": {
+        "name": "Mohammad Taufeeq",
+        "mobile": "9182472279",
+        "roleId": "5",
+        "status": "active",
+        "branchId": "1",
+        "passwordChanged": false
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T10:54:52.674Z"
+    },
+    {
+      "id": "11",
+      "appUserId": "1",
+      "action": "accessControl.update",
+      "entity": "role",
+      "entityId": "5",
+      "beforeJson": {
+        "permissions": [
+          "cards.view",
+          "dashboard.view",
+          "recharge.view",
+          "reports.view",
+          "users.view"
+        ]
+      },
+      "afterJson": {
+        "permissions": [
+          "dashboard.view",
+          "recharge.view",
+          "reports.view"
+        ]
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T10:55:24.626Z"
+    },
+    {
+      "id": "12",
+      "appUserId": "1",
+      "action": "accessControl.update",
+      "entity": "role",
+      "entityId": "5",
+      "beforeJson": {
+        "permissions": [
+          "dashboard.view",
+          "recharge.view",
+          "reports.view"
+        ]
+      },
+      "afterJson": {
+        "permissions": [
+          "dashboard.view",
+          "reports.view"
+        ]
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T10:55:52.462Z"
+    },
+    {
+      "id": "13",
+      "appUserId": "1",
+      "action": "staff.update",
+      "entity": "app_user",
+      "entityId": "6",
+      "beforeJson": {
+        "name": "Mohammad Taufeeq",
+        "mobile": "9182472279",
+        "roleId": "5",
+        "status": "active",
+        "branchId": "1"
+      },
+      "afterJson": {
+        "name": "Mohammad Taufeeq",
+        "mobile": "9182472279",
+        "roleId": "1",
+        "status": "active",
+        "branchId": "1",
+        "passwordChanged": false
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T11:22:19.155Z"
+    },
+    {
+      "id": "14",
+      "appUserId": "6",
+      "action": "user.create",
+      "entity": "user",
+      "entityId": "4",
+      "beforeJson": null,
+      "afterJson": {
+        "code": "KIAD0088",
+        "cardUid": null,
+        "fullName": "Mohammad Taufeeq"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T11:28:28.877Z"
+    },
+    {
+      "id": "15",
+      "appUserId": "6",
+      "action": "consumption.update",
+      "entity": "category_setting",
+      "entityId": null,
+      "beforeJson": null,
+      "afterJson": {
+        "categories": 6
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T11:51:34.948Z"
+    },
+    {
+      "id": "16",
+      "appUserId": "6",
+      "action": "counter.operators",
+      "entity": "counter",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "operatorIds": [
+          "6"
+        ]
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T18:48:25.942Z"
+    },
+    {
+      "id": "17",
+      "appUserId": "6",
+      "action": "counter.operators",
+      "entity": "counter",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "operatorIds": []
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T18:49:05.428Z"
+    },
+    {
+      "id": "18",
+      "appUserId": "6",
+      "action": "counter.operators",
+      "entity": "counter",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "operatorIds": [
+          "6"
+        ]
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-08T18:52:01.046Z"
+    },
+    {
+      "id": "19",
+      "appUserId": "6",
+      "action": "recharge.create",
+      "entity": "recharge",
+      "entityId": "7",
+      "beforeJson": null,
+      "afterJson": {
+        "amount": "1000",
+        "userId": "4",
+        "coupons": 0
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:13:59.133Z"
+    },
+    {
+      "id": "20",
+      "appUserId": "6",
+      "action": "user.status",
+      "entity": "user",
+      "entityId": "4",
+      "beforeJson": {
+        "status": "active"
+      },
+      "afterJson": {
+        "status": "suspended"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:19:39.567Z"
+    },
+    {
+      "id": "21",
+      "appUserId": "6",
+      "action": "recharge.reverse",
+      "entity": "recharge",
+      "entityId": "7",
+      "beforeJson": null,
+      "afterJson": null,
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:20:44.301Z"
+    },
+    {
+      "id": "22",
+      "appUserId": "6",
+      "action": "card.replace",
+      "entity": "rfid_card",
+      "entityId": "13",
+      "beforeJson": {
+        "oldUid": "1000000003"
+      },
+      "afterJson": {
+        "newUid": "4159847522",
+        "reason": null
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:23:53.703Z"
+    },
+    {
+      "id": "23",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "12",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Breakfast",
+        "paidBy": "wallet",
+        "synced": false,
+        "charged": "35.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:24:54.742Z"
+    },
+    {
+      "id": "24",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "13",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Breakfast",
+        "paidBy": "wallet",
+        "synced": false,
+        "charged": "35.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:30:10.135Z"
+    },
+    {
+      "id": "25",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "14",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Breakfast",
+        "paidBy": "wallet",
+        "synced": false,
+        "charged": "35.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:30:33.656Z"
+    },
+    {
+      "id": "26",
+      "appUserId": "6",
+      "action": "user.status",
+      "entity": "user",
+      "entityId": "4",
+      "beforeJson": {
+        "status": "suspended"
+      },
+      "afterJson": {
+        "status": "active"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:42:11.103Z"
+    },
+    {
+      "id": "27",
+      "appUserId": "6",
+      "action": "recharge.create",
+      "entity": "recharge",
+      "entityId": "8",
+      "beforeJson": null,
+      "afterJson": {
+        "amount": "1000",
+        "userId": "4",
+        "coupons": 0
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:42:25.215Z"
+    },
+    {
+      "id": "28",
+      "appUserId": "6",
+      "action": "recharge.create",
+      "entity": "recharge",
+      "entityId": "9",
+      "beforeJson": null,
+      "afterJson": {
+        "amount": "1000",
+        "userId": "3",
+        "coupons": 4
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:43:53.612Z"
+    },
+    {
+      "id": "29",
+      "appUserId": "6",
+      "action": "user.update",
+      "entity": "user",
+      "entityId": "3",
+      "beforeJson": {
+        "code": "EMP1001",
+        "status": "active",
+        "fullName": "Rahul Verma"
+      },
+      "afterJson": {
+        "code": "EMP1001",
+        "status": "active",
+        "fullName": "Rahul Verma"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:50:42.093Z"
+    },
+    {
+      "id": "30",
+      "appUserId": "6",
+      "action": "user.update",
+      "entity": "user",
+      "entityId": "3",
+      "beforeJson": {
+        "code": "EMP1001",
+        "status": "active",
+        "fullName": "Rahul Verma"
+      },
+      "afterJson": {
+        "code": "EMP1001",
+        "status": "active",
+        "fullName": "Rahul Verma"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:51:56.946Z"
+    },
+    {
+      "id": "31",
+      "appUserId": "6",
+      "action": "consumption.update",
+      "entity": "category_setting",
+      "entityId": null,
+      "beforeJson": null,
+      "afterJson": {
+        "categories": 6
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:52:30.758Z"
+    },
+    {
+      "id": "32",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "15",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Breakfast",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:52:36.168Z"
+    },
+    {
+      "id": "33",
+      "appUserId": "6",
+      "action": "consumption.update",
+      "entity": "category_setting",
+      "entityId": null,
+      "beforeJson": null,
+      "afterJson": {
+        "categories": 6
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:53:38.419Z"
+    },
+    {
+      "id": "34",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "16",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Breakfast",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T04:53:41.720Z"
+    },
+    {
+      "id": "35",
+      "appUserId": "6",
+      "action": "meal.counters",
+      "entity": "meal_type",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "counters": []
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T06:04:36.519Z"
+    },
+    {
+      "id": "36",
+      "appUserId": "6",
+      "action": "meal.counters",
+      "entity": "meal_type",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "counters": [
+          {
+            "endTime": "11:00",
+            "counterId": "1",
+            "startTime": "06:00"
+          }
+        ]
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T06:04:40.667Z"
+    },
+    {
+      "id": "37",
+      "appUserId": "6",
+      "action": "meal.counters",
+      "entity": "meal_type",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "counters": []
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T06:04:53.303Z"
+    },
+    {
+      "id": "38",
+      "appUserId": "1",
+      "action": "meal.counters",
+      "entity": "meal_type",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "counters": [
+          {
+            "endTime": "11:00",
+            "counterId": "1",
+            "startTime": "07:00"
+          },
+          {
+            "endTime": "11:00",
+            "counterId": "2",
+            "startTime": "07:00"
+          },
+          {
+            "endTime": "10:30",
+            "counterId": "3",
+            "startTime": "08:00"
+          }
+        ]
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.11187.4 Chrome/146.0.7680.216 Electron/41.6.1 Safari/537.36 MSIX",
+      "createdAt": "2026-06-09T06:08:56.613Z"
+    },
+    {
+      "id": "39",
+      "appUserId": "1",
+      "action": "rates.counter",
+      "entity": "meal_rate",
+      "entityId": "4",
+      "beforeJson": null,
+      "afterJson": {
+        "rate": "80.00",
+        "counters": [
+          "1",
+          "3"
+        ],
+        "categoryId": "2",
+        "mealTypeId": "4",
+        "vendorRate": "60.00"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.11187.4 Chrome/146.0.7680.216 Electron/41.6.1 Safari/537.36 MSIX",
+      "createdAt": "2026-06-09T06:21:27.075Z"
+    },
+    {
+      "id": "40",
+      "appUserId": "6",
+      "action": "rates.update",
+      "entity": "meal_rate",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "cells": 21,
+        "branchId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T06:28:15.314Z"
+    },
+    {
+      "id": "41",
+      "appUserId": "1",
+      "action": "rates.counter",
+      "entity": "meal_rate",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "branchId": "1",
+        "overrides": 3
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.11187.4 Chrome/146.0.7680.216 Electron/41.6.1 Safari/537.36 MSIX",
+      "createdAt": "2026-06-09T06:32:09.462Z"
+    },
+    {
+      "id": "42",
+      "appUserId": "6",
+      "action": "expiry.run",
+      "entity": "system",
+      "entityId": null,
+      "beforeJson": null,
+      "afterJson": {
+        "recharges": 0,
+        "validities": 0
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T06:35:22.241Z"
+    },
+    {
+      "id": "43",
+      "appUserId": "6",
+      "action": "rates.save",
+      "entity": "meal_rate",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "rates": 24,
+        "branchId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.11187.4 Chrome/146.0.7680.216 Electron/41.6.1 Safari/537.36 MSIX",
+      "createdAt": "2026-06-09T06:54:56.828Z"
+    },
+    {
+      "id": "44",
+      "appUserId": "6",
+      "action": "accessControl.update",
+      "entity": "role",
+      "entityId": "2",
+      "beforeJson": {
+        "permissions": [
+          "accessControl.manage",
+          "cards.activate",
+          "cards.deactivate",
+          "cards.replace",
+          "cards.view",
+          "categories.manage",
+          "counter.operate",
+          "counters.manage",
+          "dashboard.view",
+          "meals.manage",
+          "rates.manage",
+          "recharge.create",
+          "recharge.delete",
+          "recharge.edit",
+          "recharge.import",
+          "recharge.view",
+          "reports.view",
+          "roles.manage",
+          "settings.manage",
+          "settlements.manage",
+          "settlements.view",
+          "staff.manage",
+          "users.create",
+          "users.delete",
+          "users.edit",
+          "users.import",
+          "users.view",
+          "vendorDashboard.view",
+          "vendorRates.manage"
+        ]
+      },
+      "afterJson": {
+        "permissions": [
+          "cards.activate",
+          "cards.deactivate",
+          "cards.replace",
+          "cards.view",
+          "categories.manage",
+          "counter.operate",
+          "counters.manage",
+          "dashboard.view",
+          "meals.manage",
+          "rates.manage",
+          "recharge.create",
+          "recharge.delete",
+          "recharge.edit",
+          "recharge.import",
+          "recharge.view",
+          "reports.view",
+          "settings.manage",
+          "settlements.manage",
+          "settlements.view",
+          "users.create",
+          "users.delete",
+          "users.edit",
+          "users.import",
+          "users.view",
+          "vendorDashboard.view",
+          "vendorRates.manage"
+        ]
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T06:56:17.358Z"
+    },
+    {
+      "id": "45",
+      "appUserId": "6",
+      "action": "rates.save",
+      "entity": "meal_rate",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "rates": 24,
+        "branchId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T07:01:50.032Z"
+    },
+    {
+      "id": "46",
+      "appUserId": "6",
+      "action": "category.create",
+      "entity": "category",
+      "entityId": "7",
+      "beforeJson": null,
+      "afterJson": {
+        "code": "TST",
+        "name": "TEST",
+        "status": "active",
+        "identifierLabel": "Test ID",
+        "identifierRegex": null,
+        "identifierUnique": true,
+        "identifierRequired": true
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T07:03:12.738Z"
+    },
+    {
+      "id": "47",
+      "appUserId": "6",
+      "action": "category.status",
+      "entity": "category",
+      "entityId": "7",
+      "beforeJson": {
+        "status": "active"
+      },
+      "afterJson": {
+        "status": "inactive"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T07:03:35.572Z"
+    },
+    {
+      "id": "48",
+      "appUserId": "6",
+      "action": "meal.update",
+      "entity": "meal_type",
+      "entityId": "1",
+      "beforeJson": {
+        "code": "BRK",
+        "name": "Breakfast",
+        "active": true,
+        "endTime": "11:00",
+        "startTime": "07:00"
+      },
+      "afterJson": {
+        "code": "BRK",
+        "name": "Breakfast",
+        "active": true,
+        "endTime": "11:00",
+        "startTime": "07:00"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Claude/1.11187.4 Chrome/146.0.7680.216 Electron/41.6.1 Safari/537.36 MSIX",
+      "createdAt": "2026-06-09T07:24:55.225Z"
+    },
+    {
+      "id": "49",
+      "appUserId": "6",
+      "action": "meal.create",
+      "entity": "meal_type",
+      "entityId": "5",
+      "beforeJson": null,
+      "afterJson": {
+        "code": "TST",
+        "name": "Test",
+        "active": true,
+        "endTime": "23:59",
+        "startTime": "00:00"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T07:26:33.211Z"
+    },
+    {
+      "id": "50",
+      "appUserId": "6",
+      "action": "category.update",
+      "entity": "category",
+      "entityId": "7",
+      "beforeJson": {
+        "code": "TST",
+        "name": "TEST",
+        "status": "inactive"
+      },
+      "afterJson": {
+        "code": "TST",
+        "name": "TEST",
+        "status": "active",
+        "identifierLabel": "Test ID",
+        "identifierRegex": null,
+        "identifierUnique": true,
+        "identifierRequired": true
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T07:26:57.672Z"
+    },
+    {
+      "id": "51",
+      "appUserId": "6",
+      "action": "category.status",
+      "entity": "category",
+      "entityId": "7",
+      "beforeJson": {
+        "status": "active"
+      },
+      "afterJson": {
+        "status": "inactive"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T07:27:01.437Z"
+    },
+    {
+      "id": "52",
+      "appUserId": "6",
+      "action": "meal.active",
+      "entity": "meal_type",
+      "entityId": "5",
+      "beforeJson": {
+        "active": true
+      },
+      "afterJson": {
+        "active": false
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T07:28:24.679Z"
+    },
+    {
+      "id": "53",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "17",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:12:20.606Z"
+    },
+    {
+      "id": "54",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "18",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:12:38.103Z"
+    },
+    {
+      "id": "55",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "19",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:13:09.111Z"
+    },
+    {
+      "id": "56",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "20",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:13:46.191Z"
+    },
+    {
+      "id": "57",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "21",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:15:48.869Z"
+    },
+    {
+      "id": "58",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "22",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:23:47.079Z"
+    },
+    {
+      "id": "59",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "23",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:24:01.430Z"
+    },
+    {
+      "id": "60",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "24",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": true,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:25:27.025Z"
+    },
+    {
+      "id": "61",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "24",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": true,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:25:27.064Z"
+    },
+    {
+      "id": "62",
+      "appUserId": "6",
+      "action": "counter.sync",
+      "entity": "counter",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "total": 2,
+        "blocked": 1,
+        "errored": 0,
+        "approved": 1,
+        "rejected": 0,
+        "negativeReconciliations": 1
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:25:27.076Z"
+    },
+    {
+      "id": "63",
+      "appUserId": "6",
+      "action": "counter.sync",
+      "entity": "counter",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "total": 2,
+        "blocked": 1,
+        "errored": 0,
+        "approved": 1,
+        "rejected": 0,
+        "negativeReconciliations": 1
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:25:27.116Z"
+    },
+    {
+      "id": "64",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "25",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": false,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:25:34.810Z"
+    },
+    {
+      "id": "65",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "26",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": true,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:26:00.492Z"
+    },
+    {
+      "id": "66",
+      "appUserId": "6",
+      "action": "counter.sync",
+      "entity": "counter",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "total": 1,
+        "blocked": 0,
+        "errored": 0,
+        "approved": 1,
+        "rejected": 0,
+        "negativeReconciliations": 0
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:26:00.695Z"
+    },
+    {
+      "id": "67",
+      "appUserId": "6",
+      "action": "tap.approve",
+      "entity": "redemption",
+      "entityId": "26",
+      "beforeJson": null,
+      "afterJson": {
+        "meal": "Lunch",
+        "paidBy": "coupon",
+        "synced": true,
+        "charged": "0.00",
+        "counterId": "1"
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:26:00.825Z"
+    },
+    {
+      "id": "68",
+      "appUserId": "6",
+      "action": "counter.sync",
+      "entity": "counter",
+      "entityId": "1",
+      "beforeJson": null,
+      "afterJson": {
+        "total": 1,
+        "blocked": 0,
+        "errored": 0,
+        "approved": 1,
+        "rejected": 0,
+        "negativeReconciliations": 0
+      },
+      "ip": "::1",
+      "userAgent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/149.0.0.0 Safari/537.36",
+      "createdAt": "2026-06-09T09:26:00.948Z"
+    }
+  ],
+  "notifications": [],
+  "settings": [
+    {
+      "settingKey": "currency",
+      "value": "INR",
+      "branchId": null,
+      "updatedAt": "2026-06-09T06:04:58.221Z"
+    }
+  ]
+}

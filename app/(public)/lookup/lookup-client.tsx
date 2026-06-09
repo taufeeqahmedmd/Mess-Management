@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { useState } from "react";
 import { publicCodeSchema } from "@/lib/public-schema";
+import { DateRangePicker } from "@/components/ui/date-range-picker";
 import type { PublicBalance, PublicHistoryRow } from "@/services/public-lookup";
 
 type HistoryData = { name: string; from: string; to: string; rows: PublicHistoryRow[] };
@@ -84,9 +85,6 @@ export function LookupClient() {
     balance && history
       ? `/api/public/history?${new URLSearchParams({ code: balance.code, from: history.from, to: history.to, format: "csv" }).toString()}`
       : "#";
-
-  const field =
-    "rounded-sm border border-line-strong bg-surface-2 px-3 py-2 text-sm text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
 
   return (
     <main className="min-h-screen bg-canvas px-4 py-8 sm:py-12">
@@ -190,12 +188,16 @@ export function LookupClient() {
 
               <form onSubmit={onFilterHistory} className="mt-3 flex flex-wrap items-end gap-3">
                 <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
-                  From
-                  <input type="date" value={from} max={to || undefined} onChange={(e) => setFrom(e.target.value)} className={field} />
-                </label>
-                <label className="flex flex-col gap-1 text-[11px] font-semibold uppercase tracking-[0.06em] text-muted">
-                  To
-                  <input type="date" value={to} onChange={(e) => setTo(e.target.value)} className={field} />
+                  Date range
+                  <DateRangePicker
+                    from={from}
+                    to={to}
+                    maxToday
+                    onChange={(f, t) => {
+                      setFrom(f);
+                      setTo(t);
+                    }}
+                  />
                 </label>
                 <button
                   type="submit"

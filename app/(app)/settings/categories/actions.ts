@@ -76,7 +76,7 @@ export async function createCategoryAction(
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return { error: "A category with that code or name already exists." };
+      return { error: "A category with that name already exists." };
     }
     throw e;
   }
@@ -115,7 +115,7 @@ export async function updateCategoryAction(
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return { error: "A category with that code or name already exists." };
+      return { error: "A category with that name already exists." };
     }
     throw e;
   }

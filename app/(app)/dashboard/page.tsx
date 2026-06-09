@@ -60,7 +60,7 @@ export default async function DashboardPage({
           hint="meals served in range"
           variant="sage"
         />
-        <StatCard label="Sale" value={inr(consumption.sale)} hint="charged to cardholders" variant="gold" />
+        <StatCard label="Sale" value={inr(consumption.sale)} hint="value of meals served" variant="gold" />
         <StatCard label="Collections" value={inr(collections.amount)} hint={`${collections.count} recharges`} variant="plain" />
         <StatCard label="Vendor cost" value={inr(consumption.cost)} hint="payable to caterer" variant="plain" />
         <StatCard

@@ -102,7 +102,7 @@ async function main() {
   const catId: Record<string, bigint> = {};
   for (const c of categories) {
     const cat = await prisma.category.upsert({
-      where: { code: c.code },
+      where: { name: c.name },
       update: {},
       create: {
         code: c.code,

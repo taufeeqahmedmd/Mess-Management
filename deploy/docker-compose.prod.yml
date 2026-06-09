@@ -1,0 +1,31 @@
+# Production Postgres for the single-box EC2 deploy (Option A).
+# Differences from the dev compose at repo root:
+#   - credentials come from the environment (don't hardcode mess/mess)
+#   - port is bound to 127.0.0.1 ONLY, so it is never reachable from outside
+#     the instance even if the EC2 security group is misconfigured.
+#
+# Usage (from repo root, on the server):
+#   export POSTGRES_PASSWORD='your-strong-password'   # same as in .env DATABASE_URL
+#   docker compose -f deploy/docker-compose.prod.yml up -d
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: mess-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: mess
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      POSTGRES_DB: mess_management
+    ports:
+      # 127.0.0.1 binding = localhost-only. The app connects via 127.0.0.1:5433.
+      - "127.0.0.1:5433:5432"
+    volumes:
+      - mess-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U mess -d mess_management"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+
+volumes:
+  mess-pgdata:

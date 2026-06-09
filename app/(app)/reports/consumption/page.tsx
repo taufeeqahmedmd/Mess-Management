@@ -170,10 +170,10 @@ export default async function ConsumptionReportPage({
                       {r.paidBy === "coupon" ? "Coupon" : "Wallet"}
                     </span>
                   </td>
-                  <td className="px-4 py-3 text-right font-mono text-ink-2">{inr(r.amount)}</td>
+                  <td className="px-4 py-3 text-right font-mono text-ink-2">{inr(r.rateApplied)}</td>
                   <td className="px-4 py-3 text-right font-mono text-ink-2">{inr(r.vendorAmount)}</td>
                   <td className="px-4 py-3 text-right">
-                    <PL value={r.amount.minus(r.vendorAmount)} />
+                    <PL value={r.rateApplied.minus(r.vendorAmount)} />
                   </td>
                 </tr>
               ))

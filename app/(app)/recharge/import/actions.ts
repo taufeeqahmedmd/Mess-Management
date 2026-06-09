@@ -16,6 +16,23 @@ function todayUtc(): Date {
   return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
 }
 
+/**
+ * Parse an import date as UTC midnight. Accepts ISO `YYYY-MM-DD` and the
+ * `DD-MM-YYYY` / `DD/MM/YYYY` form people type in Excel. Returns null if neither
+ * shape matches or the date is out of range (so the caller can flag the row).
+ */
+function parseImportDate(s: string): Date | null {
+  const mk = (y: number, mo: number, d: number): Date | null => {
+    const dt = new Date(Date.UTC(y, mo - 1, d));
+    return dt.getUTCFullYear() === y && dt.getUTCMonth() === mo - 1 && dt.getUTCDate() === d ? dt : null;
+  };
+  let m = /^(\d{4})-(\d{1,2})-(\d{1,2})$/.exec(s);
+  if (m) return mk(Number(m[1]), Number(m[2]), Number(m[3]));
+  m = /^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/.exec(s);
+  if (m) return mk(Number(m[3]), Number(m[2]), Number(m[1]));
+  return null;
+}
+
 export type RechargeImportReport = {
   error?: string;
   total?: number;
@@ -40,22 +57,27 @@ export async function importRechargesAction(
 
   const header = rows[0].map((h) => h.trim().toLowerCase());
   const idx = {
-    identifier: header.indexOf("identifier"),
-    amount: header.indexOf("amount"),
+    // The cardholder column may be headed "RFID" (new template) or "identifier"
+    // (legacy). The value is matched against the cardholder code OR an RFID card.
+    identifier: header.findIndex((h) => h === "rfid" || h === "identifier"),
     paymentMode: header.indexOf("paymentmode"),
     validTill: header.indexOf("validtill"),
     remarks: header.indexOf("remarks"),
   };
-  if (idx.identifier < 0) return { error: "CSV must include an 'identifier' column." };
+  if (idx.identifier < 0) return { error: "CSV must include an 'RFID' (or 'identifier') column." };
 
   const [meals, paymentModes] = await Promise.all([
     prisma.mealType.findMany({ where: { active: true } }),
     prisma.paymentMode.findMany({ where: { active: true } }),
   ]);
-  // Any header column matching a meal code is treated as that meal's coupon count.
+  // A header column is a meal's coupon-count if it matches that meal's code or
+  // name, with an optional trailing " Coupon(s)" (the new template uses headers
+  // like "BKF Coupons"). e.g. "BKF", "BKF Coupons", "Breakfast", "Breakfast Coupons".
+  const mealKey = (h: string) => h.replace(/\s+coupons?$/i, "").trim();
   const mealCols: { col: number; mealTypeId: bigint }[] = [];
   header.forEach((h, i) => {
-    const m = meals.find((mm) => mm.code.toLowerCase() === h);
+    const key = mealKey(h);
+    const m = meals.find((mm) => mm.code.toLowerCase() === key || mm.name.toLowerCase() === key);
     if (m) mealCols.push({ col: i, mealTypeId: m.id });
   });
   const pmByKey = new Map<string, bigint>();
@@ -79,11 +101,17 @@ export async function importRechargesAction(
     const rowNum = i + 1;
 
     try {
-      const code = at(idx.identifier);
-      if (!code) throw new Error("identifier is required");
+      const ident = at(idx.identifier);
+      if (!ident) throw new Error("RFID/identifier is required");
 
-      const user = await prisma.user.findUnique({ where: { code } });
-      if (!user || user.deletedAt) throw new Error(`unknown cardholder "${code}"`);
+      // Resolve by cardholder code first, then by RFID card UID — operators
+      // commonly paste the RFID number, which is not the code.
+      let user = await prisma.user.findUnique({ where: { code: ident } });
+      if (!user) {
+        const card = await prisma.rfidCard.findUnique({ where: { cardUid: ident }, include: { user: true } });
+        user = card?.user ?? null;
+      }
+      if (!user || user.deletedAt) throw new Error(`unknown cardholder "${ident}"`);
       if (actor.branchId && user.branchId.toString() !== actor.branchId) throw new Error("cardholder out of your branch");
       if (user.status !== "active") throw new Error("cardholder is not active");
 
@@ -115,8 +143,8 @@ export async function importRechargesAction(
       const validTillStr = at(idx.validTill);
       let validTill: Date | null = null;
       if (validTillStr) {
-        validTill = new Date(validTillStr);
-        if (Number.isNaN(validTill.getTime())) throw new Error("invalid validTill date (use YYYY-MM-DD)");
+        validTill = parseImportDate(validTillStr);
+        if (!validTill) throw new Error("invalid validTill date (use YYYY-MM-DD or DD-MM-YYYY)");
       }
 
       // Deterministic per-row key: re-uploading the identical file is a safe
@@ -126,7 +154,7 @@ export async function importRechargesAction(
         .sort()
         .join("|");
       const clientUuid = deterministicUuid(
-        `recharge-import:${code}:${amount}:${couponSig}:${validTillStr}:${rowNum}`,
+        `recharge-import:${ident}:${amount}:${couponSig}:${validTillStr}:${rowNum}`,
       );
 
       await prisma.$transaction((tx) =>
