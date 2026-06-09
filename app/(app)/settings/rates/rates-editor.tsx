@@ -2,22 +2,23 @@
 
 import { useRef, useState } from "react";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
-import { saveCounterRatesAction, type CounterRateState } from "./counter-rate-actions";
+import { CounterMultiSelect } from "./counter-multi-select";
+import { saveRatesAction, type RatesEditorState } from "./counter-rate-actions";
 
 type Item = { id: string; name: string };
 type CounterItem = { id: string; name: string; code: string };
 type Cell = { charge: string; vendor: string };
-type Row = { key: string; counterId: string; mealId: string; cells: Record<string, Cell> };
-export type InitialRow = { counterId: string; mealId: string; cells: Record<string, Cell> };
+type Row = { key: string; counterIds: string[]; mealId: string; cells: Record<string, Cell> };
+export type InitialRow = { counterIds: string[]; mealId: string; cells: Record<string, Cell> };
 
-const initial: CounterRateState = {};
+const initial: RatesEditorState = {};
 
 const selectCls =
   "min-w-36 rounded-sm border border-line-strong bg-surface-2 px-2 py-1.5 text-sm text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20 disabled:opacity-60";
 const cellInput =
   "w-20 rounded-sm border border-line-strong bg-surface-2 px-2 py-1 text-right font-mono text-sm text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
 
-export function CounterRatesEditor({
+export function RatesEditor({
   branchId,
   counters,
   meals,
@@ -33,30 +34,40 @@ export function CounterRatesEditor({
   initialRows: InitialRow[];
 }) {
   const [rows, setRows] = useState<Row[]>(() => {
-    const src = initialRows.length ? initialRows : [{ counterId: "", mealId: "", cells: {} }];
+    const src = initialRows.length ? initialRows : [{ counterIds: [], mealId: "", cells: {} }];
     return src.map((r, i) => ({ key: `r${i}`, ...r }));
   });
-  // Next key counter starts after the initial rows; only bumped in event handlers.
   const keyRef = useRef(rows.length);
-  const blankRow = (): Row => ({ key: `r${keyRef.current++}`, counterId: "", mealId: "", cells: {} });
+  const blankRow = (): Row => ({ key: `r${keyRef.current++}`, counterIds: [], mealId: "", cells: {} });
 
-  const { state, onSubmit, pending } = useConfirmedAction(saveCounterRatesAction, initial, {
+  const { state, onSubmit, pending } = useConfirmedAction(saveRatesAction, initial, {
     confirm: {
-      title: "Save counter rates",
-      message: "Save these per-counter rates? This replaces the current set of per-counter overrides.",
+      title: "Save rates",
+      message: "Save the rate rows? This replaces the current rate set for this branch.",
       confirmLabel: "Yes, save",
     },
-    successMessage: "Counter rates saved.",
+    successMessage: "Rates saved.",
   });
 
   const mealName = Object.fromEntries(meals.map((m) => [m.id, m.name]));
+  const counterOptions = counters.map((c) => ({ id: c.id, label: c.name, sub: c.code }));
 
-  function setCounter(key: string, counterId: string) {
+  // Meals a row may pick: all when no counter chosen (a default row), else the
+  // union of the selected counters' served meals.
+  function mealsForRow(counterIds: string[]): Item[] {
+    if (counterIds.length === 0) return meals;
+    const ids = new Set<string>();
+    for (const cid of counterIds) for (const mid of mealsByCounter[cid] ?? []) ids.add(mid);
+    return meals.filter((m) => ids.has(m.id));
+  }
+
+  function setCounters(key: string, counterIds: string[]) {
     setRows((rs) =>
       rs.map((r) => {
         if (r.key !== key) return r;
-        const allowed = new Set(mealsByCounter[counterId] ?? []);
-        return { ...r, counterId, mealId: allowed.has(r.mealId) ? r.mealId : "" };
+        const allowed = new Set(mealsForRow(counterIds).map((m) => m.id));
+        const mealId = !r.mealId || allowed.has(r.mealId) ? r.mealId : "";
+        return { ...r, counterIds, mealId };
       }),
     );
   }
@@ -75,15 +86,7 @@ export function CounterRatesEditor({
   const addRow = () => setRows((rs) => [...rs, blankRow()]);
   const removeRow = (key: string) => setRows((rs) => rs.filter((r) => r.key !== key));
 
-  const payload = JSON.stringify(rows.map((r) => ({ counterId: r.counterId, mealId: r.mealId, cells: r.cells })));
-
-  if (counters.length === 0) {
-    return (
-      <p className="rounded-sm bg-gold-soft px-3 py-2.5 text-sm text-ink-2">
-        No active counters yet. Create counters under Settings → Counters first.
-      </p>
-    );
-  }
+  const payload = JSON.stringify(rows.map((r) => ({ counterIds: r.counterIds, mealId: r.mealId, cells: r.cells })));
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -94,7 +97,7 @@ export function CounterRatesEditor({
         <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">{state.error}</p>
       ) : null}
       {state.success ? (
-        <p role="status" className="rounded-sm bg-sage-soft px-3 py-2.5 text-sm text-sage-deep">Counter rates saved.</p>
+        <p role="status" className="rounded-sm bg-sage-soft px-3 py-2.5 text-sm text-sage-deep">Rates saved.</p>
       ) : null}
 
       <div className="overflow-x-auto rounded-md border border-line bg-surface">
@@ -113,33 +116,26 @@ export function CounterRatesEditor({
             {rows.length === 0 ? (
               <tr>
                 <td colSpan={categories.length + 3} className="px-4 py-8 text-center text-ink-2">
-                  No rows. Add one to set a counter rate.
+                  No rows. Add one to set a rate.
                 </td>
               </tr>
             ) : (
               rows.map((row) => {
-                const availMeals = (mealsByCounter[row.counterId] ?? []).map((id) => ({ id, name: mealName[id] }));
+                const availMeals = mealsForRow(row.counterIds);
                 return (
                   <tr key={row.key} className="border-t border-line align-top">
                     <td className="px-3 py-3">
-                      <select value={row.counterId} onChange={(e) => setCounter(row.key, e.target.value)} aria-label="Counter" className={selectCls}>
-                        <option value="">Select counter…</option>
-                        {counters.map((c) => (
-                          <option key={c.id} value={c.id}>{c.name} ({c.code})</option>
-                        ))}
-                      </select>
+                      <CounterMultiSelect
+                        options={counterOptions}
+                        selected={row.counterIds}
+                        onChange={(next) => setCounters(row.key, next)}
+                      />
                     </td>
                     <td className="px-3 py-3">
-                      <select
-                        value={row.mealId}
-                        onChange={(e) => setMeal(row.key, e.target.value)}
-                        disabled={!row.counterId}
-                        aria-label="Meal"
-                        className={selectCls}
-                      >
-                        <option value="">{row.counterId ? "Select meal…" : "Pick a counter"}</option>
+                      <select value={row.mealId} onChange={(e) => setMeal(row.key, e.target.value)} aria-label="Meal" className={selectCls}>
+                        <option value="">Select meal…</option>
                         {availMeals.map((m) => (
-                          <option key={m.id} value={m.id}>{m.name}</option>
+                          <option key={m.id} value={m.id}>{mealName[m.id]}</option>
                         ))}
                       </select>
                     </td>
@@ -148,22 +144,8 @@ export function CounterRatesEditor({
                       return (
                         <td key={c.id} className="px-2 py-3">
                           <div className="flex flex-col gap-1">
-                            <input
-                              inputMode="decimal"
-                              placeholder="Charge"
-                              value={cell.charge}
-                              onChange={(e) => setCell(row.key, c.id, "charge", e.target.value)}
-                              aria-label={`${c.name} charge`}
-                              className={cellInput}
-                            />
-                            <input
-                              inputMode="decimal"
-                              placeholder="Vendor"
-                              value={cell.vendor}
-                              onChange={(e) => setCell(row.key, c.id, "vendor", e.target.value)}
-                              aria-label={`${c.name} vendor`}
-                              className={cellInput}
-                            />
+                            <input inputMode="decimal" placeholder="Charge" value={cell.charge} onChange={(e) => setCell(row.key, c.id, "charge", e.target.value)} aria-label={`${c.name} charge`} className={cellInput} />
+                            <input inputMode="decimal" placeholder="Vendor" value={cell.vendor} onChange={(e) => setCell(row.key, c.id, "vendor", e.target.value)} aria-label={`${c.name} vendor`} className={cellInput} />
                           </div>
                         </td>
                       );
@@ -188,25 +170,26 @@ export function CounterRatesEditor({
 
       <div className="flex flex-wrap items-center gap-3">
         <button
+          type="submit"
+          disabled={pending}
+          className="rounded-sm bg-gold px-5 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60"
+        >
+          {pending ? "Saving…" : "Save rates"}
+        </button>
+        <button
           type="button"
           onClick={addRow}
           className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep"
         >
           + Add row
         </button>
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-sm bg-gold px-5 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60"
-        >
-          {pending ? "Saving…" : "Save counter rates"}
-        </button>
       </div>
 
       <p className="text-xs text-muted">
-        Each row sets a counter&rsquo;s rate for one meal across categories. The meal list shows only
-        meals that counter serves. Leave a category blank to fall back to the default rate. Saving
-        replaces the current per-counter overrides with these rows.
+        Leave <span className="font-medium">Counter</span> empty for the branch default (applies where
+        no counter-specific rate exists), or pick one or more counters to override them. The meal list
+        shows meals the chosen counters serve. Blank category cells fall back to the default. Saving
+        replaces this branch&rsquo;s current rates with the rows above.
       </p>
     </form>
   );
