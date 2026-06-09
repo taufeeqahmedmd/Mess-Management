@@ -8,7 +8,13 @@ import { deterministicUuid } from "@/lib/idempotency";
 import { writeAudit } from "@/lib/audit";
 import { parseCsv } from "@/lib/csv";
 import { applyRecharge } from "@/services/recharge-ledger";
-import { validateRechargeInput } from "@/services/recharge";
+import { couponValue } from "@/services/recharge";
+import { defaultRatesForCategory } from "@/services/pricing";
+
+function todayUtc(): Date {
+  const n = new Date();
+  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
+}
 
 export type RechargeImportReport = {
   error?: string;
@@ -59,6 +65,11 @@ export async function importRechargesAction(
   }
   const defaultPm = paymentModes[0]?.id;
 
+  const today = todayUtc();
+  // Cache the branch-default rate map per (branch, category) so we price coupons
+  // once per distinct category, not per row.
+  const ratesCache = new Map<string, Record<string, string>>();
+
   const failures: { row: number; message: string }[] = [];
   let created = 0;
 
@@ -76,16 +87,26 @@ export async function importRechargesAction(
       if (actor.branchId && user.branchId.toString() !== actor.branchId) throw new Error("cardholder out of your branch");
       if (user.status !== "active") throw new Error("cardholder is not active");
 
-      const amount = at(idx.amount) || "0";
       const coupons = mealCols
         .map((mc) => ({ mealTypeId: mc.mealTypeId, count: Number.parseInt(at(mc.col) || "0", 10) || 0 }))
         .filter((c) => c.count > 0);
+      if (coupons.length === 0) throw new Error("at least one meal coupon count is required");
 
-      const invalid = validateRechargeInput({
-        amount,
-        coupons: coupons.map((c) => ({ mealTypeId: c.mealTypeId.toString(), count: c.count })),
-      });
-      if (invalid) throw new Error(invalid);
+      // Price the coupons at the cardholder's category rates (branch default) —
+      // same model as the recharge form. The wallet money balance is NOT credited;
+      // any 'amount' column in the CSV is ignored (never trust a client amount).
+      const cacheKey = `${user.branchId}:${user.categoryId}`;
+      let rates = ratesCache.get(cacheKey);
+      if (!rates) {
+        rates = await defaultRatesForCategory(prisma, { branchId: user.branchId, categoryId: user.categoryId, today });
+        ratesCache.set(cacheKey, rates);
+      }
+      const valued = couponValue(
+        coupons.map((c) => ({ mealTypeId: c.mealTypeId.toString(), count: c.count })),
+        rates,
+      );
+      if ("missingMeal" in valued) throw new Error("no rate set for a selected meal in this category");
+      const amount = valued.value.toFixed(2);
 
       const pmKey = at(idx.paymentMode).toLowerCase();
       const paymentModeId = (pmKey && pmByKey.get(pmKey)) || defaultPm;
@@ -120,6 +141,7 @@ export async function importRechargesAction(
           appUserId: BigInt(actor.id),
           remarks: at(idx.remarks) || null,
           clientUuid,
+          creditWallet: false,
         }),
       );
       created++;

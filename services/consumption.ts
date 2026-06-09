@@ -1,5 +1,7 @@
 import { Prisma } from "@prisma/client";
-import { activeMealNow, type MealWindow } from "./meal-window";
+import { activeMealNow } from "./meal-window";
+import { windowsForCounter } from "./counter-meals";
+import { resolveRate } from "./pricing";
 import { expireUserValidityInTx } from "./expiry";
 import { localDateValue, localDayRange, minutesOfDayInZone } from "@/lib/time";
 
@@ -165,9 +167,9 @@ export async function tapEngine(
     return result("BLOCKED", "VALIDITY EXPIRED");
   }
 
-  // 6. Active meal window.
-  const meals = await tx.mealType.findMany({ where: { active: true }, orderBy: { startTime: "asc" } });
-  const windows: MealWindow[] = meals.map((m) => ({ id: m.id.toString(), name: m.name, startTime: m.startTime, endTime: m.endTime }));
+  // 6. Active meal window — resolved for THIS counter (per-counter service
+  // windows; falls back to the global meal windows when a counter has none).
+  const windows = await windowsForCounter(tx, p.counterId);
   const open = activeMealNow(windows, nowMin);
   if (!open) return result("REJECTED", "NO MEAL WINDOW");
   const mealId = BigInt(open.id);
@@ -198,20 +200,19 @@ export async function tapEngine(
     if (sess) return result("BLOCKED", "SESSION USED", meal);
   }
 
-  // 10. Price (branch × meal × category, current).
-  const rate = await tx.mealRate.findFirst({
-    where: {
-      branchId: user.branchId,
-      mealTypeId: mealId,
-      categoryId: user.categoryId,
-      validFrom: { lte: today },
-      OR: [{ validTo: null }, { validTo: { gte: today } }],
-    },
-    orderBy: { validFrom: "desc" },
+  // 10. Price — counter-specific rate first, else the branch default (current
+  // dated). resolveRate filters by counterId so an override at this counter wins
+  // deterministically over the NULL-counter default.
+  const resolved = await resolveRate(tx, {
+    branchId: user.branchId,
+    counterId: p.counterId,
+    mealTypeId: mealId,
+    categoryId: user.categoryId,
+    today,
   });
-  if (!rate) return result("REJECTED", "NO RATE", meal);
-  const price = rate.rate;
-  const vendor = rate.vendorRate;
+  if (!resolved) return result("REJECTED", "NO RATE", meal);
+  const price = resolved.rate;
+  const vendor = resolved.vendorRate;
 
   // 11. Active recharges (earmark constraint), FIFO order.
   const activeRecharges = await tx.recharge.findMany({
@@ -244,9 +245,14 @@ export async function tapEngine(
   }
 
   if (!decision && models.includes("wallet")) {
-    const availableAmount = activeRecharges.reduce<Prisma.Decimal>((s, r) => s.plus(r.remainingAmount), ZERO);
+    // Earmark applies only to recharges that actually carry unspent WALLET money
+    // (remainingAmount > 0). Coupon recharges have remainingAmount 0, so they must
+    // never gate wallet spend — otherwise any coupon grant would falsely block
+    // every wallet meal ("MEAL NOT RECHARGED") despite a funded wallet.
+    const walletEarmarks = activeRecharges.filter((r) => r.remainingAmount.gt(0));
+    const availableAmount = walletEarmarks.reduce<Prisma.Decimal>((s, r) => s.plus(r.remainingAmount), ZERO);
     const balance = user.wallet?.balanceAmount ?? ZERO;
-    if (hasActiveRecharge && availableAmount.lt(price)) lastReason = "MEAL NOT RECHARGED";
+    if (walletEarmarks.length > 0 && availableAmount.lt(price)) lastReason = "MEAL NOT RECHARGED";
     else if (!user.wallet || balance.lt(price)) lastReason = "INSUFFICIENT BALANCE";
     else decision = { paidBy: "wallet", charged: price, version: user.wallet.version };
   }

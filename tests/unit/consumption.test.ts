@@ -84,6 +84,9 @@ function buildTx(s: Scenario) {
     rfidCard: { findUnique: async () => card },
     user: { findUnique: async () => null },
     mealType: { findMany: async () => meals },
+    // No per-counter windows in these unit scenarios → windowsForCounter falls
+    // back to the global meal windows above (same as before).
+    counterMeal: { findMany: async () => [] },
     categorySetting: { findFirst: async () => setting },
     mealRate: { findFirst: async () => rate },
     recharge: { findMany: async () => [], update: async () => ({}) },
