@@ -100,22 +100,25 @@ export function RatesEditor({
         <p role="status" className="rounded-sm bg-sage-soft px-3 py-2.5 text-sm text-sage-deep">Rates saved.</p>
       ) : null}
 
+      {/* Counter + Meal are frozen (sticky-left); category columns scroll. Uses
+          border-separate so the sticky cells keep their borders, with explicit
+          backgrounds so scrolling cells pass cleanly underneath. */}
       <div className="overflow-x-auto rounded-md border border-line bg-surface">
-        <table className="w-full border-collapse text-sm">
+        <table className="w-full border-separate border-spacing-0 text-sm">
           <thead>
-            <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
-              <th className="px-3 py-3 font-semibold">Counter</th>
-              <th className="px-3 py-3 font-semibold">Meal</th>
+            <tr className="text-left text-[11px] uppercase tracking-[0.06em] text-muted">
+              <th className="sticky left-0 z-20 w-60 min-w-60 bg-surface-2 px-3 py-3 font-semibold">Counter</th>
+              <th className="sticky left-60 z-20 w-44 min-w-44 border-r border-line bg-surface-2 px-3 py-3 font-semibold">Meal</th>
               {categories.map((c) => (
-                <th key={c.id} className="px-2 py-3 text-center font-semibold">{c.name}</th>
+                <th key={c.id} className="min-w-28 bg-surface-2 px-2 py-3 text-center font-semibold">{c.name}</th>
               ))}
-              <th className="px-2 py-3" aria-label="Remove" />
+              <th className="bg-surface-2 px-2 py-3" aria-label="Remove" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={categories.length + 3} className="px-4 py-8 text-center text-ink-2">
+                <td colSpan={categories.length + 3} className="border-t border-line px-4 py-8 text-center text-ink-2">
                   No rows. Add one to set a rate.
                 </td>
               </tr>
@@ -123,15 +126,15 @@ export function RatesEditor({
               rows.map((row) => {
                 const availMeals = mealsForRow(row.counterIds);
                 return (
-                  <tr key={row.key} className="border-t border-line align-top">
-                    <td className="px-3 py-3">
+                  <tr key={row.key}>
+                    <td className="sticky left-0 z-10 w-60 min-w-60 border-t border-line bg-surface px-3 py-3">
                       <CounterMultiSelect
                         options={counterOptions}
                         selected={row.counterIds}
                         onChange={(next) => setCounters(row.key, next)}
                       />
                     </td>
-                    <td className="px-3 py-3">
+                    <td className="sticky left-60 z-10 w-44 min-w-44 border-t border-r border-line bg-surface px-3 py-3">
                       <select value={row.mealId} onChange={(e) => setMeal(row.key, e.target.value)} aria-label="Meal" className={selectCls}>
                         <option value="">Select meal…</option>
                         {availMeals.map((m) => (
@@ -142,7 +145,7 @@ export function RatesEditor({
                     {categories.map((c) => {
                       const cell = row.cells[c.id] ?? { charge: "", vendor: "" };
                       return (
-                        <td key={c.id} className="px-2 py-3 text-center">
+                        <td key={c.id} className="border-t border-line px-2 py-3 text-center">
                           <div className="inline-flex flex-col gap-1">
                             <input inputMode="decimal" placeholder="Charge" value={cell.charge} onChange={(e) => setCell(row.key, c.id, "charge", e.target.value)} aria-label={`${c.name} charge`} className={cellInput} />
                             <input inputMode="decimal" placeholder="Vendor" value={cell.vendor} onChange={(e) => setCell(row.key, c.id, "vendor", e.target.value)} aria-label={`${c.name} vendor`} className={cellInput} />
@@ -150,7 +153,7 @@ export function RatesEditor({
                         </td>
                       );
                     })}
-                    <td className="px-2 py-3">
+                    <td className="border-t border-line px-2 py-3">
                       <button
                         type="button"
                         onClick={() => removeRow(row.key)}
