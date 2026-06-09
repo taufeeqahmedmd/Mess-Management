@@ -11,7 +11,7 @@ import { Prisma, type LedgerSource } from "@prisma/client";
 
 export type ApplyRechargeParams = {
   userId: bigint;
-  amount: Prisma.Decimal; // wallet money credited
+  amount: Prisma.Decimal; // recharge value (collection)
   coupons: { mealTypeId: bigint; count: number }[]; // per-meal coupon grants
   validFrom: Date | null;
   validTill: Date | null;
@@ -21,6 +21,10 @@ export type ApplyRechargeParams = {
   remarks: string | null;
   cardId?: bigint | null;
   clientUuid: string;
+  // When false, `amount` is recorded on the recharge (collection value) but the
+  // wallet money balance is NOT credited and remainingAmount is 0 — used for
+  // coupon recharges where the per-meal coupons are the spendable balance.
+  creditWallet?: boolean;
 };
 
 const ZERO = new Prisma.Decimal(0);
@@ -30,7 +34,9 @@ export async function applyRecharge(
   tx: Prisma.TransactionClient,
   p: ApplyRechargeParams,
 ): Promise<{ id: bigint }> {
+  const creditWallet = p.creditWallet ?? true;
   const hasAmount = p.amount.gt(0);
+  const walletCredit = creditWallet && hasAmount;
   const grants = p.coupons.filter((c) => c.count > 0);
 
   const recharge = await tx.recharge.create({
@@ -39,7 +45,9 @@ export async function applyRecharge(
       userId: p.userId,
       cardId: p.cardId ?? null,
       amount: p.amount,
-      remainingAmount: hasAmount ? p.amount : ZERO,
+      // remaining (reversible) wallet money only exists when the wallet is credited;
+      // coupon recharges track their unspent portion via the coupons' `remaining`.
+      remainingAmount: walletCredit ? p.amount : ZERO,
       validFrom: p.validFrom,
       validTill: p.validTill,
       paymentModeId: p.paymentModeId,
@@ -50,7 +58,7 @@ export async function applyRecharge(
     },
   });
 
-  if (hasAmount) {
+  if (walletCredit) {
     const wallet = await tx.wallet.upsert({
       where: { userId: p.userId },
       update: { balanceAmount: { increment: p.amount }, version: { increment: 1 } },

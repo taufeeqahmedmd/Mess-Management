@@ -43,6 +43,26 @@ export function validateRechargeInput(input: RechargeInput): string | null {
 }
 
 /**
+ * Monetary value of a coupon recharge = Σ(count × category rate per meal). Pure +
+ * DB-agnostic: `rates` maps mealTypeId → rate string (the branch charge for the
+ * cardholder's category). Returns `{ missingMeal }` if a granted meal has no rate
+ * (can't be priced) so the caller can reject — never silently prices at 0.
+ */
+export function couponValue(
+  coupons: CouponGrant[],
+  rates: Record<string, string>,
+): { value: Decimal } | { missingMeal: string } {
+  let value = new Decimal(0);
+  for (const c of coupons) {
+    if (c.count <= 0) continue;
+    const rate = rates[c.mealTypeId];
+    if (rate === undefined) return { missingMeal: c.mealTypeId };
+    value = value.plus(new Decimal(rate).times(c.count));
+  }
+  return { value };
+}
+
+/**
  * What an edit/delete/expiry claws back: the REMAINING (unspent) wallet money +
  * the remaining coupons per meal. Already-consumed amounts are never touched.
  */

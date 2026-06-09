@@ -25,6 +25,35 @@ type Db = PrismaClient | Prisma.TransactionClient;
 
 export type ResolvedRate = { rate: Prisma.Decimal; vendorRate: Prisma.Decimal };
 
+/**
+ * Current branch-default charge rate per meal for a category (counter_id NULL,
+ * date-current), as a mealTypeId → rate string map. Used to price coupon
+ * recharges (count × rate); recharges aren't counter-specific, so only the
+ * branch default applies. One row per meal (latest valid_from wins).
+ */
+export async function defaultRatesForCategory(
+  db: Db,
+  args: { branchId: bigint; categoryId: bigint; today: Date },
+): Promise<Record<string, string>> {
+  const rows = await db.mealRate.findMany({
+    where: {
+      branchId: args.branchId,
+      categoryId: args.categoryId,
+      counterId: null,
+      validFrom: { lte: args.today },
+      OR: [{ validTo: null }, { validTo: { gte: args.today } }],
+    },
+    orderBy: { validFrom: "desc" },
+    select: { mealTypeId: true, rate: true },
+  });
+  const map: Record<string, string> = {};
+  for (const r of rows) {
+    const k = r.mealTypeId.toString();
+    if (!(k in map)) map[k] = r.rate.toFixed(2); // first = latest valid_from
+  }
+  return map;
+}
+
 export async function resolveRate(
   db: Db,
   args: { branchId: bigint; counterId: bigint; mealTypeId: bigint; categoryId: bigint; today: Date },

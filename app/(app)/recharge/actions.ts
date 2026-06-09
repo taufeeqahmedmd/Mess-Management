@@ -8,10 +8,34 @@ import { requirePermission } from "@/lib/session";
 import { readClientUuid } from "@/lib/idempotency";
 import { writeAudit } from "@/lib/audit";
 import { applyRecharge, reverseRechargeRemaining } from "@/services/recharge-ledger";
-import { validateRechargeInput } from "@/services/recharge";
+import { couponValue } from "@/services/recharge";
+import { defaultRatesForCategory } from "@/services/pricing";
 import { expireRecharges, expireUserValidities } from "@/services/expiry";
 
 export type RechargeFormState = { error?: string };
+
+function todayUtc(): Date {
+  const n = new Date();
+  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
+}
+
+/** Price coupon grants at the cardholder's category rates (branch default).
+ *  Returns the value as a Prisma.Decimal, or an error string when a meal is unpriced. */
+async function priceCoupons(
+  user: { branchId: bigint; categoryId: bigint },
+  coupons: { mealTypeId: string; count: number }[],
+): Promise<{ amount: Prisma.Decimal } | { error: string }> {
+  const rates = await defaultRatesForCategory(prisma, {
+    branchId: user.branchId,
+    categoryId: user.categoryId,
+    today: todayUtc(),
+  });
+  const valued = couponValue(coupons, rates);
+  if ("missingMeal" in valued) {
+    return { error: "No rate is set for one of the selected meals in this category — set it under Settings → Rates." };
+  }
+  return { amount: new Prisma.Decimal(valued.value.toFixed(2)) };
+}
 
 export async function createRechargeAction(
   _prev: RechargeFormState,
@@ -26,7 +50,6 @@ export async function createRechargeAction(
     return { error: "Invalid cardholder." };
   }
 
-  const amount = String(formData.get("amount") ?? "").trim() || "0";
   const paymentModeId = String(formData.get("paymentModeId") ?? "").trim();
   const validTillStr = String(formData.get("validTill") ?? "").trim();
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
@@ -40,8 +63,7 @@ export async function createRechargeAction(
     }
   }
 
-  const invalid = validateRechargeInput({ amount, coupons });
-  if (invalid) return { error: invalid };
+  if (coupons.length === 0) return { error: "Enter at least one coupon count." };
   if (!paymentModeId) return { error: "Select a payment mode." };
 
   const user = await prisma.user.findUnique({ where: { id: userId } });
@@ -50,6 +72,11 @@ export async function createRechargeAction(
   if (actor.branchId && user.branchId.toString() !== actor.branchId) {
     return { error: "Out of your branch scope." };
   }
+
+  // Wallet amount is derived from the coupon counts × the category's rates (the
+  // collection value); the wallet money balance itself is not topped up.
+  const priced = await priceCoupons(user, coupons);
+  if ("error" in priced) return { error: priced.error };
 
   let validTill: Date | null = null;
   if (validTillStr) {
@@ -61,7 +88,7 @@ export async function createRechargeAction(
     await prisma.$transaction(async (tx) => {
       const r = await applyRecharge(tx, {
         userId,
-        amount: new Prisma.Decimal(amount),
+        amount: priced.amount,
         coupons: coupons.map((c) => ({ mealTypeId: BigInt(c.mealTypeId), count: c.count })),
         validFrom: null,
         validTill,
@@ -70,6 +97,7 @@ export async function createRechargeAction(
         appUserId: BigInt(actor.id),
         remarks,
         clientUuid,
+        creditWallet: false,
       });
       await writeAudit(
         {
@@ -77,7 +105,7 @@ export async function createRechargeAction(
           action: "recharge.create",
           entity: "recharge",
           entityId: r.id,
-          after: { userId: userId.toString(), amount, coupons: coupons.length },
+          after: { userId: userId.toString(), amount: priced.amount.toFixed(2), coupons: coupons.length },
         },
         tx,
       );
@@ -114,7 +142,6 @@ export async function editRechargeAction(
     return { error: "Invalid recharge." };
   }
 
-  const amount = String(formData.get("amount") ?? "").trim() || "0";
   const paymentModeId = String(formData.get("paymentModeId") ?? "").trim();
   const validTillStr = String(formData.get("validTill") ?? "").trim();
   const remarks = String(formData.get("remarks") ?? "").trim() || null;
@@ -128,8 +155,7 @@ export async function editRechargeAction(
     }
   }
 
-  const invalid = validateRechargeInput({ amount, coupons });
-  if (invalid) return { error: invalid };
+  if (coupons.length === 0) return { error: "Enter at least one coupon count." };
   if (!paymentModeId) return { error: "Select a payment mode." };
 
   const old = await prisma.recharge.findUnique({ where: { id: oldId }, include: { user: true } });
@@ -139,6 +165,9 @@ export async function editRechargeAction(
   if (actor.branchId && old.user.branchId.toString() !== actor.branchId) {
     return { error: "Out of your branch scope." };
   }
+
+  const priced = await priceCoupons(old.user, coupons);
+  if ("error" in priced) return { error: priced.error };
 
   let validTill: Date | null = null;
   if (validTillStr) {
@@ -151,7 +180,7 @@ export async function editRechargeAction(
       await reverseRechargeRemaining(tx, oldId, "reversal", BigInt(actor.id));
       const r = await applyRecharge(tx, {
         userId,
-        amount: new Prisma.Decimal(amount),
+        amount: priced.amount,
         coupons: coupons.map((c) => ({ mealTypeId: BigInt(c.mealTypeId), count: c.count })),
         validFrom: null,
         validTill,
@@ -160,6 +189,7 @@ export async function editRechargeAction(
         appUserId: BigInt(actor.id),
         remarks,
         clientUuid,
+        creditWallet: false,
       });
       await writeAudit(
         {
@@ -168,7 +198,7 @@ export async function editRechargeAction(
           entity: "recharge",
           entityId: r.id,
           before: { rechargeId: oldId.toString() },
-          after: { amount, coupons: coupons.length },
+          after: { amount: priced.amount.toFixed(2), coupons: coupons.length },
         },
         tx,
       );

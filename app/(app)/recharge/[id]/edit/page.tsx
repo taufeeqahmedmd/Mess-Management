@@ -5,6 +5,12 @@ import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { RechargeForm, type RechargeInitial } from "../../recharge-form";
 import { editRechargeAction } from "../../actions";
+import { defaultRatesForCategory } from "@/services/pricing";
+
+function todayUtc(): Date {
+  const n = new Date();
+  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
+}
 
 export default async function EditRechargePage({
   params,
@@ -40,16 +46,20 @@ export default async function EditRechargePage({
     );
   }
 
-  const [meals, paymentModes] = await Promise.all([
+  const [meals, paymentModes, rates] = await Promise.all([
     prisma.mealType.findMany({ where: { active: true }, orderBy: { startTime: "asc" } }),
     prisma.paymentMode.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
+    defaultRatesForCategory(prisma, {
+      branchId: recharge.user.branchId,
+      categoryId: recharge.user.categoryId,
+      today: todayUtc(),
+    }),
   ]);
 
   const couponsByMeal: Record<string, number> = {};
   for (const c of recharge.coupons) couponsByMeal[c.mealTypeId.toString()] = c.count;
 
   const initial: RechargeInitial = {
-    amount: recharge.amount.toFixed(2),
     coupons: couponsByMeal,
     validTill: recharge.validTill ? recharge.validTill.toISOString().slice(0, 10) : "",
     paymentModeId: recharge.paymentModeId.toString(),
@@ -72,6 +82,7 @@ export default async function EditRechargePage({
         rechargeId={recharge.id.toString()}
         initial={initial}
         meals={meals.map((m) => ({ id: m.id.toString(), name: m.name }))}
+        rates={rates}
         paymentModes={paymentModes.map((p) => ({ id: p.id.toString(), name: p.name }))}
       />
     </div>
