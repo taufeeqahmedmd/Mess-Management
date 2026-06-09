@@ -194,6 +194,7 @@ model AppUser {
   status       AppUserStatus @default(active)
   lastLoginAt  DateTime?     @map("last_login_at") @db.Timestamptz(6)
   failedLogins Int           @default(0) @map("failed_logins")
+  lockedUntil  DateTime?     @map("locked_until") @db.Timestamptz(6) // time-windowed login lockout (auto-clears); NULL = not locked
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
@@ -478,6 +479,9 @@ model MealRate {
 
   @@index([branchId, mealTypeId, categoryId, validFrom])
   @@index([counterId, mealTypeId, categoryId, validFrom])
+  // Exactly one current (valid_to NULL) row per key is enforced by two partial
+  // UNIQUE indexes added in migration 20260609140000_meal_rates_one_current
+  // (partial indexes can't be expressed in the Prisma schema).
   @@map("meal_rates")
 }
 

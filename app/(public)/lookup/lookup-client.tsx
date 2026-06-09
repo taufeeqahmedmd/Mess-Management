@@ -113,7 +113,7 @@ export function LookupClient() {
               onChange={(e) => setCode(e.target.value)}
               placeholder="e.g. EMP1001"
               aria-invalid={error ? true : undefined}
-              className="input--rfid min-w-0 flex-1 rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 font-mono tracking-[0.04em] text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
+              className="min-w-0 flex-1 rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 font-mono tracking-[0.04em] text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
             />
             <button
               type="submit"

@@ -13,7 +13,9 @@ import {
 type Counter = { id: string; name: string; code: string };
 
 type TapResult = {
-  status: "APPROVED" | "REJECTED" | "BLOCKED" | "QUEUED";
+  // ERROR = a transport/server failure, NOT a business decision — kept distinct
+  // from REJECTED so a 500/403/timeout never looks like a real card decline.
+  status: "APPROVED" | "REJECTED" | "BLOCKED" | "QUEUED" | "ERROR";
   reason: string;
   paidBy?: "wallet" | "coupon";
   charged?: string;
@@ -38,11 +40,14 @@ const STATUS_STYLE: Record<TapResult["status"], { panel: string; chip: string }>
   REJECTED: { panel: "border-tomato bg-tomato-soft", chip: "bg-tomato text-white" },
   BLOCKED: { panel: "border-tomato bg-tomato-soft", chip: "bg-tomato text-white" },
   QUEUED: { panel: "border-gold bg-gold-soft", chip: "bg-gold-deep text-white" },
+  // Neutral, not red — this is a system error to retry, not a card decline.
+  ERROR: { panel: "border-line-strong bg-surface-2", chip: "bg-ink-2 text-white" },
 };
 
 function dotFor(status: TapResult["status"]) {
   if (status === "APPROVED") return "bg-sage";
   if (status === "QUEUED") return "bg-gold-deep";
+  if (status === "ERROR") return "bg-ink-2";
   return "bg-tomato";
 }
 
@@ -55,17 +60,29 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
   const [queued, setQueued] = useState(0);
   const [syncing, setSyncing] = useState(false);
   const [syncReport, setSyncReport] = useState<{ approved: number; rejected: number; blocked: number } | null>(null);
+  const [syncError, setSyncError] = useState<string | null>(null);
   const [online, setOnline] = useState(() => (typeof navigator !== "undefined" ? navigator.onLine : true));
 
   const inputRef = useRef<HTMLInputElement>(null);
   const audioRef = useRef<AudioContext | null>(null);
+  // Inter-key timing to tell a reader burst (keys ms apart) from manual typing,
+  // and to auto-submit for readers that don't emit a trailing Enter.
+  const lastKeyAtRef = useRef(0);
+  const burstRef = useRef(true);
+  const burstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     inputRef.current?.focus();
     void queueCount().then(setQueued);
     void syncQueue();
 
-    const refocus = () => inputRef.current?.focus();
+    // Keep the scan input focused, but don't steal focus from a control the
+    // operator is actually using (counter select, sync/exit buttons, links).
+    const refocus = (e: MouseEvent) => {
+      const target = e.target as HTMLElement | null;
+      if (target?.closest("button, select, a, input, [role='button']")) return;
+      inputRef.current?.focus();
+    };
     const goOnline = () => {
       setOnline(true);
       void syncQueue();
@@ -116,6 +133,35 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
     setRecent((list) => [t, ...list].slice(0, 8));
   }
 
+  // A USB RFID reader types the card number as a rapid keystroke burst; a human
+  // types far slower. We submit on Enter (which readers emit) for both, but also
+  // auto-submit shortly after a fast burst so a reader that omits Enter still
+  // works — without firing on slow manual typing.
+  const BURST_GAP_MS = 35; // keys closer than this look machine-generated
+  const BURST_IDLE_MS = 80; // a scan settles ~this long after its last key
+
+  function onScanKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === "Enter") {
+      e.preventDefault();
+      if (burstTimerRef.current) clearTimeout(burstTimerRef.current);
+      void submit(scan.trim());
+      return;
+    }
+    if (e.key.length !== 1) return; // ignore Shift/Arrow/etc.
+
+    const now = Date.now();
+    const gap = now - lastKeyAtRef.current;
+    lastKeyAtRef.current = now;
+    if (scan.length === 0) burstRef.current = true; // fresh entry
+    else if (gap > BURST_GAP_MS) burstRef.current = false; // a slow gap = manual typing
+
+    if (burstTimerRef.current) clearTimeout(burstTimerRef.current);
+    burstTimerRef.current = setTimeout(() => {
+      const value = inputRef.current?.value.trim() ?? "";
+      if (burstRef.current && value.length >= 3) void submit(value);
+    }, BURST_IDLE_MS);
+  }
+
   async function syncQueue() {
     if (typeof navigator !== "undefined" && !navigator.onLine) return;
     const taps = await getQueuedTaps();
@@ -130,6 +176,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
     }
 
     const all: SyncResult[] = [];
+    let failed = false;
     for (const [cid, group] of byCounter) {
       try {
         const r = await fetch("/api/counter/sync", {
@@ -143,10 +190,16 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
         if (r.ok) {
           const data = (await r.json()) as { results: SyncResult[] };
           all.push(...data.results);
-          await removeTaps(data.results.map((x) => x.clientTxId));
+          // Resolved taps are dropped from the queue; ERROR taps failed transiently
+          // on the server (idempotent) and stay queued to retry on the next sync.
+          const resolved = data.results.filter((x) => x.status !== "ERROR");
+          await removeTaps(resolved.map((x) => x.clientTxId));
+          if (resolved.length < data.results.length) failed = true;
+        } else {
+          failed = true; // server rejected the batch — leave it queued to retry
         }
       } catch {
-        /* still offline / failed — leave queued */
+        failed = true; // still offline / network failed — leave queued
       }
     }
 
@@ -163,6 +216,8 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
         blocked: all.filter((r) => r.status === "BLOCKED").length,
       });
     }
+    // Surface a stuck queue rather than letting it fail silently.
+    setSyncError(failed ? "Couldn’t sync some taps — still queued, will retry." : null);
     setQueued(await queueCount());
     setSyncing(false);
   }
@@ -186,6 +241,8 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
     if (typeof navigator !== "undefined" && !navigator.onLine) {
       await queueOffline(cardUid, clientTxId);
       setScan("");
+      burstRef.current = true;
+      lastKeyAtRef.current = 0;
       setBusy(false);
       inputRef.current?.focus();
       return;
@@ -197,26 +254,43 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ cardUid, counterId, clientTxId }),
       });
-      const data = await r.json();
-      const res: TapResult = r.ok ? (data as TapResult) : { status: "REJECTED", reason: data?.error ?? "Error" };
-      setResult(res);
-      const ok = res.status === "APPROVED";
-      beep(ok ? "ok" : "bad");
-      speak(ok ? "Accepted" : "Rejected");
-      pushRecent({
-        key: clientTxId,
-        name: res.cardholder?.name ?? cardUid,
-        status: res.status,
-        meal: res.meal?.name,
-        charged: res.charged,
-        at: new Date().toLocaleTimeString(),
-      });
+
+      if (r.ok) {
+        // 200 → the server's business decision (APPROVED / REJECTED / BLOCKED).
+        const res = (await r.json()) as TapResult;
+        setResult(res);
+        const ok = res.status === "APPROVED";
+        beep(ok ? "ok" : "bad");
+        speak(ok ? "Accepted" : "Rejected");
+        pushRecent({
+          key: clientTxId,
+          name: res.cardholder?.name ?? cardUid,
+          status: res.status,
+          meal: res.meal?.name,
+          charged: res.charged,
+          at: new Date().toLocaleTimeString(),
+        });
+      } else if (r.status >= 500) {
+        // Server error — the tap is idempotent, so queue and let sync retry it
+        // rather than telling the operator the card was declined.
+        await queueOffline(cardUid, clientTxId);
+      } else {
+        // 4xx (bad request / forbidden) — a system ERROR, never a card decline.
+        const data = await r.json().catch(() => null);
+        const res: TapResult = { status: "ERROR", reason: data?.error ?? "Request failed — try again" };
+        setResult(res);
+        beep("bad");
+        speak("Error");
+        pushRecent({ key: clientTxId, name: cardUid, status: "ERROR", at: new Date().toLocaleTimeString() });
+      }
     } catch {
       // network dropped mid-request — queue it (idempotent on the server).
       await queueOffline(cardUid, clientTxId);
     }
 
     setScan("");
+    burstRef.current = true;
+    lastKeyAtRef.current = 0;
     setBusy(false);
     inputRef.current?.focus();
   }
@@ -262,6 +336,18 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
         </div>
       </header>
 
+      {syncError ? (
+        <div role="alert" className="flex items-center justify-between gap-3 border-b border-line bg-tomato-soft px-5 py-2 text-sm">
+          <span className="inline-flex items-center gap-1.5 text-tomato">
+            <span className="size-2 rounded-pill bg-tomato" />
+            {syncError}
+          </span>
+          <button type="button" onClick={() => void syncQueue()} disabled={syncing || !online} className="font-medium text-tomato underline disabled:opacity-60">
+            Retry now
+          </button>
+        </div>
+      ) : null}
+
       {syncReport ? (
         <div className="flex items-center justify-between gap-3 border-b border-line bg-surface-2 px-5 py-2 text-sm">
           <span className="text-ink-2">
@@ -291,7 +377,7 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
               <>
                 {ch?.photoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- arbitrary external cardholder photo
-                  <img src={ch.photoUrl} alt="" className="size-40 rounded-md border border-line object-cover shadow-md" />
+                  <img src={ch.photoUrl} alt={ch.name ? `Photo of ${ch.name}` : "Cardholder photo"} className="size-40 rounded-md border border-line object-cover shadow-md" />
                 ) : (
                   <div className="grid size-40 place-items-center rounded-md border border-line bg-surface-2">
                     <span className="font-display text-4xl font-semibold text-muted-2">
@@ -328,18 +414,13 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
             ref={inputRef}
             value={scan}
             onChange={(e) => setScan(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                void submit(scan.trim());
-              }
-            }}
+            onKeyDown={onScanKeyDown}
             disabled={busy}
             inputMode="text"
             autoComplete="off"
             aria-label="Card scan"
             placeholder={busy ? "Reading…" : "Scan or type a card / ID, then Enter"}
-            className="input--rfid w-full rounded-md border border-line-strong bg-surface px-4 py-4 text-center font-mono text-xl tracking-[0.1em] text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
+            className="w-full rounded-md border border-line-strong bg-surface px-4 py-4 text-center font-mono text-xl tracking-[0.1em] text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
           />
         </section>
 
@@ -356,7 +437,9 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
                       <span className={`size-2 rounded-pill ${dotFor(t.status)}`} />
                       <span className="truncate text-ink">{t.name}</span>
                     </span>
-                    {t.meal ? <span className="ml-3 text-xs text-muted">{t.meal}</span> : null}
+                    {/* status as text, not colour alone (theme.md §8 / a11y) */}
+                    <span className="ml-3 text-[11px] font-semibold uppercase tracking-wide text-ink-2">{t.status}</span>
+                    {t.meal ? <span className="ml-2 text-xs text-muted">{t.meal}</span> : null}
                   </span>
                   <span className="shrink-0 font-mono text-xs text-muted">{t.at}</span>
                 </li>

@@ -43,7 +43,7 @@ export function OperatorsForm({
         <div className="flex flex-col gap-1.5">
           {staff.map((s) => (
             <label key={s.id} className="flex items-center gap-3 rounded-sm border border-line bg-surface px-3 py-2.5 text-sm has-[:focus-visible]:ring-3 has-[:focus-visible]:ring-gold/20">
-              <input type="checkbox" name="operators" value={s.id} defaultChecked={assigned.has(s.id)} className="size-4 accent-[var(--gold)]" />
+              <input type="checkbox" name="operators" value={s.id} defaultChecked={assigned.has(s.id)} className="size-4 accent-gold" />
               <span className="text-ink">{s.name}</span>
               <span className="font-mono text-xs text-muted">{s.mobile}</span>
               <span className="ml-auto rounded-pill bg-surface-2 px-2 py-0.5 text-xs text-ink-2">{s.role}</span>

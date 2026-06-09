@@ -3,8 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
-import { writeAudit } from "@/lib/audit";
-import { tapEngine } from "@/services/consumption";
+import { runTap } from "@/lib/run-tap";
 
 const schema = z.object({
   cardUid: z.string().trim().min(1).max(64),
@@ -40,25 +39,16 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Counter is out of your branch." }, { status: 403 });
   }
 
-  const result = await prisma.$transaction((tx) =>
-    tapEngine(tx, {
+  const result = await runTap(
+    {
       cardUid: parsed.data.cardUid,
       counterId,
       clientUuid: parsed.data.clientTxId,
       operatorId: BigInt(actor.id),
       at: new Date(),
-    }),
+    },
+    { appUserId: BigInt(actor.id), counterId },
   );
-
-  if (result.status === "APPROVED" && result.redemptionId) {
-    await writeAudit({
-      appUserId: BigInt(actor.id),
-      action: "tap.approve",
-      entity: "redemption",
-      entityId: BigInt(result.redemptionId),
-      after: { paidBy: result.paidBy, charged: result.charged, meal: result.meal?.name, counterId: counterId.toString() },
-    });
-  }
 
   return NextResponse.json(result);
 }

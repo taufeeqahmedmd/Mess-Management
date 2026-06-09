@@ -103,6 +103,11 @@ export async function updateStaffAction(
 
   const before = await prisma.appUser.findUnique({ where: { id } });
   if (!before) return { error: "Staff member not found." };
+  // Branch scope: a scoped admin may only edit staff inside their own branch
+  // (all-branch staff are Super-Admin-only territory).
+  if (actor.branchId && before.branchId?.toString() !== actor.branchId) {
+    return { error: "Out of your branch scope." };
+  }
 
   const r = await resolve(actor, input.roleId, input.branchId);
   if ("error" in r) return r;
@@ -156,6 +161,7 @@ export async function setStaffStatusAction(formData: FormData): Promise<void> {
 
   const before = await prisma.appUser.findUnique({ where: { id } });
   if (!before) return;
+  if (actor.branchId && before.branchId?.toString() !== actor.branchId) return; // out of scope
 
   await prisma.$transaction(async (tx) => {
     await tx.appUser.update({ where: { id }, data: { status } });
