@@ -142,8 +142,8 @@ export function RatesEditor({
                     {categories.map((c) => {
                       const cell = row.cells[c.id] ?? { charge: "", vendor: "" };
                       return (
-                        <td key={c.id} className="px-2 py-3">
-                          <div className="flex flex-col gap-1">
+                        <td key={c.id} className="px-2 py-3 text-center">
+                          <div className="inline-flex flex-col gap-1">
                             <input inputMode="decimal" placeholder="Charge" value={cell.charge} onChange={(e) => setCell(row.key, c.id, "charge", e.target.value)} aria-label={`${c.name} charge`} className={cellInput} />
                             <input inputMode="decimal" placeholder="Vendor" value={cell.vendor} onChange={(e) => setCell(row.key, c.id, "vendor", e.target.value)} aria-label={`${c.name} vendor`} className={cellInput} />
                           </div>

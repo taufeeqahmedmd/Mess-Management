@@ -2,14 +2,15 @@
 
 import { useLayoutEffect, useRef, useState } from "react";
 import { useDismiss } from "@/components/shell/hooks";
+import { CheckSquare } from "@/components/ui/check-square";
 
 export type CounterOption = { id: string; label: string; sub?: string };
 
 /**
- * Compact multi-select for the counter column, with a "Select all" toggle. The
+ * Modern multi-select for the counter column, with a tri-state "Select all". The
  * menu is position:fixed (anchored to the button) so it isn't clipped by the
- * rates table's horizontal scroll container. Empty selection = all counters
- * (the branch default row). Closes on outside click, scroll, or resize.
+ * rates table's horizontal scroll. Empty selection = all counters (the branch
+ * default row). Closes on outside click, scroll, or resize.
  */
 export function CounterMultiSelect({
   options,
@@ -27,10 +28,11 @@ export function CounterMultiSelect({
   const wrapRef = useDismiss<HTMLDivElement>(open, () => setOpen(false));
   const btnRef = useRef<HTMLButtonElement>(null);
   const set = new Set(selected);
+  const chosen = options.filter((o) => set.has(o.id));
 
   function openMenu() {
     const r = btnRef.current?.getBoundingClientRect();
-    if (r) setCoords({ top: r.bottom + 4, left: r.left, width: Math.max(r.width, 208) });
+    if (r) setCoords({ top: r.bottom + 6, left: r.left, width: Math.max(r.width, 224) });
     setOpen(true);
   }
 
@@ -46,6 +48,7 @@ export function CounterMultiSelect({
   }, [open]);
 
   const allSelected = options.length > 0 && options.every((o) => set.has(o.id));
+  const someSelected = selected.length > 0 && !allSelected;
   function toggle(id: string) {
     const next = new Set(set);
     if (next.has(id)) next.delete(id);
@@ -53,13 +56,6 @@ export function CounterMultiSelect({
     onChange(options.map((o) => o.id).filter((x) => next.has(x)));
   }
   const toggleAll = () => onChange(allSelected ? [] : options.map((o) => o.id));
-
-  const labelText =
-    selected.length === 0
-      ? placeholder
-      : allSelected
-        ? "All counters"
-        : options.filter((o) => set.has(o.id)).map((o) => o.label).join(", ");
 
   return (
     <div ref={wrapRef} className="relative">
@@ -70,10 +66,31 @@ export function CounterMultiSelect({
         aria-expanded={open}
         aria-label="Counters"
         onClick={() => (open ? setOpen(false) : openMenu())}
-        className="flex min-w-44 max-w-60 items-center justify-between gap-2 rounded-sm border border-line-strong bg-surface-2 px-2 py-1.5 text-left text-sm transition-colors focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
+        className="flex min-h-10 w-full min-w-44 max-w-64 items-center justify-between gap-2 rounded-md border border-line-strong bg-surface-2 px-2.5 py-1.5 text-left text-sm transition-colors hover:border-gold/60 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
       >
-        <span className={`truncate ${selected.length ? "text-ink" : "text-muted-2"}`}>{labelText}</span>
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" aria-hidden="true" className="size-4 shrink-0 text-muted">
+        {selected.length === 0 ? (
+          <span className="px-1 text-muted-2">{placeholder}</span>
+        ) : allSelected ? (
+          <span className="rounded-pill bg-gold-soft px-2 py-0.5 text-xs font-medium text-ink">All counters</span>
+        ) : (
+          <span className="flex flex-wrap items-center gap-1">
+            {chosen.map((o) => (
+              <span key={o.id} className="rounded-pill bg-gold-soft px-2 py-0.5 text-xs font-medium text-ink">
+                {o.sub ?? o.label}
+              </span>
+            ))}
+          </span>
+        )}
+        <svg
+          viewBox="0 0 24 24"
+          fill="none"
+          stroke="currentColor"
+          strokeWidth={1.8}
+          strokeLinecap="round"
+          strokeLinejoin="round"
+          aria-hidden="true"
+          className={`size-4 shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`}
+        >
           <path d="m6 9 6 6 6-6" />
         </svg>
       </button>
@@ -84,7 +101,7 @@ export function CounterMultiSelect({
           aria-multiselectable="true"
           aria-label="Counters"
           style={{ position: "fixed", top: coords.top, left: coords.left, width: coords.width }}
-          className="z-[100] max-h-64 overflow-auto rounded-sm border border-line bg-surface shadow-lg"
+          className="z-[100] max-h-72 overflow-auto rounded-md border border-line bg-surface p-1 shadow-lg"
         >
           {options.length === 0 ? (
             <p className="px-3 py-2 text-sm text-ink-2">No counters.</p>
@@ -93,9 +110,9 @@ export function CounterMultiSelect({
               <button
                 type="button"
                 onClick={toggleAll}
-                className="flex w-full items-center gap-2 border-b border-line px-3 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-gold/10"
+                className="mb-1 flex w-full items-center gap-2.5 rounded-sm border-b border-line px-2.5 py-2 text-left text-sm font-medium text-ink transition-colors hover:bg-gold/10"
               >
-                <span aria-hidden="true">{allSelected ? "●" : "○"}</span>
+                <CheckSquare checked={allSelected} indeterminate={someSelected} />
                 Select all
               </button>
               {options.map((o) => {
@@ -107,10 +124,10 @@ export function CounterMultiSelect({
                     role="option"
                     aria-selected={on}
                     onClick={() => toggle(o.id)}
-                    className={`flex w-full items-center gap-2 px-3 py-2 text-left text-sm transition-colors ${on ? "bg-gold-soft text-ink" : "text-ink-2 hover:bg-gold/10 hover:text-gold-deep"}`}
+                    className={`flex w-full items-center gap-2.5 rounded-sm px-2.5 py-2 text-left text-sm transition-colors ${on ? "bg-gold-soft text-ink" : "text-ink-2 hover:bg-gold/10"}`}
                   >
-                    <span aria-hidden="true">{on ? "●" : "○"}</span>
-                    <span>{o.label}</span>
+                    <CheckSquare checked={on} />
+                    <span className="text-ink">{o.label}</span>
                     {o.sub ? <span className="ml-auto font-mono text-xs text-muted">{o.sub}</span> : null}
                   </button>
                 );
