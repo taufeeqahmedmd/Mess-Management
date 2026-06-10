@@ -141,6 +141,68 @@ export async function collectionsSummary(
   return { count: agg._count._all, amount: agg._sum.amount ?? ZERO };
 }
 
+/** All-time collections (Σ recharge.amount), branch-scoped, NO date filter. */
+export async function overallCollections(db: Db, branchId: bigint | null): Promise<Prisma.Decimal> {
+  const agg = await db.recharge.aggregate({
+    where: { status: "posted", ...(branchId ? { user: { is: { branchId } } } : {}) },
+    _sum: { amount: true },
+  });
+  return agg._sum.amount ?? ZERO;
+}
+
+/** All-time vendor payable (Σ redemption.vendorAmount), branch-scoped, NO date filter. */
+export async function overallVendorCost(db: Db, branchId: bigint | null): Promise<Prisma.Decimal> {
+  const agg = await db.redemption.aggregate({
+    where: { status: "posted", ...(branchId ? { counter: { is: { branchId } } } : {}) },
+    _sum: { vendorAmount: true },
+  });
+  return agg._sum.vendorAmount ?? ZERO;
+}
+
+export type TrendPoint = { date: string; label: string; profit: number };
+
+/**
+ * Profit-over-time series for the chart, bucketed across the filter window:
+ * daily for ranges up to ~2 months, monthly beyond. Buckets are contiguous (gaps
+ * filled with 0) so the chart has an even X axis. Profit per bucket =
+ * Σ rateApplied − Σ vendorAmount (same definition as the Profit card). The
+ * numeric `profit` is for chart geometry only — money math stays in Decimal.
+ */
+export async function profitTrend(db: Db, f: ConsumptionFilter): Promise<TrendPoint[]> {
+  const rows = await db.redemption.findMany({
+    where: redemptionWhere(f),
+    select: { redeemedAt: true, rateApplied: true, vendorAmount: true },
+  });
+
+  const spanDays = Math.max(1, Math.round((f.toExclusive.getTime() - f.from.getTime()) / 86_400_000));
+  const monthly = spanDays > 62;
+  const keyOf = (d: Date) =>
+    monthly ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` : fmt(d);
+  const labelOf = (d: Date) =>
+    monthly ? d.toLocaleDateString("en-IN", { month: "short" }) : String(d.getDate());
+
+  const buckets = new Map<string, { label: string; sale: Prisma.Decimal; cost: Prisma.Decimal }>();
+  const cursor = monthly ? new Date(f.from.getFullYear(), f.from.getMonth(), 1) : startOfDay(f.from);
+  while (cursor < f.toExclusive) {
+    buckets.set(keyOf(cursor), { label: labelOf(cursor), sale: ZERO, cost: ZERO });
+    if (monthly) cursor.setMonth(cursor.getMonth() + 1);
+    else cursor.setDate(cursor.getDate() + 1);
+  }
+
+  for (const r of rows) {
+    const b = buckets.get(keyOf(r.redeemedAt));
+    if (!b) continue;
+    b.sale = b.sale.plus(r.rateApplied);
+    b.cost = b.cost.plus(r.vendorAmount);
+  }
+
+  return [...buckets.entries()].map(([date, b]) => ({
+    date,
+    label: b.label,
+    profit: Number(b.sale.minus(b.cost).toFixed(2)),
+  }));
+}
+
 export type Breakdown = {
   id: string;
   label: string;

@@ -12,6 +12,12 @@ export default async function CounterPage() {
   if (!can(actor, "counter.operate")) redirect("/dashboard");
   const session = await auth();
 
+  // A pure counter operator (only `counter.operate`, not Super Admin) has nowhere
+  // to "exit" to, so they get a Logout button; anyone with wider access gets an
+  // Exit back into the app (the vendor dashboard).
+  const counterOnly =
+    !actor.isSuperAdmin && Array.from(actor.permissions).every((p) => p === "counter.operate");
+
   const counters = await prisma.counter.findMany({
     where: {
       status: "active",
@@ -42,6 +48,7 @@ export default async function CounterPage() {
       <CounterScreen
         counters={counters.map((c) => ({ id: c.id.toString(), name: c.name, code: c.code }))}
         operatorName={session?.user?.name ?? "Operator"}
+        counterOnly={counterOnly}
       />
     </>
   );

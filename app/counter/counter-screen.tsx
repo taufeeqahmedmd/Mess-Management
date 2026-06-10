@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
+import { SignOutButton } from "@/components/shell/sign-out-button";
 import {
   enqueueTap,
   getQueuedTaps,
@@ -63,7 +64,15 @@ function subscribeOnline(callback: () => void) {
   };
 }
 
-export function CounterScreen({ counters, operatorName }: { counters: Counter[]; operatorName: string }) {
+export function CounterScreen({
+  counters,
+  operatorName,
+  counterOnly,
+}: {
+  counters: Counter[];
+  operatorName: string;
+  counterOnly: boolean;
+}) {
   const [counterId, setCounterId] = useState(counters[0]?.id ?? "");
   const [scan, setScan] = useState("");
   const [result, setResult] = useState<TapResult | null>(null);
@@ -351,9 +360,15 @@ export function CounterScreen({ counters, operatorName }: { counters: Counter[];
             {online ? "Online" : "Offline"}
           </span>
           <span className="text-ink-2">{operatorName}</span>
-          <Link href="/dashboard" className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep">
-            Exit
-          </Link>
+          {counterOnly ? (
+            <SignOutButton className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep disabled:opacity-60">
+              Logout
+            </SignOutButton>
+          ) : (
+            <Link href="/vendor-dashboard" className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep">
+              Exit
+            </Link>
+          )}
         </div>
       </header>
 
