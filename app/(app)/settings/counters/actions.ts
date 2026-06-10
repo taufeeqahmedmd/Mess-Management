@@ -44,8 +44,8 @@ async function resolveBranchId(actor: Actor, requestedBranchId: string): Promise
     const branch = await prisma.branch.findUnique({ where: { id }, select: { id: true } });
     return branch ? branch.id : null;
   }
-  const b = await prisma.branch.findFirstOrThrow({ orderBy: { id: "asc" } });
-  return b.id;
+  const b = await prisma.branch.findFirst({ orderBy: { id: "asc" } });
+  return b ? b.id : null;
 }
 
 export async function createCounterAction(
@@ -57,7 +57,7 @@ export async function createCounterAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const data = parsed.data;
   const branchId = await resolveBranchId(actor, String(formData.get("branchId") ?? "").trim());
-  if (branchId === null) return { error: "Select a valid branch." };
+  if (branchId === null) return { error: "No branch configured yet — create one under Settings → Branches first." };
 
   try {
     await prisma.$transaction(async (tx) => {

@@ -55,7 +55,10 @@ export async function importUsersAction(
   }
   const branchId = actor.branchId
     ? BigInt(actor.branchId)
-    : (await prisma.branch.findFirstOrThrow({ orderBy: { id: "asc" } })).id;
+    : (await prisma.branch.findFirst({ orderBy: { id: "asc" } }))?.id ?? null;
+  if (branchId === null) {
+    return { error: "No branch configured yet — create one under Settings → Branches first." };
+  }
   const departments = await prisma.department.findMany({ where: { branchId } });
   const deptByName = new Map(departments.map((d) => [d.name.toLowerCase(), d]));
 

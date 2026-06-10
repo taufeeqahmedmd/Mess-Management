@@ -4,6 +4,7 @@ import type { Permission } from "@/lib/rbac";
 export type SettingsTab = { href: string; label: string; permission: Permission };
 
 export const SETTINGS_TABS: SettingsTab[] = [
+  { href: "/settings/branches", label: "Branches", permission: "settings.manage" },
   { href: "/settings/categories", label: "Categories", permission: "categories.manage" },
   { href: "/settings/meals", label: "Meals", permission: "meals.manage" },
   { href: "/settings/rates", label: "Rates", permission: "rates.manage" },
