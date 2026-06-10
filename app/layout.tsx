@@ -4,6 +4,7 @@ import { Fraunces, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
+import { Preloader } from "@/components/ui/preloader";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -85,6 +86,7 @@ export default function RootLayout({
         </Script>
         <Providers>{children}</Providers>
         <InstallPrompt />
+        <Preloader />
       </body>
     </html>
   );

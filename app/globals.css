@@ -174,3 +174,34 @@ body {
 .animate-toast-in {
   animation: toast-slide-in var(--dur) var(--ease);
 }
+
+/* =========================================================================
+   Preloader — first-paint splash (components/ui/preloader.tsx). A slim
+   indeterminate bar reads as "intentional loading", not a stalled page.
+   Honors prefers-reduced-motion via the global neutralizer above.
+   ========================================================================= */
+.preloader-track {
+  position: relative;
+  height: 3px;
+  width: 168px;
+  overflow: hidden;
+  border-radius: var(--radius-pill);
+  background: var(--gold-soft);
+}
+
+.preloader-bar {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  display: block;
+  width: 42%;
+  border-radius: var(--radius-pill);
+  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
+  animation: preloader-bar 1.15s var(--ease) infinite;
+}
+
+@keyframes preloader-bar {
+  0% { transform: translateX(-130%); }
+  100% { transform: translateX(330%); }
+}
