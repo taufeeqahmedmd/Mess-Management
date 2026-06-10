@@ -5,6 +5,7 @@ import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { CounterForm, type CounterData } from "../../counter-form";
 import { OperatorsForm, type StaffOption } from "../../operators-form";
+import { CounterMealsForm, type Assignment } from "../../counter-meals-form";
 import { updateCounterAction } from "../../actions";
 
 export default async function EditCounterPage({
@@ -25,15 +26,29 @@ export default async function EditCounterPage({
 
   const counter = await prisma.counter.findUnique({
     where: { id: counterId },
-    include: { operators: true, branch: { select: { code: true, name: true } } },
+    include: { operators: true, meals: true, branch: { select: { code: true, name: true } } },
   });
   if (!counter) notFound();
 
-  const staff = await prisma.appUser.findMany({
-    where: { deletedAt: null, status: "active" },
-    include: { role: true },
-    orderBy: { name: "asc" },
-  });
+  const [staff, meals] = await Promise.all([
+    prisma.appUser.findMany({
+      where: { deletedAt: null, status: "active" },
+      include: { role: true },
+      orderBy: { name: "asc" },
+    }),
+    prisma.mealType.findMany({ where: { active: true }, orderBy: { startTime: "asc" } }),
+  ]);
+  const mealRows = meals.map((m) => ({
+    id: m.id.toString(),
+    name: m.name,
+    code: m.code,
+    defaultStart: m.startTime,
+    defaultEnd: m.endTime,
+  }));
+  const mealAssignments: Record<string, Assignment> = {};
+  for (const cm of counter.meals) {
+    mealAssignments[cm.mealTypeId.toString()] = { startTime: cm.startTime, endTime: cm.endTime };
+  }
   const staffOptions: StaffOption[] = staff.map((s) => ({
     id: s.id.toString(),
     name: s.name,
@@ -62,6 +77,14 @@ export default async function EditCounterPage({
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-lg font-semibold text-ink">Details</h2>
         <CounterForm action={updateCounterAction} counter={counterData} />
+      </section>
+
+      <section className="flex flex-col gap-4">
+        <div>
+          <h2 className="font-display text-lg font-semibold text-ink">Meals &amp; service windows</h2>
+          <p className="mt-1 text-sm text-ink-2">Which meals this counter serves, and when (within each meal&rsquo;s default window).</p>
+        </div>
+        <CounterMealsForm counterId={counterData.id} meals={mealRows} assignments={mealAssignments} />
       </section>
 
       <section className="flex flex-col gap-4">

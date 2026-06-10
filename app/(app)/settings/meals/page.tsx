@@ -10,21 +10,12 @@ export default async function MealsPage() {
   const actor = await requireActor();
   if (!can(actor, "meals.manage")) redirect("/dashboard");
 
-  const branchId = actor.branchId ? BigInt(actor.branchId) : null;
-  const [meals, counterCounts] = await Promise.all([
-    prisma.mealType.findMany({ orderBy: { startTime: "asc" } }),
-    prisma.counterMeal.groupBy({
-      by: ["mealTypeId"],
-      where: { active: true, ...(branchId ? { counter: { branchId } } : {}) },
-      _count: { _all: true },
-    }),
-  ]);
-  const countersByMeal = new Map(counterCounts.map((c) => [c.mealTypeId.toString(), c._count._all]));
+  const meals = await prisma.mealType.findMany({ orderBy: { startTime: "asc" } });
 
   return (
     <div className="flex flex-col gap-5">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-sm text-ink-2">Meal types, default windows, and the counters that serve each meal.</p>
+        <p className="text-sm text-ink-2">Meal types and their default service windows. Assign meals to counters from the Counters page.</p>
         <Link href="/settings/meals/new" className="rounded-sm bg-gold px-4 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep">
           Add meal
         </Link>
@@ -37,7 +28,6 @@ export default async function MealsPage() {
               <th className="px-4 py-3 font-semibold">Code</th>
               <th className="px-4 py-3 font-semibold">Name</th>
               <th className="px-4 py-3 font-semibold">Default window</th>
-              <th className="px-4 py-3 font-semibold">Counters</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 text-right font-semibold">Actions</th>
             </tr>
@@ -45,7 +35,7 @@ export default async function MealsPage() {
           <tbody>
             {meals.length === 0 ? (
               <tr>
-                <td colSpan={6} className="px-4 py-10 text-center text-ink-2">No meals yet. Add the first one.</td>
+                <td colSpan={5} className="px-4 py-10 text-center text-ink-2">No meals yet. Add the first one.</td>
               </tr>
             ) : (
               meals.map((m) => (
@@ -53,18 +43,6 @@ export default async function MealsPage() {
                   <td className="px-4 py-3 font-mono text-ink">{m.code}</td>
                   <td className="px-4 py-3 text-ink">{m.name}</td>
                   <td className="px-4 py-3 font-mono text-ink-2">{m.startTime}&ndash;{m.endTime}</td>
-                  <td className="px-4 py-3 text-ink-2">
-                    {(() => {
-                      const n = countersByMeal.get(m.id.toString()) ?? 0;
-                      return n > 0 ? (
-                        <Link href={`/settings/meals/${m.id}/edit`} className="transition-colors hover:text-gold-deep">
-                          {n} counter{n === 1 ? "" : "s"}
-                        </Link>
-                      ) : (
-                        <span className="text-muted-2">—</span>
-                      );
-                    })()}
-                  </td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5 text-ink-2">
                       <span className={`size-2 rounded-pill ${m.active ? "bg-sage" : "bg-muted-2"}`} />

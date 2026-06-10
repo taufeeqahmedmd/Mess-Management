@@ -7,7 +7,7 @@ const ICON_BASE = "/assets/images/favicon";
 export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Mess Management",
-    short_name: "Mess",
+    short_name: "Mess Management",
     description: "RFID coupon & wallet management system",
     start_url: "/",
     display: "standalone",

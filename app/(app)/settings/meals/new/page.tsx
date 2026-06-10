@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { NewMealForm } from "../new-meal-form";
@@ -8,13 +7,6 @@ import { NewMealForm } from "../new-meal-form";
 export default async function NewMealPage() {
   const actor = await requireActor();
   if (!can(actor, "meals.manage")) redirect("/dashboard");
-
-  const branchId = actor.branchId ? BigInt(actor.branchId) : null;
-  const counters = await prisma.counter.findMany({
-    where: { status: "active", deletedAt: null, ...(branchId ? { branchId } : {}) },
-    include: { branch: true },
-    orderBy: [{ branch: { name: "asc" } }, { name: "asc" }],
-  });
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -24,14 +16,7 @@ export default async function NewMealPage() {
         </p>
         <h1 className="font-display text-2xl font-semibold text-ink">New meal</h1>
       </div>
-      <NewMealForm
-        counters={counters.map((c) => ({
-          id: c.id.toString(),
-          name: c.name,
-          code: c.code,
-          branch: c.branch.name,
-        }))}
-      />
+      <NewMealForm />
     </div>
   );
 }

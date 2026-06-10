@@ -1,32 +1,26 @@
 "use client";
 
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
-import { CounterWindowRows, type CounterRow, type Assignment } from "./counter-window-rows";
-import { assignMealCountersAction, type MealCountersState } from "./actions";
+import { CounterMealRows, type MealRow, type Assignment } from "./counter-meal-rows";
+import { assignCounterMealsAction, type CounterMealsState } from "./actions";
 
-export type { CounterRow, Assignment };
+export type { MealRow, Assignment };
 
-const initial: MealCountersState = {};
+const initial: CounterMealsState = {};
 
-export function MealCountersForm({
-  mealId,
-  mealName,
-  defaultStart,
-  defaultEnd,
-  counters,
+export function CounterMealsForm({
+  counterId,
+  meals,
   assignments,
 }: {
-  mealId: string;
-  mealName: string;
-  defaultStart: string;
-  defaultEnd: string;
-  counters: CounterRow[];
+  counterId: string;
+  meals: MealRow[];
   assignments: Record<string, Assignment>;
 }) {
-  const { state, onSubmit, pending } = useConfirmedAction(assignMealCountersAction, initial, {
+  const { state, onSubmit, pending } = useConfirmedAction(assignCounterMealsAction, initial, {
     confirm: {
       title: "Save service windows",
-      message: `Update which counters serve ${mealName} and their time windows?`,
+      message: "Update which meals this counter serves and their time windows?",
       confirmLabel: "Yes, save",
     },
     successMessage: "Service windows saved.",
@@ -34,7 +28,7 @@ export function MealCountersForm({
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
-      <input type="hidden" name="mealId" value={mealId} />
+      <input type="hidden" name="counterId" value={counterId} />
 
       {state.error ? (
         <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">{state.error}</p>
@@ -43,14 +37,14 @@ export function MealCountersForm({
         <p role="status" className="rounded-sm bg-sage-soft px-3 py-2.5 text-sm text-sage-deep">Service windows saved.</p>
       ) : null}
 
-      <CounterWindowRows counters={counters} assignments={assignments} defaultStart={defaultStart} defaultEnd={defaultEnd} />
+      <CounterMealRows meals={meals} assignments={assignments} />
 
       <p className="text-xs text-muted">
-        Tick the counters that serve this meal and set each one&rsquo;s window. Overnight windows
-        (e.g. 22:00 → 02:00) are allowed. Unticked counters won&rsquo;t open this meal.
+        Tick the meals this counter serves and set each window. A time outside the meal&rsquo;s default
+        window is clamped into it on save. Unticked meals won&rsquo;t open at this counter.
       </p>
 
-      {counters.length > 0 ? (
+      {meals.length > 0 ? (
         <div>
           <button
             type="submit"
