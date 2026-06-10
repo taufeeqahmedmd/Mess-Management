@@ -25,7 +25,7 @@ export default async function EditCounterPage({
 
   const counter = await prisma.counter.findUnique({
     where: { id: counterId },
-    include: { operators: true },
+    include: { operators: true, branch: { select: { code: true, name: true } } },
   });
   if (!counter) notFound();
 
@@ -56,6 +56,7 @@ export default async function EditCounterPage({
           <Link href="/settings/counters" className="hover:text-gold-deep">Counters</Link> / {counter.name}
         </p>
         <h1 className="font-display text-2xl font-semibold text-ink">Edit counter</h1>
+        <p className="mt-1 text-sm text-ink-2">Branch: <span className="text-ink">{counter.branch.name} ({counter.branch.code})</span></p>
       </div>
 
       <section className="flex flex-col gap-4">

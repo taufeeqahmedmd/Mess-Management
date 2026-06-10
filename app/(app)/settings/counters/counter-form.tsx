@@ -11,12 +11,26 @@ export type CounterData = {
   status: "active" | "inactive";
 };
 
+export type BranchOption = { id: string; code: string; name: string };
+
 type Action = (prev: CounterFormState, formData: FormData) => Promise<CounterFormState>;
 
 const inputClass =
   "w-full rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
 
-export function CounterForm({ action, counter }: { action: Action; counter?: CounterData }) {
+export function CounterForm({
+  action,
+  counter,
+  branches,
+  currentBranchId,
+}: {
+  action: Action;
+  counter?: CounterData;
+  /** Provided only for all-branch (Super Admin) actors on create; scoped actors
+   *  inherit their own branch server-side and see no picker. */
+  branches?: BranchOption[];
+  currentBranchId?: string;
+}) {
   const isEdit = Boolean(counter);
   const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
     confirm: {
@@ -34,6 +48,17 @@ export function CounterForm({ action, counter }: { action: Action; counter?: Cou
         <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">
           {state.error}
         </p>
+      ) : null}
+
+      {branches && branches.length > 0 ? (
+        <div className="flex flex-col gap-1.5">
+          <label htmlFor="branchId" className="text-xs font-semibold text-ink-2">Branch</label>
+          <select id="branchId" name="branchId" required defaultValue={currentBranchId ?? branches[0].id} className={inputClass}>
+            {branches.map((b) => (
+              <option key={b.id} value={b.id}>{b.name} ({b.code})</option>
+            ))}
+          </select>
+        </div>
       ) : null}
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">

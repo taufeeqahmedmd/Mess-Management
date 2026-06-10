@@ -13,8 +13,11 @@ export default async function CountersPage() {
   const counters = await prisma.counter.findMany({
     where: actor.branchId ? { branchId: BigInt(actor.branchId) } : undefined,
     orderBy: { code: "asc" },
-    include: { _count: { select: { operators: true } } },
+    include: { _count: { select: { operators: true } }, branch: { select: { code: true, name: true } } },
   });
+  // All-branch actors manage counters across branches → show which branch each
+  // belongs to. Scoped actors only ever see their own branch, so hide the column.
+  const showBranch = actor.branchId === null;
 
   return (
     <div className="flex flex-col gap-5">
@@ -31,6 +34,7 @@ export default async function CountersPage() {
             <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
               <th className="px-4 py-3 font-semibold">Code</th>
               <th className="px-4 py-3 font-semibold">Name</th>
+              {showBranch ? <th className="px-4 py-3 font-semibold">Branch</th> : null}
               <th className="px-4 py-3 font-semibold">Operators</th>
               <th className="px-4 py-3 font-semibold">Status</th>
               <th className="px-4 py-3 text-right font-semibold">Actions</th>
@@ -38,12 +42,13 @@ export default async function CountersPage() {
           </thead>
           <tbody>
             {counters.length === 0 ? (
-              <tr><td colSpan={5} className="px-4 py-10 text-center text-ink-2">No counters yet. Add the first one.</td></tr>
+              <tr><td colSpan={showBranch ? 6 : 5} className="px-4 py-10 text-center text-ink-2">No counters yet. Add the first one.</td></tr>
             ) : (
               counters.map((c) => (
                 <tr key={c.id.toString()} className="border-t border-line">
                   <td className="px-4 py-3 font-mono text-ink">{c.code}</td>
                   <td className="px-4 py-3 text-ink">{c.name}</td>
+                  {showBranch ? <td className="px-4 py-3 text-ink-2">{c.branch.name}</td> : null}
                   <td className="px-4 py-3 text-ink-2">{c._count.operators}</td>
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5 text-ink-2">
