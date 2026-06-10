@@ -262,6 +262,42 @@ export const usageByMeal = (db: Db, f: ConsumptionFilter) => usageBy(db, "mealTy
 export const usageByCounter = (db: Db, f: ConsumptionFilter) => usageBy(db, "counterId", f);
 export const usageByCategory = (db: Db, f: ConsumptionFilter) => usageBy(db, "categoryId", f);
 
+/**
+ * Usage summarised by cardholder-type **Identifier** (`category.identifierLabel`)
+ * rather than category name: categories that share an identifier label are folded
+ * into one summed row. Drives the dashboard's "Usage by category" cut.
+ */
+export async function usageByCardholderType(db: Db, f: ConsumptionFilter): Promise<Breakdown[]> {
+  const groups = await db.redemption.groupBy({
+    by: ["categoryId"],
+    where: redemptionWhere(f),
+    _count: { _all: true },
+    _sum: { rateApplied: true, vendorAmount: true },
+  });
+
+  const ids = groups.map((g) => g.categoryId).filter((v): v is bigint => v != null);
+  const labelByCat = new Map<string, string>();
+  if (ids.length > 0) {
+    for (const c of await db.category.findMany({ where: { id: { in: ids } }, select: { id: true, identifierLabel: true } }))
+      labelByCat.set(c.id.toString(), c.identifierLabel);
+  }
+
+  // Fold categories sharing an identifier label into a single summed row.
+  const byLabel = new Map<string, { count: number; sale: Prisma.Decimal; cost: Prisma.Decimal }>();
+  for (const g of groups) {
+    const label = g.categoryId != null ? labelByCat.get(g.categoryId.toString()) ?? "—" : "—";
+    const cur = byLabel.get(label) ?? { count: 0, sale: ZERO, cost: ZERO };
+    cur.count += g._count._all;
+    cur.sale = cur.sale.plus(g._sum.rateApplied ?? ZERO);
+    cur.cost = cur.cost.plus(g._sum.vendorAmount ?? ZERO);
+    byLabel.set(label, cur);
+  }
+
+  return [...byLabel.entries()]
+    .map(([label, v]) => toBreakdown(label, label, v.count, v.sale, v.cost))
+    .sort((a, b) => b.count - a.count);
+}
+
 /** Active (non-deleted, non-blocked) cardholder count, branch-scoped. */
 export async function activeCardholderCount(db: Db, branchId: bigint | null): Promise<number> {
   return db.user.count({

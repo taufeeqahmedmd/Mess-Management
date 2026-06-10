@@ -16,7 +16,7 @@ import {
   overallVendorCost,
   profitTrend,
   activeCardholderCount,
-  usageByCategory,
+  usageByCardholderType,
   usageByMeal,
   usageByCounter,
 } from "@/services/reporting";
@@ -47,7 +47,7 @@ export default async function DashboardPage({
   const branchId = actor.branchId ? BigInt(actor.branchId) : null;
   const f = { branchId, from: range.from, toExclusive: range.toExclusive };
 
-  const [cardholders, consumption, collections, overallColl, overallVendor, trend, byCategory, byMeal, byCounter] =
+  const [cardholders, consumption, collections, overallColl, overallVendor, trend, byCardholderType, byMeal, byCounter] =
     await Promise.all([
       activeCardholderCount(prisma, branchId),
       consumptionSummary(prisma, f),
@@ -55,7 +55,7 @@ export default async function DashboardPage({
       overallCollections(prisma, branchId),
       overallVendorCost(prisma, branchId),
       profitTrend(prisma, f),
-      usageByCategory(prisma, f),
+      usageByCardholderType(prisma, f),
       usageByMeal(prisma, f),
       usageByCounter(prisma, f),
     ]);
@@ -110,7 +110,7 @@ export default async function DashboardPage({
       </section>
 
       <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <BreakdownTable title="Usage by category" unit="Category" rows={byCategory} />
+        <BreakdownTable title="Usage by category" unit="Identifier" rows={byCardholderType} />
         <BreakdownTable title="Usage by meal" unit="Meal" rows={byMeal} />
       </section>
 
