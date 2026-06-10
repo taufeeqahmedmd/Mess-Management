@@ -3,6 +3,7 @@ import Script from "next/script";
 import { Fraunces, Inter_Tight, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
+import { InstallPrompt } from "@/components/pwa/install-prompt";
 
 const fraunces = Fraunces({
   subsets: ["latin"],
@@ -83,6 +84,7 @@ export default function RootLayout({
           {themeInit}
         </Script>
         <Providers>{children}</Providers>
+        <InstallPrompt />
       </body>
     </html>
   );
