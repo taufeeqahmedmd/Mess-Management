@@ -77,6 +77,9 @@ export default async function RatesPage({
 
       {canEdit ? (
         <RatesEditor
+          // Remount on branch change so the grid re-initializes with the new
+          // branch's rows instead of keeping the previous branch's state.
+          key={branch.id.toString()}
           branchId={branch.id.toString()}
           meals={meals.map((m) => ({ id: m.id.toString(), name: m.name }))}
           categories={categories.map((c) => ({ id: c.id.toString(), name: c.name }))}
