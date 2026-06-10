@@ -3,76 +3,83 @@ import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { RatesEditor, type InitialRow } from "./rates-editor";
+import { BranchSwitcher, type BranchItem } from "./branch-switcher";
 
-export default async function RatesPage() {
+export default async function RatesPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ branch?: string }>;
+}) {
   const actor = await requireActor();
   if (!can(actor, "rates.manage")) redirect("/dashboard");
   const canEdit = can(actor, "rates.manage") && can(actor, "vendorRates.manage");
 
-  const branch = actor.branchId
-    ? await prisma.branch.findUnique({ where: { id: BigInt(actor.branchId) } })
-    : await prisma.branch.findFirst({ orderBy: { id: "asc" } });
+  // All-branch (Super Admin) actors pick which branch's rates to edit (via
+  // ?branch=); scoped actors are pinned to their own branch.
+  const allBranches: BranchItem[] = actor.branchId
+    ? []
+    : (
+        await prisma.branch.findMany({
+          where: { deletedAt: null, status: "active" },
+          orderBy: { code: "asc" },
+          select: { id: true, code: true, name: true },
+        })
+      ).map((b) => ({ id: b.id.toString(), code: b.code, name: b.name }));
+
+  const { branch: requestedBranch } = await searchParams;
+  let branch;
+  if (actor.branchId) {
+    branch = await prisma.branch.findUnique({ where: { id: BigInt(actor.branchId) } });
+  } else {
+    const requestedValid = requestedBranch && allBranches.some((b) => b.id === requestedBranch);
+    branch = requestedValid
+      ? await prisma.branch.findUnique({ where: { id: BigInt(requestedBranch) } })
+      : await prisma.branch.findFirst({ where: { deletedAt: null }, orderBy: { id: "asc" } });
+  }
   if (!branch) redirect("/dashboard");
 
-  const [meals, categories, rates, counters, counterMeals] = await Promise.all([
+  const [meals, categories, rates] = await Promise.all([
     prisma.mealType.findMany({ where: { active: true }, orderBy: { startTime: "asc" } }),
     prisma.category.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }),
-    prisma.mealRate.findMany({ where: { branchId: branch.id, validTo: null } }), // all current rates (defaults + counter-specific)
-    prisma.counter.findMany({
-      where: { branchId: branch.id, status: "active", deletedAt: null },
-      orderBy: { code: "asc" },
-    }),
-    prisma.counterMeal.findMany({
-      where: { active: true, counter: { branchId: branch.id } },
-      select: { mealTypeId: true, counterId: true },
-    }),
+    // Branch-level rates only (counter_id NULL) — rates are per branch, not per counter.
+    prisma.mealRate.findMany({ where: { branchId: branch.id, counterId: null, validTo: null } }),
   ]);
-
-  // counterId → [mealId] (only the meals each counter serves).
-  const mealsByCounter: Record<string, string[]> = {};
-  for (const cm of counterMeals) {
-    (mealsByCounter[cm.counterId.toString()] ??= []).push(cm.mealTypeId.toString());
-  }
 
   const mealOrder = new Map(meals.map((m, i) => [m.id.toString(), i]));
 
-  // Build editor rows: one per (counter | default) × meal, with category cells.
+  // Build editor rows: one per meal, with category cells.
   const rowMap = new Map<string, InitialRow>();
   for (const r of rates) {
-    const counterId = r.counterId ? r.counterId.toString() : "";
     const mealId = r.mealTypeId.toString();
-    const key = `${counterId}:${mealId}`;
-    let row = rowMap.get(key);
+    let row = rowMap.get(mealId);
     if (!row) {
-      row = { counterIds: counterId ? [counterId] : [], mealId, cells: {} };
-      rowMap.set(key, row);
+      row = { mealId, cells: {} };
+      rowMap.set(mealId, row);
     }
     row.cells[r.categoryId.toString()] = { charge: r.rate.toFixed(2), vendor: r.vendorRate.toFixed(2) };
   }
-  // Defaults (no counter) first, then by meal order.
-  const initialRows = [...rowMap.values()].sort((a, b) => {
-    if (a.counterIds.length !== b.counterIds.length) return a.counterIds.length - b.counterIds.length;
-    return (mealOrder.get(a.mealId) ?? 0) - (mealOrder.get(b.mealId) ?? 0);
-  });
+  const initialRows = [...rowMap.values()].sort(
+    (a, b) => (mealOrder.get(a.mealId) ?? 0) - (mealOrder.get(b.mealId) ?? 0),
+  );
 
   return (
     <div className="flex flex-col gap-5">
-      <div>
+      <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink-2">
           Charge (sale) and vendor (cost) per meal × category for{" "}
-          <span className="font-medium text-ink">{branch.name}</span>. Leave{" "}
-          <span className="font-medium">Counter</span> empty for the branch default; pick one or more
-          counters to override them. Profit/Loss = charge − vendor.
+          <span className="font-medium text-ink">{branch.name}</span>. Rates apply to the whole branch.
+          Profit/Loss = charge − vendor.
         </p>
+        {allBranches.length > 1 ? (
+          <BranchSwitcher branches={allBranches} current={branch.id.toString()} />
+        ) : null}
       </div>
 
       {canEdit ? (
         <RatesEditor
           branchId={branch.id.toString()}
-          counters={counters.map((c) => ({ id: c.id.toString(), name: c.name, code: c.code }))}
           meals={meals.map((m) => ({ id: m.id.toString(), name: m.name }))}
           categories={categories.map((c) => ({ id: c.id.toString(), name: c.name }))}
-          mealsByCounter={mealsByCounter}
           initialRows={initialRows}
         />
       ) : (

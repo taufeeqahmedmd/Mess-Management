@@ -2,14 +2,12 @@
 
 import { useRef, useState } from "react";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
-import { CounterMultiSelect } from "./counter-multi-select";
 import { saveRatesAction, type RatesEditorState } from "./counter-rate-actions";
 
 type Item = { id: string; name: string };
-type CounterItem = { id: string; name: string; code: string };
 type Cell = { charge: string; vendor: string };
-type Row = { key: string; counterIds: string[]; mealId: string; cells: Record<string, Cell> };
-export type InitialRow = { counterIds: string[]; mealId: string; cells: Record<string, Cell> };
+type Row = { key: string; mealId: string; cells: Record<string, Cell> };
+export type InitialRow = { mealId: string; cells: Record<string, Cell> };
 
 const initial: RatesEditorState = {};
 
@@ -20,25 +18,21 @@ const cellInput =
 
 export function RatesEditor({
   branchId,
-  counters,
   meals,
   categories,
-  mealsByCounter,
   initialRows,
 }: {
   branchId: string;
-  counters: CounterItem[];
   meals: Item[];
   categories: Item[];
-  mealsByCounter: Record<string, string[]>; // counterId → mealId[]
   initialRows: InitialRow[];
 }) {
   const [rows, setRows] = useState<Row[]>(() => {
-    const src = initialRows.length ? initialRows : [{ counterIds: [], mealId: "", cells: {} }];
+    const src = initialRows.length ? initialRows : [{ mealId: "", cells: {} }];
     return src.map((r, i) => ({ key: `r${i}`, ...r }));
   });
   const keyRef = useRef(rows.length);
-  const blankRow = (): Row => ({ key: `r${keyRef.current++}`, counterIds: [], mealId: "", cells: {} });
+  const blankRow = (): Row => ({ key: `r${keyRef.current++}`, mealId: "", cells: {} });
 
   const { state, onSubmit, pending } = useConfirmedAction(saveRatesAction, initial, {
     confirm: {
@@ -50,27 +44,7 @@ export function RatesEditor({
   });
 
   const mealName = Object.fromEntries(meals.map((m) => [m.id, m.name]));
-  const counterOptions = counters.map((c) => ({ id: c.id, label: c.name, sub: c.code }));
 
-  // Meals a row may pick: all when no counter chosen (a default row), else the
-  // union of the selected counters' served meals.
-  function mealsForRow(counterIds: string[]): Item[] {
-    if (counterIds.length === 0) return meals;
-    const ids = new Set<string>();
-    for (const cid of counterIds) for (const mid of mealsByCounter[cid] ?? []) ids.add(mid);
-    return meals.filter((m) => ids.has(m.id));
-  }
-
-  function setCounters(key: string, counterIds: string[]) {
-    setRows((rs) =>
-      rs.map((r) => {
-        if (r.key !== key) return r;
-        const allowed = new Set(mealsForRow(counterIds).map((m) => m.id));
-        const mealId = !r.mealId || allowed.has(r.mealId) ? r.mealId : "";
-        return { ...r, counterIds, mealId };
-      }),
-    );
-  }
   function setMeal(key: string, mealId: string) {
     setRows((rs) => rs.map((r) => (r.key === key ? { ...r, mealId } : r)));
   }
@@ -86,7 +60,9 @@ export function RatesEditor({
   const addRow = () => setRows((rs) => [...rs, blankRow()]);
   const removeRow = (key: string) => setRows((rs) => rs.filter((r) => r.key !== key));
 
-  const payload = JSON.stringify(rows.map((r) => ({ counterIds: r.counterIds, mealId: r.mealId, cells: r.cells })));
+  // Rates are per branch × meal × category — no counter scope. counterIds is
+  // omitted, so the save action records each row as a branch-default rate.
+  const payload = JSON.stringify(rows.map((r) => ({ mealId: r.mealId, cells: r.cells })));
 
   return (
     <form onSubmit={onSubmit} className="flex flex-col gap-4">
@@ -100,15 +76,12 @@ export function RatesEditor({
         <p role="status" className="rounded-sm bg-sage-soft px-3 py-2.5 text-sm text-sage-deep">Rates saved.</p>
       ) : null}
 
-      {/* Counter + Meal are frozen (sticky-left); category columns scroll. Uses
-          border-separate so the sticky cells keep their borders, with explicit
-          backgrounds so scrolling cells pass cleanly underneath. */}
+      {/* Meal is frozen (sticky-left); category columns scroll. */}
       <div className="overflow-x-auto rounded-md border border-line bg-surface">
         <table className="w-full border-separate border-spacing-0 text-sm">
           <thead>
             <tr className="text-left text-[11px] uppercase tracking-[0.06em] text-muted">
-              <th className="sticky left-0 z-20 w-60 min-w-60 bg-surface-2 px-3 py-3 font-semibold">Counter</th>
-              <th className="sticky left-60 z-20 w-44 min-w-44 border-r border-line bg-surface-2 px-3 py-3 font-semibold">Meal</th>
+              <th className="sticky left-0 z-20 w-44 min-w-44 border-r border-line bg-surface-2 px-3 py-3 font-semibold">Meal</th>
               {categories.map((c) => (
                 <th key={c.id} className="min-w-28 bg-surface-2 px-2 py-3 text-center font-semibold">{c.name}</th>
               ))}
@@ -118,54 +91,44 @@ export function RatesEditor({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={categories.length + 3} className="border-t border-line px-4 py-8 text-center text-ink-2">
+                <td colSpan={categories.length + 2} className="border-t border-line px-4 py-8 text-center text-ink-2">
                   No rows. Add one to set a rate.
                 </td>
               </tr>
             ) : (
-              rows.map((row) => {
-                const availMeals = mealsForRow(row.counterIds);
-                return (
-                  <tr key={row.key}>
-                    <td className="sticky left-0 z-10 w-60 min-w-60 border-t border-line bg-surface px-3 py-3">
-                      <CounterMultiSelect
-                        options={counterOptions}
-                        selected={row.counterIds}
-                        onChange={(next) => setCounters(row.key, next)}
-                      />
-                    </td>
-                    <td className="sticky left-60 z-10 w-44 min-w-44 border-t border-r border-line bg-surface px-3 py-3">
-                      <select value={row.mealId} onChange={(e) => setMeal(row.key, e.target.value)} aria-label="Meal" className={selectCls}>
-                        <option value="">Select meal…</option>
-                        {availMeals.map((m) => (
-                          <option key={m.id} value={m.id}>{mealName[m.id]}</option>
-                        ))}
-                      </select>
-                    </td>
-                    {categories.map((c) => {
-                      const cell = row.cells[c.id] ?? { charge: "", vendor: "" };
-                      return (
-                        <td key={c.id} className="border-t border-line px-2 py-3 text-center">
-                          <div className="inline-flex flex-col gap-1">
-                            <input inputMode="decimal" placeholder="Charge" value={cell.charge} onChange={(e) => setCell(row.key, c.id, "charge", e.target.value)} aria-label={`${c.name} charge`} className={cellInput} />
-                            <input inputMode="decimal" placeholder="Vendor" value={cell.vendor} onChange={(e) => setCell(row.key, c.id, "vendor", e.target.value)} aria-label={`${c.name} vendor`} className={cellInput} />
-                          </div>
-                        </td>
-                      );
-                    })}
-                    <td className="border-t border-line px-2 py-3">
-                      <button
-                        type="button"
-                        onClick={() => removeRow(row.key)}
-                        aria-label="Remove row"
-                        className="grid size-7 place-items-center rounded-sm text-tomato transition-colors hover:bg-tomato-soft"
-                      >
-                        <span aria-hidden="true">✕</span>
-                      </button>
-                    </td>
-                  </tr>
-                );
-              })
+              rows.map((row) => (
+                <tr key={row.key}>
+                  <td className="sticky left-0 z-10 w-44 min-w-44 border-t border-r border-line bg-surface px-3 py-3">
+                    <select value={row.mealId} onChange={(e) => setMeal(row.key, e.target.value)} aria-label="Meal" className={selectCls}>
+                      <option value="">Select meal…</option>
+                      {meals.map((m) => (
+                        <option key={m.id} value={m.id}>{mealName[m.id]}</option>
+                      ))}
+                    </select>
+                  </td>
+                  {categories.map((c) => {
+                    const cell = row.cells[c.id] ?? { charge: "", vendor: "" };
+                    return (
+                      <td key={c.id} className="border-t border-line px-2 py-3 text-center">
+                        <div className="inline-flex flex-col gap-1">
+                          <input inputMode="decimal" placeholder="Charge" value={cell.charge} onChange={(e) => setCell(row.key, c.id, "charge", e.target.value)} aria-label={`${c.name} charge`} className={cellInput} />
+                          <input inputMode="decimal" placeholder="Vendor" value={cell.vendor} onChange={(e) => setCell(row.key, c.id, "vendor", e.target.value)} aria-label={`${c.name} vendor`} className={cellInput} />
+                        </div>
+                      </td>
+                    );
+                  })}
+                  <td className="border-t border-line px-2 py-3">
+                    <button
+                      type="button"
+                      onClick={() => removeRow(row.key)}
+                      aria-label="Remove row"
+                      className="grid size-7 place-items-center rounded-sm text-tomato transition-colors hover:bg-tomato-soft"
+                    >
+                      <span aria-hidden="true">✕</span>
+                    </button>
+                  </td>
+                </tr>
+              ))
             )}
           </tbody>
         </table>
@@ -189,10 +152,8 @@ export function RatesEditor({
       </div>
 
       <p className="text-xs text-muted">
-        Leave <span className="font-medium">Counter</span> empty for the branch default (applies where
-        no counter-specific rate exists), or pick one or more counters to override them. The meal list
-        shows meals the chosen counters serve. Blank category cells fall back to the default. Saving
-        replaces this branch&rsquo;s current rates with the rows above.
+        One row per meal, priced across categories — these rates apply to the whole branch. Blank
+        category cells set no rate. Saving replaces this branch&rsquo;s current rates with the rows above.
       </p>
     </form>
   );
