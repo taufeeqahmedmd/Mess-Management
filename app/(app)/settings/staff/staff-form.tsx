@@ -1,7 +1,9 @@
 "use client";
 
 import Link from "next/link";
+import { useState } from "react";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
+import { MultiSelect } from "@/components/ui/multi-select";
 import type { StaffFormState } from "./actions";
 
 export type StaffData = {
@@ -24,12 +26,16 @@ export function StaffForm({
   staff,
   roles,
   branches,
+  counters,
+  assignedCounterIds = [],
   canChooseBranch,
 }: {
   action: Action;
   staff?: StaffData;
   roles: Option[];
   branches: Option[];
+  counters: Option[];
+  assignedCounterIds?: string[];
   canChooseBranch: boolean;
 }) {
   const isEdit = Boolean(staff);
@@ -40,6 +46,7 @@ export function StaffForm({
       confirmLabel: isEdit ? "Yes, save" : "Yes, create",
     },
   });
+  const [counterSel, setCounterSel] = useState<string[]>(assignedCounterIds);
 
   return (
     <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
@@ -84,6 +91,23 @@ export function StaffForm({
             </select>
           </div>
         ) : null}
+      </div>
+
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-semibold text-ink-2">Counters</span>
+        <MultiSelect
+          options={counters.map((c) => ({ value: c.id, label: c.name }))}
+          selected={counterSel}
+          onChange={setCounterSel}
+          ariaLabel="Assigned counters"
+          placeholder={counters.length ? "Assign counters…" : "No counters available"}
+        />
+        {counterSel.map((id) => (
+          <input key={id} type="hidden" name="counterIds" value={id} />
+        ))}
+        <p className="text-xs text-muted">
+          Counters this staff may sign in and operate. Mirrored on each counter&rsquo;s Operators list.
+        </p>
       </div>
 
       {isEdit ? (

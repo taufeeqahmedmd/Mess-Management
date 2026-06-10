@@ -50,6 +50,52 @@ async function resolve(
   return { branchId, roleId: role.id };
 }
 
+function parseCounterIds(formData: FormData): bigint[] {
+  return formData
+    .getAll("counterIds")
+    .map((v) => {
+      try {
+        return BigInt(String(v));
+      } catch {
+        return null;
+      }
+    })
+    .filter((v): v is bigint => v !== null);
+}
+
+/**
+ * Sync this staff's counter assignments. The `CounterOperator` join is the single
+ * source of truth shared with each counter's Operators list, so assigning here
+ * reflects on the counters page and vice-versa. Only counters the staff may
+ * actually operate survive: in the staff's branch (any branch when the staff is
+ * all-branch) and within the actor's own scope — mirroring assignOperatorsAction.
+ */
+async function syncStaffCounters(
+  tx: Prisma.TransactionClient,
+  opts: { appUserId: bigint; staffBranchId: bigint | null; actorBranchId: bigint | null; requestedIds: bigint[] },
+): Promise<bigint[]> {
+  let validIds: bigint[] = [];
+  if (opts.requestedIds.length) {
+    const eligible = await tx.counter.findMany({
+      where: {
+        id: { in: opts.requestedIds },
+        deletedAt: null,
+        ...(opts.staffBranchId ? { branchId: opts.staffBranchId } : {}),
+        ...(opts.actorBranchId ? { branchId: opts.actorBranchId } : {}),
+      },
+      select: { id: true },
+    });
+    validIds = eligible.map((c) => c.id);
+  }
+  await tx.counterOperator.deleteMany({ where: { appUserId: opts.appUserId } });
+  if (validIds.length) {
+    await tx.counterOperator.createMany({
+      data: validIds.map((counterId) => ({ counterId, appUserId: opts.appUserId })),
+    });
+  }
+  return validIds;
+}
+
 export async function createStaffAction(
   _prev: StaffFormState,
   formData: FormData,
@@ -65,14 +111,21 @@ export async function createStaffAction(
   const r = await resolve(actor, input.roleId, input.branchId);
   if ("error" in r) return r;
 
+  const counterIds = parseCounterIds(formData);
   const passwordHash = await bcrypt.hash(password, 10);
   try {
     await prisma.$transaction(async (tx) => {
       const created = await tx.appUser.create({
         data: { name: input.name, mobile: input.mobile, roleId: r.roleId, branchId: r.branchId, status: "active", passwordHash },
       });
+      const assignedCounters = await syncStaffCounters(tx, {
+        appUserId: created.id,
+        staffBranchId: r.branchId,
+        actorBranchId: actor.branchId ? BigInt(actor.branchId) : null,
+        requestedIds: counterIds,
+      });
       await writeAudit(
-        { appUserId: BigInt(actor.id), action: "staff.create", entity: "app_user", entityId: created.id, after: { name: input.name, mobile: input.mobile, roleId: r.roleId.toString(), branchId: r.branchId?.toString() ?? null } },
+        { appUserId: BigInt(actor.id), action: "staff.create", entity: "app_user", entityId: created.id, after: { name: input.name, mobile: input.mobile, roleId: r.roleId.toString(), branchId: r.branchId?.toString() ?? null, counterIds: assignedCounters.map(String) } },
         tx,
       );
     });
@@ -84,6 +137,7 @@ export async function createStaffAction(
   }
 
   revalidatePath("/settings/staff");
+  revalidatePath("/settings/counters");
   redirect("/settings/staff?flash=created");
 }
 
@@ -126,9 +180,16 @@ export async function updateStaffAction(
     data.passwordHash = await bcrypt.hash(password, 10);
   }
 
+  const counterIds = parseCounterIds(formData);
   try {
     await prisma.$transaction(async (tx) => {
       await tx.appUser.update({ where: { id }, data });
+      const assignedCounters = await syncStaffCounters(tx, {
+        appUserId: id,
+        staffBranchId: r.branchId,
+        actorBranchId: actor.branchId ? BigInt(actor.branchId) : null,
+        requestedIds: counterIds,
+      });
       await writeAudit(
         {
           appUserId: BigInt(actor.id),
@@ -136,7 +197,7 @@ export async function updateStaffAction(
           entity: "app_user",
           entityId: id,
           before: { name: before.name, mobile: before.mobile, roleId: before.roleId.toString(), branchId: before.branchId?.toString() ?? null, status: before.status },
-          after: { name: input.name, mobile: input.mobile, roleId: r.roleId.toString(), branchId: r.branchId?.toString() ?? null, status: input.status, passwordChanged: Boolean(password) },
+          after: { name: input.name, mobile: input.mobile, roleId: r.roleId.toString(), branchId: r.branchId?.toString() ?? null, status: input.status, passwordChanged: Boolean(password), counterIds: assignedCounters.map(String) },
         },
         tx,
       );
@@ -149,6 +210,7 @@ export async function updateStaffAction(
   }
 
   revalidatePath("/settings/staff");
+  revalidatePath("/settings/counters");
   redirect("/settings/staff?flash=updated");
 }
 

@@ -28,14 +28,21 @@ export default async function EditStaffPage({
   // A scoped admin can't edit staff outside their branch.
   if (actor.branchId && s.branchId?.toString() !== actor.branchId) redirect("/settings/staff");
 
-  const [roles, branches] = await Promise.all([
+  const [roles, branches, counters, assigned] = await Promise.all([
     prisma.role.findMany({ orderBy: { name: "asc" } }),
     prisma.branch.findMany({ orderBy: { name: "asc" } }),
+    prisma.counter.findMany({
+      where: { deletedAt: null, status: "active", ...(actor.branchId ? { branchId: BigInt(actor.branchId) } : {}) },
+      orderBy: { name: "asc" },
+    }),
+    prisma.counterOperator.findMany({ where: { appUserId: staffId }, select: { counterId: true } }),
   ]);
   const roleOptions = roles
     .filter((r) => actor.isSuperAdmin || r.name !== "Super Admin")
     .map((r) => ({ id: r.id.toString(), name: r.name }));
   const branchOptions = branches.map((b) => ({ id: b.id.toString(), name: b.name }));
+  const counterOptions = counters.map((c) => ({ id: c.id.toString(), name: c.name }));
+  const assignedCounterIds = assigned.map((a) => a.counterId.toString());
 
   const staff: StaffData = {
     id: s.id.toString(),
@@ -59,6 +66,8 @@ export default async function EditStaffPage({
         staff={staff}
         roles={roleOptions}
         branches={branchOptions}
+        counters={counterOptions}
+        assignedCounterIds={assignedCounterIds}
         canChooseBranch={!actor.branchId}
       />
     </div>
