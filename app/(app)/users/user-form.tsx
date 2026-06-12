@@ -1,8 +1,9 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import Link from "next/link";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
+import { BTN_PRIMARY, BTN_GHOST } from "@/components/ui/controls";
 import type { UserFormState } from "./actions";
 
 export type UserData = {
@@ -23,9 +24,17 @@ type Cat = { id: string; name: string; identifierLabel: string; identifierRequir
 type Option = { id: string; name: string };
 type Action = (prev: UserFormState, formData: FormData) => Promise<UserFormState>;
 
-const inputClass =
-  "w-full rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+const DLABEL = "mb-2 block text-[10.5px] font-bold uppercase tracking-[0.06em] text-muted-2";
+const OPT = "font-medium normal-case tracking-normal text-muted-2";
+const DINPUT =
+  "w-full rounded-sm border border-line-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
 
+/**
+ * Cardholder create/edit form (Bhojan Tricolour drawer/page body). Used by the
+ * Add / Edit slide-in drawer (passes `onCancel`) and the /users/new + /[id]/edit
+ * routes. Logic — category-driven identifier label, confirm-before-write, field
+ * names — is unchanged; only the presentation is the drawer style.
+ */
 export function UserForm({
   action,
   user,
@@ -33,6 +42,7 @@ export function UserForm({
   departments,
   branches,
   canChooseBranch,
+  onCancel,
 }: {
   action: Action;
   user?: UserData;
@@ -40,8 +50,10 @@ export function UserForm({
   departments: Option[];
   branches: Option[];
   canChooseBranch: boolean;
+  onCancel?: () => void;
 }) {
   const isEdit = Boolean(user);
+  const uidRef = useRef<HTMLInputElement>(null);
   const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
     confirm: {
       title: isEdit ? "Save changes" : "Create cardholder",
@@ -54,116 +66,102 @@ export function UserForm({
   const idLabel = cat?.identifierLabel ?? "Identifier";
 
   return (
-    <form onSubmit={onSubmit} className="flex flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
       {user ? <input type="hidden" name="id" value={user.id} /> : null}
 
       {state.error ? (
-        <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">
+        <p role="alert" className="rounded-sm border border-tomato/30 bg-tomato-soft px-3 py-2.5 text-[12.5px] font-medium text-tomato">
           {state.error}
         </p>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="categoryId" className="text-xs font-semibold text-ink-2">Category</label>
-          <select
-            id="categoryId"
-            name="categoryId"
-            required
-            value={categoryId}
-            onChange={(e) => setCategoryId(e.target.value)}
-            className={inputClass}
-          >
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
+      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="categoryId" className={DLABEL}>Category</label>
+          <select id="categoryId" name="categoryId" required value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={DINPUT}>
+            {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
-
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="code" className="text-xs font-semibold text-ink-2">
-            {idLabel}
-            {cat && !cat.identifierRequired ? " (optional)" : ""}
+        <div>
+          <label htmlFor="code" className={DLABEL}>
+            {idLabel}{cat && !cat.identifierRequired ? <span className={OPT}> (optional)</span> : null}
           </label>
-          <input id="code" name="code" maxLength={40} defaultValue={user?.code} className={`${inputClass} font-mono`} />
+          <input id="code" name="code" maxLength={40} defaultValue={user?.code} placeholder="STU001" className={`${DINPUT} font-mono`} />
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="fullName" className="text-xs font-semibold text-ink-2">Full name</label>
-          <input id="fullName" name="fullName" required maxLength={150} defaultValue={user?.fullName} className={inputClass} />
+        <div>
+          <label htmlFor="fullName" className={DLABEL}>Full name</label>
+          <input id="fullName" name="fullName" required maxLength={150} defaultValue={user?.fullName} placeholder="Jane Doe" className={DINPUT} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="phone" className="text-xs font-semibold text-ink-2">Phone</label>
-          <input id="phone" name="phone" inputMode="numeric" maxLength={20} defaultValue={user?.phone} className={`${inputClass} font-mono`} />
+        <div>
+          <label htmlFor="phone" className={DLABEL}>Phone</label>
+          <input id="phone" name="phone" inputMode="numeric" maxLength={20} defaultValue={user?.phone} placeholder="9000000000" className={`${DINPUT} font-mono`} />
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="email" className="text-xs font-semibold text-ink-2">Email</label>
-          <input id="email" name="email" type="email" maxLength={150} defaultValue={user?.email} className={inputClass} />
+        <div>
+          <label htmlFor="email" className={DLABEL}>Email</label>
+          <input id="email" name="email" type="email" maxLength={150} defaultValue={user?.email} placeholder="you@example.com" className={DINPUT} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="departmentId" className="text-xs font-semibold text-ink-2">Department</label>
-          <select id="departmentId" name="departmentId" defaultValue={user?.departmentId ?? ""} className={inputClass}>
+        <div>
+          <label htmlFor="departmentId" className={DLABEL}>Department</label>
+          <select id="departmentId" name="departmentId" defaultValue={user?.departmentId ?? ""} className={DINPUT}>
             <option value="">None</option>
-            {departments.map((d) => (
-              <option key={d.id} value={d.id}>{d.name}</option>
-            ))}
+            {departments.map((d) => <option key={d.id} value={d.id}>{d.name}</option>)}
           </select>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         {canChooseBranch ? (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="branchId" className="text-xs font-semibold text-ink-2">Branch</label>
-            <select id="branchId" name="branchId" defaultValue={user?.branchId ?? branches[0]?.id ?? ""} className={inputClass}>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
+          <div>
+            <label htmlFor="branchId" className={DLABEL}>Branch</label>
+            <select id="branchId" name="branchId" defaultValue={user?.branchId ?? branches[0]?.id ?? ""} className={DINPUT}>
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
         ) : null}
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="cardExpiryDate" className="text-xs font-semibold text-ink-2">Validity (expiry date)</label>
-          <input id="cardExpiryDate" name="cardExpiryDate" type="date" defaultValue={user?.cardExpiryDate} className={inputClass} />
-          <p className="text-xs text-muted">Past this date, the wallet and coupons are zeroed. Leave blank for no expiry.</p>
+        <div>
+          <label htmlFor="cardExpiryDate" className={DLABEL}>Validity <span className={OPT}>(expiry date)</span></label>
+          <input id="cardExpiryDate" name="cardExpiryDate" type="date" defaultValue={user?.cardExpiryDate} className={DINPUT} />
+          <p className="mt-1.5 text-[11px] text-muted-2">Past this date the wallet and coupons are zeroed. Leave blank for no expiry.</p>
         </div>
-      </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="status" className="text-xs font-semibold text-ink-2">Status</label>
-          <select id="status" name="status" defaultValue={user?.status ?? "active"} className={inputClass}>
+        <div>
+          <label htmlFor="status" className={DLABEL}>Status</label>
+          <select id="status" name="status" defaultValue={user?.status ?? "active"} className={DINPUT}>
             <option value="active">Active</option>
             <option value="suspended">Suspended (blocked)</option>
             <option value="inactive">Inactive</option>
           </select>
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="photoUrl" className="text-xs font-semibold text-ink-2">Photo URL</label>
-          <input id="photoUrl" name="photoUrl" maxLength={255} defaultValue={user?.photoUrl} placeholder="https://…" className={inputClass} />
+        <div>
+          <label htmlFor="photoUrl" className={DLABEL}>Photo URL <span className={OPT}>(optional)</span></label>
+          <input id="photoUrl" name="photoUrl" maxLength={255} defaultValue={user?.photoUrl} placeholder="https://…" className={DINPUT} />
         </div>
       </div>
 
       {!isEdit ? (
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="cardUid" className="text-xs font-semibold text-ink-2">RFID card UID (optional)</label>
-          <input id="cardUid" name="cardUid" maxLength={64} className={`${inputClass} max-w-xs font-mono`} placeholder="Tap a card to fill" />
-          <p className="text-xs text-muted">Issues an active card now. You can assign or replace it later.</p>
+        <div className="border-t border-line pt-4">
+          <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-2">Card</div>
+          <label htmlFor="cardUid" className={DLABEL}>RFID card UID <span className={OPT}>(optional)</span></label>
+          <div className="flex gap-2.5">
+            <input ref={uidRef} id="cardUid" name="cardUid" maxLength={64} className={`${DINPUT} font-mono`} placeholder="Tap a card to fill" />
+            <button type="button" onClick={() => uidRef.current?.focus()} className={`${BTN_GHOST} shrink-0`}>
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-[15px]" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></svg>
+              Tap
+            </button>
+          </div>
+          <p className="mt-1.5 text-[11px] text-muted-2">Issues an active card now. You can assign or replace it later.</p>
         </div>
       ) : null}
 
-      <div className="mt-2 flex items-center gap-3">
-        <button type="submit" disabled={pending} className="rounded-sm bg-gold px-5 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60">
+      <div className="mt-1 flex items-center gap-2.5">
+        <button type="submit" disabled={pending} className={BTN_PRIMARY}>
           {pending ? "Saving…" : isEdit ? "Save changes" : "Create cardholder"}
         </button>
-        <Link href="/users" className="rounded-sm border border-line-strong bg-surface-2 px-5 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
-          Cancel
-        </Link>
+        {onCancel ? (
+          <button type="button" onClick={onCancel} className={BTN_GHOST}>Cancel</button>
+        ) : (
+          <Link href="/users" className={BTN_GHOST}>Cancel</Link>
+        )}
       </div>
     </form>
   );

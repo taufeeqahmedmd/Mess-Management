@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
+import { BTN_PRIMARY, BTN_GHOST, FORM_LABEL, FORM_INPUT } from "@/components/ui/controls";
 import type { CategoryFormState } from "./actions";
 
 export type CategoryData = {
@@ -20,15 +21,16 @@ type Action = (
   formData: FormData,
 ) => Promise<CategoryFormState>;
 
-const inputClass =
-  "w-full rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+const inputClass = FORM_INPUT;
 
 export function CategoryForm({
   action,
   category,
+  onCancel,
 }: {
   action: Action;
   category?: CategoryData;
+  onCancel?: () => void;
 }) {
   const isEdit = Boolean(category);
   const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
@@ -40,63 +42,65 @@ export function CategoryForm({
   });
 
   return (
-    <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
       {category ? <input type="hidden" name="id" value={category.id} /> : null}
 
       {state.error ? (
-        <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">
+        <p role="alert" className="rounded-sm border border-tomato/30 bg-tomato-soft px-3 py-2.5 text-[12.5px] font-medium text-tomato">
           {state.error}
         </p>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="code" className="text-xs font-semibold text-ink-2">Code</label>
+      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="code" className={FORM_LABEL}>Code</label>
           <input id="code" name="code" required maxLength={30} defaultValue={category?.code} placeholder="STU" className={`${inputClass} font-mono`} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="name" className="text-xs font-semibold text-ink-2">Name</label>
+        <div>
+          <label htmlFor="name" className={FORM_LABEL}>Name</label>
           <input id="name" name="name" required maxLength={80} defaultValue={category?.name} placeholder="Student" className={inputClass} />
         </div>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="identifierLabel" className="text-xs font-semibold text-ink-2">Identifier label</label>
+      <div>
+        <label htmlFor="identifierLabel" className={FORM_LABEL}>Identifier label</label>
         <input id="identifierLabel" name="identifierLabel" required maxLength={60} defaultValue={category?.identifierLabel ?? "ID"} placeholder="Admission No." className={inputClass} />
-        <p className="text-xs text-muted">Shown on the cardholder form (e.g. &ldquo;Admission No.&rdquo;).</p>
+        <p className="mt-1.5 text-[11px] text-muted-2">Shown on the cardholder form (e.g. &ldquo;Admission No.&rdquo;).</p>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="identifierRegex" className="text-xs font-semibold text-ink-2">Identifier pattern (regex, optional)</label>
+      <div>
+        <label htmlFor="identifierRegex" className={FORM_LABEL}>Identifier pattern <span className="font-medium normal-case tracking-normal text-muted-2">(regex, optional)</span></label>
         <input id="identifierRegex" name="identifierRegex" maxLength={120} defaultValue={category?.identifierRegex ?? ""} placeholder="^\d{6}$" className={`${inputClass} font-mono`} />
       </div>
 
       <div className="flex flex-wrap gap-5">
-        <label className="flex items-center gap-2 text-sm text-ink-2">
+        <label className="flex items-center gap-2 text-[13px] text-ink-2">
           <input type="checkbox" name="identifierRequired" defaultChecked={category ? category.identifierRequired : true} className="size-4 accent-[var(--gold)]" />
           Identifier required
         </label>
-        <label className="flex items-center gap-2 text-sm text-ink-2">
+        <label className="flex items-center gap-2 text-[13px] text-ink-2">
           <input type="checkbox" name="identifierUnique" defaultChecked={category ? category.identifierUnique : true} className="size-4 accent-[var(--gold)]" />
           Identifier unique
         </label>
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="status" className="text-xs font-semibold text-ink-2">Status</label>
+      <div>
+        <label htmlFor="status" className={FORM_LABEL}>Status</label>
         <select id="status" name="status" defaultValue={category?.status ?? "active"} className={`${inputClass} max-w-40`}>
           <option value="active">Active</option>
           <option value="inactive">Inactive</option>
         </select>
       </div>
 
-      <div className="mt-2 flex items-center gap-3">
-        <button type="submit" disabled={pending} className="rounded-sm bg-gold px-5 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60">
+      <div className="mt-1 flex items-center gap-2.5">
+        <button type="submit" disabled={pending} className={BTN_PRIMARY}>
           {pending ? "Saving…" : category ? "Save changes" : "Create category"}
         </button>
-        <Link href="/settings/categories" className="rounded-sm border border-line-strong bg-surface-2 px-5 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
-          Cancel
-        </Link>
+        {onCancel ? (
+          <button type="button" onClick={onCancel} className={BTN_GHOST}>Cancel</button>
+        ) : (
+          <Link href="/settings/categories" className={BTN_GHOST}>Cancel</Link>
+        )}
       </div>
     </form>
   );

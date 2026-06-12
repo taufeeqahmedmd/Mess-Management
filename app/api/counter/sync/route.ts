@@ -55,6 +55,7 @@ export async function POST(req: Request) {
     reason: string;
     name?: string;
     charged?: string;
+    paidBy?: "wallet" | "coupon";
     meal?: string;
     // True when an optimistically-accepted offline tap did NOT apply on replay
     // (e.g. balance ran out) — the offline overspend the sync report must surface
@@ -91,6 +92,7 @@ export async function POST(req: Request) {
         reason: result.reason,
         name: result.cardholder?.name,
         charged: result.charged,
+        paidBy: result.paidBy,
         meal: result.meal?.name,
         // Anything other than APPROVED for a tap the operator already served is a
         // negative reconciliation.

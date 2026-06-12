@@ -2,6 +2,7 @@ import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { SETTINGS_TABS } from "./tabs";
 import { SettingsTabs } from "./settings-tabs";
+import { SettingsDrawer } from "./settings-drawer";
 
 /**
  * Configurations shell: full-width header + a tab bar over all /settings
@@ -20,15 +21,16 @@ export default async function SettingsLayout({
   }));
 
   return (
-    <div className="flex w-full flex-col gap-6 px-5 py-5 sm:px-8 sm:py-6">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-5 py-6 sm:px-7">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-ink">Configurations</h1>
-        <p className="mt-1 text-sm text-ink-2">Master data for the cafeteria.</p>
+        <h1 className="font-display text-[27px] font-bold tracking-[-0.6px] text-ink">Configurations</h1>
+        <p className="mt-1 text-[13px] text-muted">Master data for the cafeteria.</p>
       </div>
 
       {tabs.length > 0 ? <SettingsTabs tabs={tabs} /> : null}
 
       <div className="min-w-0">{children}</div>
+      <SettingsDrawer />
     </div>
   );
 }

@@ -15,6 +15,7 @@
  */
 
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { mealColorAt } from "@/lib/meal-colors";
 
 const ZERO = new Prisma.Decimal(0);
 
@@ -203,6 +204,45 @@ export async function profitTrend(db: Db, f: ConsumptionFilter): Promise<TrendPo
   }));
 }
 
+export type SaleVendorPoint = { date: string; label: string; sale: number; vendor: number };
+
+/**
+ * Sale vs vendor-payable per bucket (daily ≤~2 months, else monthly) across the
+ * filter window — drives the consumption report's grouped bar chart. Same
+ * bucketing as profitTrend; numbers are for chart geometry only.
+ */
+export async function salesVendorTrend(db: Db, f: ConsumptionFilter): Promise<SaleVendorPoint[]> {
+  const rows = await db.redemption.findMany({
+    where: redemptionWhere(f),
+    select: { redeemedAt: true, rateApplied: true, vendorAmount: true },
+  });
+
+  const spanDays = Math.max(1, Math.round((f.toExclusive.getTime() - f.from.getTime()) / 86_400_000));
+  const monthly = spanDays > 62;
+  const keyOf = (d: Date) => (monthly ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` : fmt(d));
+  const labelOf = (d: Date) => (monthly ? d.toLocaleDateString("en-IN", { month: "short" }) : String(d.getDate()));
+
+  const buckets = new Map<string, { label: string; sale: Prisma.Decimal; cost: Prisma.Decimal }>();
+  const cursor = monthly ? new Date(f.from.getFullYear(), f.from.getMonth(), 1) : startOfDay(f.from);
+  while (cursor < f.toExclusive) {
+    buckets.set(keyOf(cursor), { label: labelOf(cursor), sale: ZERO, cost: ZERO });
+    if (monthly) cursor.setMonth(cursor.getMonth() + 1);
+    else cursor.setDate(cursor.getDate() + 1);
+  }
+  for (const r of rows) {
+    const b = buckets.get(keyOf(r.redeemedAt));
+    if (!b) continue;
+    b.sale = b.sale.plus(r.rateApplied);
+    b.cost = b.cost.plus(r.vendorAmount);
+  }
+  return [...buckets.entries()].map(([date, b]) => ({
+    date,
+    label: b.label,
+    sale: Number(b.sale.toFixed(2)),
+    vendor: Number(b.cost.toFixed(2)),
+  }));
+}
+
 export type Breakdown = {
   id: string;
   label: string;
@@ -298,9 +338,87 @@ export async function usageByCardholderType(db: Db, f: ConsumptionFilter): Promi
     .sort((a, b) => b.count - a.count);
 }
 
+/**
+ * Stable meal-id → colour map (creation order). Use everywhere meals are
+ * coloured so a meal's colour is consistent platform-wide; new meals auto-take
+ * the next palette colour. See lib/meal-colors.
+ */
+export async function mealColorMap(db: Db): Promise<Record<string, string>> {
+  const meals = await db.mealType.findMany({ orderBy: { id: "asc" }, select: { id: true } });
+  const map: Record<string, string> = {};
+  meals.forEach((m, i) => {
+    map[m.id.toString()] = mealColorAt(i);
+  });
+  return map;
+}
+
 /** Active (non-deleted, non-blocked) cardholder count, branch-scoped. */
 export async function activeCardholderCount(db: Db, branchId: bigint | null): Promise<number> {
   return db.user.count({
     where: { deletedAt: null, status: "active", ...(branchId ? { branchId } : {}) },
   });
+}
+
+export type CategorySlice = { id: string; label: string; value: number };
+
+/** Active cardholders grouped by category (donut on the balance report). */
+export async function cardholdersByCategory(db: Db, branchId: bigint | null): Promise<CategorySlice[]> {
+  const groups = await db.user.groupBy({
+    by: ["categoryId"],
+    where: { deletedAt: null, status: "active", ...(branchId ? { branchId } : {}) },
+    _count: { _all: true },
+  });
+  const ids = groups.map((g) => g.categoryId).filter((v): v is bigint => v != null);
+  const names = new Map<string, string>();
+  if (ids.length > 0)
+    for (const c of await db.category.findMany({ where: { id: { in: ids } }, select: { id: true, name: true } }))
+      names.set(c.id.toString(), c.name);
+  return groups
+    .map((g) => ({
+      id: g.categoryId?.toString() ?? "",
+      label: g.categoryId != null ? names.get(g.categoryId.toString()) ?? "—" : "—",
+      value: g._count._all,
+    }))
+    .sort((a, b) => b.value - a.value);
+}
+
+/**
+ * Coupon liability = Σ (unredeemed coupon count × the current branch vendor rate
+ * for that meal × the cardholder's category). The vendor would owe this if every
+ * outstanding coupon were redeemed. Resolves the current branch-level rate
+ * (`counterId IS NULL`, valid today, latest `validFrom`) per meal:category:branch.
+ */
+export async function couponLiability(db: Db, branchId: bigint | null): Promise<Prisma.Decimal> {
+  const balances = await db.couponBalance.findMany({
+    where: { count: { gt: 0 }, ...(branchId ? { user: { is: { branchId } } } : {}) },
+    select: { count: true, mealTypeId: true, user: { select: { categoryId: true, branchId: true } } },
+  });
+  if (balances.length === 0) return ZERO;
+
+  const today = startOfDay(new Date());
+  const rates = await db.mealRate.findMany({
+    where: {
+      counterId: null,
+      ...(branchId ? { branchId } : {}),
+      validFrom: { lte: today },
+      OR: [{ validTo: null }, { validTo: { gte: today } }],
+    },
+    select: { mealTypeId: true, categoryId: true, branchId: true, vendorRate: true },
+    orderBy: { validFrom: "desc" },
+  });
+  const rateByKey = new Map<string, Prisma.Decimal>();
+  for (const r of rates) {
+    const key = `${r.mealTypeId}:${r.categoryId}:${r.branchId}`;
+    if (!rateByKey.has(key)) rateByKey.set(key, r.vendorRate); // first seen = latest validFrom
+  }
+
+  let sum = ZERO;
+  for (const b of balances) {
+    const cat = b.user.categoryId;
+    const br = b.user.branchId;
+    if (cat == null || br == null) continue;
+    const rate = rateByKey.get(`${b.mealTypeId}:${cat}:${br}`);
+    if (rate) sum = sum.plus(rate.mul(b.count));
+  }
+  return sum;
 }

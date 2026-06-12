@@ -11,7 +11,7 @@ export function SettingsTabs({ tabs }: { tabs: Tab[] }) {
   return (
     <nav
       aria-label="Configurations sections"
-      className="flex gap-1.5 overflow-x-auto pb-1"
+      className="flex gap-1.5 overflow-x-auto border-b border-line pb-px"
     >
       {tabs.map((t) => {
         const active = pathname === t.href || pathname.startsWith(`${t.href}/`);
@@ -20,10 +20,10 @@ export function SettingsTabs({ tabs }: { tabs: Tab[] }) {
             key={t.href}
             href={t.href}
             aria-current={active ? "page" : undefined}
-            className={`whitespace-nowrap rounded-pill px-4 py-2 text-sm font-medium transition-colors ${
+            className={`whitespace-nowrap rounded-pill px-[17px] py-2 text-[13px] font-medium transition-colors ${
               active
-                ? "bg-sage-deep text-white shadow-sm"
-                : "text-ink-2 hover:bg-sage-soft hover:text-sage-deep"
+                ? "bg-gold text-white shadow-gold"
+                : "text-muted hover:bg-gold-soft hover:text-gold-deep"
             }`}
           >
             {t.label}

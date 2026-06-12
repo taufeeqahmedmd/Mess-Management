@@ -34,7 +34,8 @@ function EyeOffIcon() {
 }
 
 const inputClass =
-  "w-full rounded-sm border border-line-strong bg-surface-2 px-4 py-3 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+  "w-full rounded-sm border border-line-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+const labelClass = "text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted-2";
 
 export function LoginForm() {
   const [state, action, pending] = useActionState(loginAction, initial);
@@ -49,16 +50,16 @@ export function LoginForm() {
   }, [state, toast]);
 
   return (
-    <form action={action} className="mt-8 flex flex-col gap-5" aria-label="Sign in">
+    <form action={action} className="mt-6 flex flex-col gap-[18px]" aria-label="Sign in">
       {state.error ? (
-        <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">
+        <p role="alert" className="rounded-sm border border-tomato/30 bg-tomato-soft px-3 py-2.5 text-[12.5px] font-medium text-tomato">
           {state.error}
         </p>
       ) : null}
 
       <div className="flex flex-col gap-1.5">
-        <label htmlFor="mobile" className="text-xs font-semibold text-ink-2">
-          Mobile Number
+        <label htmlFor="mobile" className={labelClass}>
+          Mobile number
         </label>
         <div className="relative">
           <input
@@ -79,10 +80,12 @@ export function LoginForm() {
 
       <div className="flex flex-col gap-1.5">
         <div className="flex items-center justify-between">
-          <label htmlFor="password" className="text-xs font-semibold text-ink-2">
+          <label htmlFor="password" className={labelClass}>
             Password
           </label>
-          <span className="text-xs text-muted">Forgot? Ask your admin.</span>
+          <span className="text-[11.5px] text-muted-2">
+            Forgot? <span className="font-medium text-gold-deep">Ask your admin.</span>
+          </span>
         </div>
         <div className="relative">
           <input
@@ -109,7 +112,7 @@ export function LoginForm() {
       <button
         type="submit"
         disabled={pending}
-        className="mt-1 rounded-sm bg-gold px-4 py-3 text-center font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60"
+        className="mt-1 rounded-sm bg-gold px-4 py-3 text-center font-semibold text-white shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60"
       >
         {pending ? "Signing in…" : "Sign In"}
       </button>

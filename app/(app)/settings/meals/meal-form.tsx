@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
+import { BTN_PRIMARY, BTN_GHOST, FORM_LABEL, FORM_INPUT } from "@/components/ui/controls";
 import type { MealFormState } from "./actions";
 
 export type MealData = {
@@ -15,10 +16,9 @@ export type MealData = {
 
 type Action = (prev: MealFormState, formData: FormData) => Promise<MealFormState>;
 
-const inputClass =
-  "w-full rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+const inputClass = FORM_INPUT;
 
-export function MealForm({ action, meal }: { action: Action; meal?: MealData }) {
+export function MealForm({ action, meal, onCancel }: { action: Action; meal?: MealData; onCancel?: () => void }) {
   const isEdit = Boolean(meal);
   const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
     confirm: {
@@ -29,52 +29,49 @@ export function MealForm({ action, meal }: { action: Action; meal?: MealData }) 
   });
 
   return (
-    <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
       {meal ? <input type="hidden" name="id" value={meal.id} /> : null}
 
       {state.error ? (
-        <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">
+        <p role="alert" className="rounded-sm border border-tomato/30 bg-tomato-soft px-3 py-2.5 text-[12.5px] font-medium text-tomato">
           {state.error}
         </p>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="code" className="text-xs font-semibold text-ink-2">Code</label>
+      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="code" className={FORM_LABEL}>Code</label>
           <input id="code" name="code" required maxLength={30} defaultValue={meal?.code} placeholder="LUN" className={`${inputClass} font-mono`} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="name" className="text-xs font-semibold text-ink-2">Name</label>
+        <div>
+          <label htmlFor="name" className={FORM_LABEL}>Name</label>
           <input id="name" name="name" required maxLength={80} defaultValue={meal?.name} placeholder="Lunch" className={inputClass} />
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="startTime" className="text-xs font-semibold text-ink-2">Window start</label>
+        <div>
+          <label htmlFor="startTime" className={FORM_LABEL}>Window start</label>
           <input id="startTime" name="startTime" type="time" required defaultValue={meal?.startTime ?? "07:00"} className={`${inputClass} font-mono`} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="endTime" className="text-xs font-semibold text-ink-2">Window end</label>
+        <div>
+          <label htmlFor="endTime" className={FORM_LABEL}>Window end</label>
           <input id="endTime" name="endTime" type="time" required defaultValue={meal?.endTime ?? "11:00"} className={`${inputClass} font-mono`} />
         </div>
       </div>
-      <p className="-mt-1 text-xs text-muted">
-        24-hour times. An end earlier than start is treated as an overnight window.
-      </p>
+      <p className="-mt-1 text-[11px] text-muted-2">24-hour times. An end earlier than start is treated as an overnight window.</p>
 
-      <label className="flex items-center gap-2 text-sm text-ink-2">
+      <label className="flex items-center gap-2 text-[13px] text-ink-2">
         <input type="checkbox" name="active" defaultChecked={meal ? meal.active : true} className="size-4 accent-[var(--gold)]" />
         Active
       </label>
 
-      <div className="mt-2 flex items-center gap-3">
-        <button type="submit" disabled={pending} className="rounded-sm bg-gold px-5 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60">
+      <div className="mt-1 flex items-center gap-2.5">
+        <button type="submit" disabled={pending} className={BTN_PRIMARY}>
           {pending ? "Saving…" : meal ? "Save changes" : "Create meal"}
         </button>
-        <Link href="/settings/meals" className="rounded-sm border border-line-strong bg-surface-2 px-5 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
-          Cancel
-        </Link>
+        {onCancel ? (
+          <button type="button" onClick={onCancel} className={BTN_GHOST}>Cancel</button>
+        ) : (
+          <Link href="/settings/meals" className={BTN_GHOST}>Cancel</Link>
+        )}
       </div>
     </form>
   );

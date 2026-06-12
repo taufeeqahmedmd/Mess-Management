@@ -4,7 +4,6 @@ import { useState } from "react";
 import Link from "next/link";
 import { Icon } from "./icons";
 import { useDismiss } from "./hooks";
-import { ThemeControl } from "./theme-control";
 import { SignOutButton } from "./sign-out-button";
 import type { ShellUser } from "./app-shell";
 
@@ -51,19 +50,14 @@ export function ProfileMenu({ user }: { user: ShellUser }) {
 
           <div className="border-b border-line p-1.5">
             <Link
-              href="/account"
+              href="/profile"
               role="menuitem"
               onClick={() => setOpen(false)}
               className="flex items-center gap-3 rounded-sm px-3 py-2 text-sm text-ink-2 transition-colors hover:bg-gold/10 hover:text-gold-deep"
             >
-              <Icon name="settings" className="size-[18px]" />
-              Account &amp; password
+              <Icon name="user" className="size-[18px]" />
+              Your profile
             </Link>
-          </div>
-
-          <div className="border-b border-line px-4 py-3">
-            <p className="mb-2 text-xs font-medium text-ink-2">Appearance</p>
-            <ThemeControl />
           </div>
 
           <div className="p-1.5">

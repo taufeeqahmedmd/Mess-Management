@@ -30,12 +30,12 @@ export default async function CounterPage() {
   if (counters.length === 0) {
     return (
       <main className="flex min-h-screen flex-col items-center justify-center gap-3 bg-canvas p-6 text-center">
-        <h1 className="font-display text-2xl font-semibold text-ink">No counter assigned</h1>
-        <p className="max-w-sm text-sm text-ink-2">
+        <h1 className="font-display text-[27px] font-bold tracking-[-0.6px] text-ink">No counter assigned</h1>
+        <p className="max-w-sm text-sm text-muted">
           You aren&rsquo;t assigned to any active counter. Ask an administrator to assign you under
           Settings → Counters.
         </p>
-        <Link href="/dashboard" className="mt-2 rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 hover:border-gold hover:text-gold-deep">
+        <Link href="/dashboard" className="mt-2 rounded-pill border border-line-strong bg-surface px-[18px] py-2 text-[13px] font-semibold text-ink-2 transition-colors hover:border-gold-soft-2 hover:bg-gold-soft hover:text-gold-deep">
           Back to dashboard
         </Link>
       </main>

@@ -29,11 +29,11 @@ export default async function ConsumptionPage() {
   });
 
   return (
-    <div className="flex flex-col gap-5">
-      <p className="max-w-prose text-sm text-ink-2">
-        How each category&rsquo;s taps resolve: <span className="font-medium">Wallet</span> deducts
-        money, <span className="font-medium">Coupon</span> deducts a per-meal count. Set the
-        duplicate-tap window and once-per-meal-session rule per category.
+    <div className="flex flex-col gap-4">
+      <p className="max-w-[680px] text-[13px] text-muted">
+        How each category&rsquo;s taps resolve: <b className="text-ink">Wallet</b> deducts money,{" "}
+        <b className="text-ink">Coupon</b> deducts a per-meal count. Set the duplicate-tap window and
+        once-per-meal-session rule per category.
       </p>
 
       <ConsumptionForm rows={rows} />

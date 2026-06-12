@@ -51,7 +51,7 @@ export function DateRangeForm({
       {children}
       <button
         type="submit"
-        className="rounded-sm bg-gold px-4 py-2 text-sm font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep"
+        className="rounded-sm bg-gold px-4 py-2 text-sm font-semibold text-white shadow-gold transition-colors hover:bg-gold-deep"
       >
         Apply
       </button>

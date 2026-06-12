@@ -4,22 +4,25 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { inr } from "@/lib/format";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
+import { Pager } from "@/components/ui/pager";
+import { BTN_PRIMARY, INPUT_FIND, PANEL, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, clampPageSize } from "@/components/ui/controls";
 import { reverseRechargeAction } from "./actions";
 import { ExpirySweepButton } from "./expiry-button";
+import { RechargeImportModal } from "./import-modal";
+import { RechargeDrawer } from "./edit-drawer";
 
-const PAGE_SIZE = 20;
-
-function rechargeStatusDot(status: string) {
-  if (status === "posted") return "bg-sage";
-  if (status === "expired") return "bg-muted-2";
-  return "bg-tomato"; // reversed
-}
+const STATUS: Record<string, { dot: string; text: string; label: string }> = {
+  posted: { dot: "bg-sage", text: "text-sage-deep", label: "Posted" },
+  reversed: { dot: "bg-tomato", text: "text-tomato", label: "Reversed" },
+  expired: { dot: "bg-muted-2", text: "text-muted", label: "Expired" },
+};
 
 export default async function RechargePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string }>;
+  searchParams: Promise<{ q?: string; page?: string; size?: string }>;
 }) {
   const actor = await requireActor();
   if (!can(actor, "recharge.view")) redirect("/dashboard");
@@ -31,6 +34,7 @@ export default async function RechargePage({
   const sp = await searchParams;
   const q = (sp.q ?? "").trim();
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
+  const pageSize = clampPageSize(sp.size, 25);
   const branchFilter = actor.branchId ? { branchId: BigInt(actor.branchId) } : {};
 
   // Cardholder search (to start a recharge)
@@ -61,57 +65,43 @@ export default async function RechargePage({
       where,
       include: { user: true, paymentMode: true, appUser: true, coupons: true },
       orderBy: { id: "desc" },
-      skip: (page - 1) * PAGE_SIZE,
-      take: PAGE_SIZE,
+      skip: (page - 1) * pageSize,
+      take: pageSize,
     }),
     prisma.recharge.count({ where }),
   ]);
-  const totalPages = Math.max(1, Math.ceil(total / PAGE_SIZE));
 
   return (
-    <div className="flex w-full flex-col gap-6 px-5 py-5 sm:px-8 sm:py-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-5 py-6 sm:px-7">
+      <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Recharge</h1>
-          <p className="mt-1 text-sm text-ink-2">Top up a cardholder&rsquo;s wallet or grant meal coupons.</p>
+          <h1 className="font-display text-[27px] font-bold tracking-[-0.6px] text-ink">Recharge</h1>
+          <p className="mt-1 text-[13px] text-muted">Top up a cardholder&rsquo;s wallet or grant meal coupons.</p>
         </div>
-        <div className="flex flex-wrap items-center gap-2">
-          {canImport ? (
-            <Link href="/recharge/import" className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
-              Import
-            </Link>
-          ) : null}
+        <div className="flex flex-wrap items-center gap-2.5">
+          {canImport ? <RechargeImportModal /> : null}
           {canEdit ? <ExpirySweepButton /> : null}
         </div>
       </div>
 
       {canCreate ? (
-        <div className="rounded-md border border-line bg-surface p-4">
-          <form method="get" className="flex max-w-md gap-2">
-            <input
-              name="q"
-              defaultValue={q}
-              placeholder="Find a cardholder to recharge…"
-              className="w-full rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 text-sm text-ink placeholder:text-muted focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
-            />
-            <button type="submit" className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
-              Search
-            </button>
+        <div className={`${PANEL} p-[18px_20px]`}>
+          <form method="get" className="flex flex-col gap-2.5 sm:flex-row">
+            <input name="q" defaultValue={q} placeholder="Find a cardholder to recharge…" className={`${INPUT_FIND} sm:max-w-[420px]`} />
+            <button type="submit" className={BTN_PRIMARY}>Search</button>
           </form>
           {q ? (
             <div className="mt-3 flex flex-col gap-1.5">
               {matches.length === 0 ? (
-                <p className="text-sm text-ink-2">No cardholders match.</p>
+                <p className="text-sm text-muted">No cardholders match.</p>
               ) : (
                 matches.map((u) => (
-                  <div key={u.id.toString()} className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-line bg-surface-2 px-3 py-2 text-sm">
+                  <div key={u.id.toString()} className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-line bg-surface-2 px-3 py-2 text-[13px]">
                     <span className="text-ink">
                       <span className="font-mono">{u.code}</span> · {u.fullName} · {u.category.name}
-                      <span className="ml-2 font-mono text-muted">₹{(u.wallet?.balanceAmount ?? new Prisma.Decimal(0)).toFixed(2)}</span>
+                      <span className="ml-2 font-mono text-muted">{inr(u.wallet?.balanceAmount ?? new Prisma.Decimal(0))}</span>
                     </span>
-                    <Link href={`/recharge/new?userId=${u.id}`} className="rounded-sm bg-gold px-3 py-1.5 text-xs font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep">
-                      Recharge
-                    </Link>
+                    <button type="button" data-recharge-user={u.id.toString()} className={BTN_PRIMARY}>Recharge</button>
                   </div>
                 ))
               )}
@@ -120,91 +110,85 @@ export default async function RechargePage({
         </div>
       ) : null}
 
-      <div className="overflow-x-auto rounded-md border border-line bg-surface">
-        <table className="w-full text-sm">
-          <thead>
-            <tr className="bg-surface-2 text-left text-[11px] uppercase tracking-[0.06em] text-muted">
-              <th className="px-4 py-3 font-semibold">Date</th>
-              <th className="px-4 py-3 font-semibold">Cardholder</th>
-              <th className="px-4 py-3 text-right font-semibold">Amount</th>
-              <th className="px-4 py-3 font-semibold">Coupons</th>
-              <th className="px-4 py-3 font-semibold">Mode</th>
-              <th className="px-4 py-3 font-semibold">Status</th>
-              <th className="px-4 py-3 text-right font-semibold">Action</th>
-            </tr>
-          </thead>
-          <tbody>
-            {recharges.length === 0 ? (
-              <tr><td colSpan={7} className="px-4 py-10 text-center text-ink-2">No recharges yet.</td></tr>
-            ) : (
-              recharges.map((r) => {
-                const coupons = r.coupons.reduce((s, c) => s + c.count, 0);
-                return (
-                  <tr key={r.id.toString()} className="border-t border-line">
-                    <td className="px-4 py-3">
-                      <Link href={`/recharge/${r.id}`} className="text-ink-2 transition-colors hover:text-gold-deep">
-                        {r.rechargedAt.toISOString().slice(0, 10)}
-                      </Link>
-                    </td>
-                    <td className="px-4 py-3">
-                      <Link href={`/users/${r.userId}`} className="text-ink transition-colors hover:text-gold-deep">{r.user.fullName}</Link>
-                      <span className="ml-1 font-mono text-xs text-muted">{r.user.code}</span>
-                    </td>
-                    <td className="px-4 py-3 text-right font-mono text-ink">₹{r.amount.toFixed(2)}</td>
-                    <td className="px-4 py-3 text-ink-2">{coupons > 0 ? coupons : "—"}</td>
-                    <td className="px-4 py-3 text-ink-2">{r.paymentMode.name}</td>
-                    <td className="px-4 py-3">
-                      <span className="inline-flex items-center gap-1.5 text-ink-2">
-                        <span className={`size-2 rounded-pill ${rechargeStatusDot(r.status)}`} />
-                        {r.status[0].toUpperCase() + r.status.slice(1)}
-                      </span>
-                    </td>
-                    <td className="px-4 py-3">
-                      <div className="flex items-center justify-end gap-2">
-                        {r.status === "posted" && canEdit ? (
-                          <Link href={`/recharge/${r.id}/edit`} className="rounded-sm px-2.5 py-1 text-xs font-medium text-gold-deep transition-colors hover:bg-gold/10">
-                            Edit
-                          </Link>
-                        ) : null}
-                        {r.status === "posted" && canReverse ? (
-                          <ConfirmActionForm
-                            action={reverseRechargeAction}
-                            className="inline"
-                            fields={{ id: r.id.toString() }}
-                            confirm={{
-                              title: "Reverse recharge",
-                              message: `Reverse the unspent remainder of this recharge for ${r.user.fullName}?`,
-                              confirmLabel: "Yes, reverse",
-                              tone: "danger",
-                            }}
-                            successMessage="Recharge reversed."
-                            buttonClassName="rounded-sm px-2.5 py-1 text-xs font-medium text-tomato transition-colors hover:bg-tomato-soft disabled:opacity-60"
-                          >
-                            Reverse
-                          </ConfirmActionForm>
-                        ) : null}
-                        {r.status !== "posted" || (!canEdit && !canReverse) ? (
-                          <span className="text-xs text-muted-2">—</span>
-                        ) : null}
-                      </div>
-                    </td>
-                  </tr>
-                );
-              })
-            )}
-          </tbody>
-        </table>
+      <div className={PANEL}>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[880px]">
+            <thead>
+              <tr className="border-b border-line bg-surface-2 text-left">
+                <th className={TH}>Date</th>
+                <th className={TH}>Cardholder</th>
+                <th className={`${TH} text-right`}>Amount</th>
+                <th className={`${TH} text-right`}>Coupons</th>
+                <th className={TH}>Mode</th>
+                <th className={TH}>Status</th>
+                <th className={`${TH} text-right`}>Action</th>
+              </tr>
+            </thead>
+            <tbody>
+              {recharges.length === 0 ? (
+                <tr><td colSpan={7} className="px-5 py-12 text-center text-muted">No recharges yet.</td></tr>
+              ) : (
+                recharges.map((r) => {
+                  const coupons = r.coupons.reduce((s, c) => s + c.count, 0);
+                  const st = STATUS[r.status] ?? STATUS.expired;
+                  return (
+                    <tr key={r.id.toString()} className="border-b border-line transition-colors last:border-0 hover:bg-surface-2">
+                      <td className={`${TD} whitespace-nowrap`}>
+                        <Link href={`/recharge/${r.id}`} className="text-muted transition-colors hover:text-gold-deep">
+                          {r.rechargedAt.toISOString().slice(0, 10)}
+                        </Link>
+                      </td>
+                      <td className={`${TD} whitespace-nowrap`}>
+                        <Link href={`/users/${r.userId}`} className="font-medium text-ink transition-colors hover:text-gold-deep">{r.user.fullName}</Link>
+                        <span className="ml-2 font-mono text-[11.5px] text-muted-2">{r.user.code}</span>
+                      </td>
+                      <td className={`${TD} text-right font-mono font-semibold text-ink`}>{inr(r.amount)}</td>
+                      <td className={`${TD} text-right font-mono text-ink-2`}>{coupons > 0 ? coupons : "—"}</td>
+                      <td className={`${TD} text-ink-2`}>{r.paymentMode.name}</td>
+                      <td className={TD}>
+                        <span className={`inline-flex items-center gap-2 text-[12.5px] font-medium ${st.text}`}>
+                          <span className={`size-[7px] rounded-full ${st.dot}`} />
+                          {st.label}
+                        </span>
+                      </td>
+                      <td className={TD}>
+                        <div className="flex items-center justify-end gap-1.5">
+                          {r.status === "posted" && canEdit ? (
+                            <button type="button" data-edit-recharge={r.id.toString()} className={LINK_ACT_GOLD}>Edit</button>
+                          ) : null}
+                          {r.status === "posted" && canReverse ? (
+                            <ConfirmActionForm
+                              action={reverseRechargeAction}
+                              className="inline"
+                              fields={{ id: r.id.toString() }}
+                              confirm={{
+                                title: "Reverse recharge",
+                                message: `Reverse the unspent remainder of this recharge for ${r.user.fullName}?`,
+                                confirmLabel: "Yes, reverse",
+                                tone: "danger",
+                              }}
+                              successMessage="Recharge reversed."
+                              buttonClassName={LINK_ACT_DANGER}
+                            >
+                              Reverse
+                            </ConfirmActionForm>
+                          ) : null}
+                          {r.status !== "posted" || (!canEdit && !canReverse) ? (
+                            <span className="text-[12.5px] text-muted-2">—</span>
+                          ) : null}
+                        </div>
+                      </td>
+                    </tr>
+                  );
+                })
+              )}
+            </tbody>
+          </table>
+        </div>
+        <Pager page={page} pageSize={pageSize} total={total} />
       </div>
 
-      {totalPages > 1 ? (
-        <div className="flex items-center justify-between gap-3 text-sm">
-          <span className="text-ink-2">Page {page} of {totalPages}</span>
-          <div className="flex gap-2">
-            {page > 1 ? <Link href={`/recharge?page=${page - 1}`} className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep">Previous</Link> : null}
-            {page < totalPages ? <Link href={`/recharge?page=${page + 1}`} className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep">Next</Link> : null}
-          </div>
-        </div>
-      ) : null}
+      {canCreate || canEdit ? <RechargeDrawer /> : null}
     </div>
   );
 }

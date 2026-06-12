@@ -51,17 +51,44 @@ function applyTheme(theme: Theme) {
   }
 }
 
+function setTheme(next: Theme) {
+  try {
+    localStorage.setItem(STORAGE_KEY, next);
+  } catch {
+    /* ignore — still apply for this session */
+  }
+  applyTheme(next);
+  listeners.forEach((l) => l());
+}
+
+/**
+ * Single round icon button in the topbar that flips Light ⇄ Dark. Shares the
+ * same store as <ThemeControl> (profile dropdown), so both stay in sync.
+ */
+export function ThemeToggleButton({ className }: { className?: string }) {
+  const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
+  const dark = theme === "dark";
+  return (
+    <button
+      type="button"
+      aria-label={dark ? "Switch to light mode" : "Switch to dark mode"}
+      title={dark ? "Switch to light mode" : "Switch to dark mode"}
+      onClick={() => setTheme(dark ? "light" : "dark")}
+      className={
+        "grid size-9 place-items-center rounded-pill border border-line-strong bg-surface text-muted transition-colors hover:text-gold-deep focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20 " +
+        (className ?? "")
+      }
+    >
+      <Icon name={dark ? "moon" : "sun"} className="size-[17px]" />
+    </button>
+  );
+}
+
 export function ThemeControl() {
   const theme = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
 
   function select(next: Theme) {
-    try {
-      localStorage.setItem(STORAGE_KEY, next);
-    } catch {
-      /* ignore — still apply for this session */
-    }
-    applyTheme(next);
-    listeners.forEach((l) => l());
+    setTheme(next);
   }
 
   return (

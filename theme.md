@@ -1,31 +1,34 @@
-# Theme — "Warm Cafeteria" Design System
+# Theme — "Bhojan Tricolour" Design System
 
-> Derived from the reference dashboard mockup (cream sidebar / white canvas / golden-amber
-> primary / sage-green + gold stat cards, food-forward warmth).
-> Target stack: **Next.js (App Router) + Tailwind CSS**. Tokens are exposed as CSS custom
-> properties so they work in plain CSS *and* map cleanly into `tailwind.config`.
+> Derived from the redesigned reference mockups (`ui-ref/`): a warm off-white canvas, the **Ashoka
+> Chakra** brand mark, a **तिरंगा (tricolour)** rule, and an Indian-flag accent palette — **saffron**
+> primary, **India-green** positive, **navy** info.
+> Target stack: **Next.js (App Router) + Tailwind CSS v4**. Tokens are exposed as CSS custom
+> properties in [`app/globals.css`](app/globals.css) (the live source of truth) and mapped onto
+> Tailwind utilities via `@theme`.
 >
-> This is a **light-first, warm** system — a deliberate departure from the dark lime mock in
-> [`base-theme.css`](base-theme.css). Where both exist, this file is the source of truth for the
-> production UI's look; a dark variant is provided at the end for parity.
+> **Token-name compatibility:** this is a re-skin, not a rename. The semantic utility names are
+> stable — `gold` = the **primary (saffron)**, `sage` = **positive (green)**, `navy` = the new
+> **info** accent. Existing components keep using `bg-gold`, `text-sage-deep`, etc.; only the
+> values changed. A dark variant is provided at the end for parity.
 
 ---
 
-## 1. Design language (what the image is "saying")
+## 1. Design language (what the mockups are "saying")
 
-The mockup reads as **appetizing, calm, and premium-casual** — the visual vocabulary of a modern
-food/cafeteria product, not an enterprise admin panel.
+The mockups read as **civic, trustworthy, and warm** — an Indian institutional/cafeteria product
+with national-identity cues, not a generic enterprise admin panel.
 
 | Trait | How it shows up | Implication for our UI |
 |---|---|---|
-| **Warm neutrals** | Cream sidebar, off-white canvas, no pure-cold grays | Backgrounds carry a slight yellow warmth; avoid `#fff`-on-`#000` clinical contrast |
-| **Soft & rounded** | Big panel ~24px radius, cards ~16–20px, pill buttons/tags | Generous `border-radius` everywhere; nothing is a sharp rectangle |
-| **Diffuse elevation** | Wide, low-opacity shadows; the whole panel "floats" | Soft shadows, no hard 1px drop shadows; depth via blur not borders |
-| **Food-forward accents** | Sage green, gold, terracotta, tomato-red dots | A small, warm, food-derived accent palette — not primary-blue tech |
-| **Airy density** | Lots of whitespace between rows, cards, and bowls | Comfortable spacing scale; let content breathe |
-| **Quiet typography** | Dark charcoal headings, muted warm-gray body | High-contrast headlines, low-contrast supporting text |
+| **Warm neutrals** | Off-white canvas (`#FBF8F2`), near-white sidebar, no pure-cold grays | Backgrounds carry a slight warmth; avoid clinical `#fff`-on-`#000` |
+| **Tricolour identity** | Ashoka Chakra mark + saffron/white/green rule under the wordmark | Brand block in the sidebar; `.tricolour` + `.chakra` helpers in globals.css |
+| **Soft & rounded** | Cards ~16px radius, pill search/buttons, 10px nav items/fields | Generous `border-radius`; nothing is a sharp rectangle |
+| **Diffuse elevation** | Wide, low-opacity shadows; cards rest lightly on the canvas | Soft shadows, no hard 1px drop shadows; depth via blur not borders |
+| **Flag-derived accents** | Saffron primary, India-green positive, navy info, red danger | A small, meaningful accent palette — not primary-blue tech |
+| **Quiet typography** | Dark warm-charcoal headings, muted warm-gray body | High-contrast headlines, low-contrast supporting text |
 
-**One-line mood:** *clean white plate, warm cream tray, a touch of gold.*
+**One-line mood:** *warm off-white paper, the Chakra in navy, a saffron-and-green rule.*
 
 ---
 
@@ -35,132 +38,128 @@ food/cafeteria product, not an enterprise admin panel.
 
 | Token | Hex | Role |
 |---|---|---|
-| `--canvas` | `#D7D9DD` | App backdrop behind the floating panel (cool light gray) |
-| `--surface` | `#FFFFFF` | Main content surface / white "plate" |
-| `--surface-2` | `#FDFBF6` | Subtly warm raised surface (inner cards on white) |
-| `--tray` | `#F7F0DA` | Sidebar / "tray" base (warm cream) |
-| `--tray-2` | `#FBF6E8` | Sidebar gradient top (lighter cream) |
-| `--line` | `#ECE6D6` | Hairline borders on warm surfaces |
-| `--line-strong` | `#DED7C2` | Stronger divider / input border |
+| `--canvas` | `#FBF8F2` | App backdrop / content area (warm off-white) |
+| `--surface` | `#FFFFFF` | Cards / panels (white) |
+| `--surface-2` | `#FCFAF5` | Table headers, raised inner surfaces, totals row |
+| `--tray` | `#FFFCF6` | Sidebar base |
+| `--tray-2` | `#FFFEFB` | Sidebar highlight |
+| `--line` | `#ECE7DD` | Hairline borders |
+| `--line-strong` | `#E2DCD0` | Stronger divider / input border |
 
 ### 2.2 Text (warm charcoal → muted)
 
 | Token | Hex | Role |
 |---|---|---|
-| `--ink` | `#2A2A28` | Headings, primary text (near-black, warm) |
-| `--ink-2` | `#5A574F` | Secondary text |
-| `--muted` | `#9C988C` | Captions, hints, inactive labels |
-| `--muted-2` | `#BCB8AC` | Disabled / placeholder |
+| `--ink` | `#1C1A17` | Headings, primary text (near-black, warm) |
+| `--ink-2` | `#5A544B` | Secondary / actionable text |
+| `--muted` | `#7C766C` | Captions, hints, table sub-text |
+| `--muted-2` | `#A8A096` | Faint labels / placeholder |
 
-### 2.3 Brand & accents (food-derived)
+### 2.3 Brand & accents (flag-derived)
 
-| Token | Hex | Role |
+| Token | Hex (light) | Role |
 |---|---|---|
-| `--gold` | `#E0A93A` | **Primary** — buttons, active states, key numbers |
-| `--gold-deep` | `#C8902A` | Primary hover / pressed |
-| `--gold-soft` | `#F6E4B8` | Gold tint backgrounds, the gold stat card fill |
-| `--sage` | `#7FA88C` | **Secondary** — success-ish stat card, positive deltas |
-| `--sage-deep` | `#5F8B6E` | Sage hover / text-on-sage darkening |
-| `--sage-soft` | `#DCE8DF` | Sage tint backgrounds |
-| `--tomato` | `#D45A4A` | Danger / negative delta / alerts |
-| `--tomato-soft` | `#F6DAD4` | Danger tint background |
-| `--terracotta` | `#C9794A` | Tertiary accent / category dot / warnings |
-| `--terracotta-soft`| `#F1E0D2` | Warning tint background |
+| `--gold` | `#FF9933` | **Primary (saffron)** — buttons, active states, key numbers |
+| `--gold-deep` | `#E07B1F` | Primary hover / pressed, value text on tinted cards |
+| `--gold-soft` | `#FFF3E6` | Saffron tint background, hover fill |
+| `--gold-soft-2` | `#FDE7CC` | Stronger saffron tint (active nav, card border) |
+| `--sage` | `#138808` | **Positive (India-green)** — success, profit, paid |
+| `--sage-deep` | `#0E6606` | Green hover / value text |
+| `--sage-soft` | `#E8F4E6` | Green tint background |
+| `--sage-soft-2` | `#D6ECD2` | Stronger green tint (card border) |
+| `--navy` | `#0A2472` | **Info (Chakra navy)** — collections, neutral KPIs, Chakra stroke |
+| `--navy-deep` | `#000080` | Navy emphasis |
+| `--navy-soft` | `#E6EAF6` | Navy icon-chip background |
+| `--navy-text` | `#0A2472` | Navy value/label text |
+| `--tomato` | `#C2402E` | Danger / negative / alerts |
+| `--tomato-soft` | `#FBEAE6` | Danger tint background |
+| `--terracotta` | `#C9794A` | Legacy tertiary accent (kept for back-compat) |
+| `--terracotta-soft`| `#F1E0D2` | Legacy warning tint |
 
 ### 2.4 Semantic mapping
 
 | Semantic | Token | Notes |
 |---|---|---|
-| Primary action | `--gold` | The amber buttons in the mock |
-| Success / credit | `--sage` | Green stat card; wallet top-ups, paid status |
-| Warning / pending | `--terracotta` | Pending coupon, low-balance nudge |
-| Danger / debit-fail | `--tomato` | Failed scan, insufficient balance, void |
-| Info / neutral | `--ink-2` | Plain informational chips |
+| Primary action | `--gold` | Saffron buttons / active nav |
+| Success / credit / profit | `--sage` | Green stat card, recharges, positive P&L |
+| Info / collections | `--navy` | Navy KPI cards, Chakra, neutral emphasis |
+| Danger / debit-fail | `--tomato` | Failed scan, insufficient balance, void, sign-out |
+| Neutral | `--ink-2` | Plain informational chips |
 
-> **Status-dot legend** (the small colored dots in the mockup): sage = active/ok,
-> gold = highlight, terracotta = attention, tomato = error. Reuse these for menu-item
-> availability and transaction states.
+> **Status-dot legend:** sage = active/ok, gold (saffron) = highlight, navy = info,
+> tomato = error. Reuse for cardholder status, menu availability, and transaction states.
 
 ---
 
-## 3. CSS custom properties (drop-in)
+## 3. CSS custom properties
+
+The **live, authoritative** token block lives in [`app/globals.css`](app/globals.css) (`:root`,
+`[data-theme="dark"]`, and the `@theme inline` mapping). The light values are reproduced here for
+reference — if they ever differ, globals.css wins.
 
 ```css
 :root {
   /* neutrals */
-  --canvas: #d7d9dd;
-  --surface: #ffffff;
-  --surface-2: #fdfbf6;
-  --tray: #f7f0da;
-  --tray-2: #fbf6e8;
-  --line: #ece6d6;
-  --line-strong: #ded7c2;
+  --canvas: #fbf8f2;  --surface: #ffffff;     --surface-2: #fcfaf5;
+  --tray: #fffcf6;    --tray-2: #fffefb;
+  --line: #ece7dd;    --line-strong: #e2dcd0;
 
   /* text */
-  --ink: #2a2a28;
-  --ink-2: #5a574f;
-  --muted: #9c988c;
-  --muted-2: #bcb8ac;
+  --ink: #1c1a17;     --ink-2: #5a544b;
+  --muted: #7c766c;   --muted-2: #a8a096;
 
-  /* brand + accents */
-  --gold: #e0a93a;
-  --gold-deep: #c8902a;
-  --gold-soft: #f6e4b8;
-  --sage: #7fa88c;
-  --sage-deep: #5f8b6e;
-  --sage-soft: #dce8df;
-  --tomato: #d45a4a;
-  --tomato-soft: #f6dad4;
-  --terracotta: #c9794a;
-  --terracotta-soft: #f1e0d2;
+  /* brand + accents (saffron→gold, green→sage, navy info, red danger) */
+  --gold: #ff9933;    --gold-deep: #e07b1f;   --gold-soft: #fff3e6;  --gold-soft-2: #fde7cc;
+  --sage: #138808;    --sage-deep: #0e6606;   --sage-soft: #e8f4e6;  --sage-soft-2: #d6ecd2;
+  --navy: #0a2472;    --navy-deep: #000080;   --navy-soft: #e6eaf6;  --navy-text: #0a2472;
+  --tomato: #c2402e;  --tomato-soft: #fbeae6;
+  --terracotta: #c9794a; --terracotta-soft: #f1e0d2;
 
   /* typography */
-  --font-display: "Fraunces", "Georgia", serif;
-  --font-body: "Inter Tight", system-ui, -apple-system, sans-serif;
-  --font-mono: "JetBrains Mono", ui-monospace, monospace;
+  --font-display: var(--font-spline-sans), "Inter", system-ui, sans-serif;
+  --font-body: var(--font-spline-sans), "Inter", system-ui, -apple-system, sans-serif;
+  --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --font-devanagari: var(--font-tiro-marathi), Georgia, serif;
 
   /* radius */
-  --radius-pill: 999px;
-  --radius-lg: 24px;   /* main panel */
-  --radius-md: 18px;   /* cards */
-  --radius-sm: 12px;   /* inputs, small cards */
-  --radius-xs: 8px;    /* chips, tight elements */
+  --radius-pill: 999px;  --radius-lg: 20px;  --radius-md: 16px;  /* cards */
+  --radius-sm: 10px;     /* nav items, fields, buttons */  --radius-xs: 8px;
 
   /* elevation (soft, diffuse) */
-  --shadow-sm: 0 2px 8px -2px rgba(58, 50, 30, 0.08);
-  --shadow-md: 0 12px 28px -10px rgba(58, 50, 30, 0.12);
-  --shadow-lg: 0 30px 70px -24px rgba(58, 50, 30, 0.20);
-  --shadow-gold: 0 10px 24px -8px rgba(224, 169, 58, 0.40);
-
-  /* motion */
-  --ease: cubic-bezier(0.22, 1, 0.36, 1);
-  --dur-fast: 120ms;
-  --dur: 200ms;
+  --shadow-sm: 0 1px 2px rgba(28,26,23,.04), 0 4px 16px rgba(28,26,23,.05);
+  --shadow-md: 0 4px 12px -2px rgba(28,26,23,.08), 0 12px 28px -10px rgba(28,26,23,.1);
+  --shadow-lg: 0 30px 70px -24px rgba(28,26,23,.22);
+  --shadow-gold: 0 2px 6px rgba(224,123,31,.3);
 }
 ```
+
+Brand helpers `.tricolour` (saffron/white/green rule) and `.chakra` (24-spoke Ashoka Chakra in
+navy) are defined at the bottom of globals.css; the `<Chakra/>` component lives in
+[`components/shell/icons.tsx`](components/shell/icons.tsx).
 
 ---
 
 ## 4. Typography
 
-The display serif (**Fraunces**) carries the warm/editorial feel; **Inter Tight** keeps the UI
-crisp; **JetBrains Mono** is reserved for IDs, card numbers, balances, and timestamps (RFID data
-is monospace by nature). This matches the font stack already loaded in
-[`base-theme.css`](base-theme.css), so no new font requests.
+**Spline Sans** is the primary UI + display face (with **Inter** as the latin fallback);
+**JetBrains Mono** is reserved for IDs, card numbers, balances, and timestamps (RFID data is
+monospace by nature); **Tiro Devanagari Marathi** sets the Devanagari wordmark (`भोजन`). Loaded via
+`next/font/google` in [`app/layout.tsx`](app/layout.tsx).
 
 | Style | Family | Size / Line | Weight | Use |
 |---|---|---|---|---|
-| Display | Fraunces | 32 / 1.1 | 600 | Page hero, big section title |
-| H1 | Fraunces | 24 / 1.2 | 600 | Card / panel titles |
-| H2 | Inter Tight | 18 / 1.3 | 600 | Sub-section headers |
-| Body | Inter Tight | 14 / 1.5 | 400 | Default text |
-| Small | Inter Tight | 12 / 1.4 | 500 | Captions, labels |
-| Stat number | Fraunces | 28 / 1.0 | 600 | The big KPI figures |
+| Display / H1 | Spline Sans | 27 / 1.1 | 700 | Page hero, big section title |
+| H2 | Spline Sans | 16 / 1.3 | 700 | Card / panel titles |
+| Body | Spline Sans | 14 / 1.45 | 400 | Default text |
+| Small | Spline Sans | 12 / 1.4 | 500 | Captions, labels |
+| Stat number | Spline Sans | 28 / 1.1 | 700 | The big KPI figures (tabular-nums) |
 | Data / ID | JetBrains Mono | 13 / 1.4 | 500 | Card numbers, balances, codes |
+| Wordmark (Devanagari) | Tiro Devanagari Marathi | — | 400 | `भोजन` in the brand block |
 
 - Headings use `--ink`; supporting text uses `--muted`.
-- Letter-spacing: tighten display (`-0.02em`); slightly loosen all-caps labels (`+0.06em`).
-- All-caps micro-labels (sidebar section headers, table headers) in `--muted`, 11px, 600.
+- Letter-spacing: tighten display (`-0.6px`); slightly loosen all-caps labels (`+0.06em`).
+- All-caps micro-labels (sidebar section headers, table headers) in `--muted`/`--muted-2`, 11px, 600.
+- Numbers in KPIs/tables use `font-variant-numeric: tabular-nums`.
 
 ---
 
@@ -281,45 +280,17 @@ Two flavors from the mockup — the **sage** card and the **gold** card — plus
 
 ## 7. Tailwind mapping
 
-In `tailwind.config.{ts,js}`, point Tailwind at the CSS variables so utilities and tokens stay
-in sync (set the variables in your global stylesheet per §3):
+This project uses **Tailwind CSS v4** — there is **no `tailwind.config.{ts,js}`**. Tokens are
+mapped to utilities via the `@theme inline { … }` block in [`app/globals.css`](app/globals.css)
+(reproduced in §3), which exposes `--color-*`, `--font-*`, `--radius-*`, and `--shadow-*` so
+`bg-surface`, `text-ink`, `bg-gold`, `text-navy-text`, `rounded-md`, `shadow-gold`, etc. all work.
+Fonts are loaded with `next/font` in [`app/layout.tsx`](app/layout.tsx) (Spline Sans, Inter,
+JetBrains Mono, Tiro Devanagari Marathi) and wired into the `--font-*` stacks.
 
-```ts
-// tailwind.config.ts
-export default {
-  theme: {
-    extend: {
-      colors: {
-        canvas:    "var(--canvas)",
-        surface:   { DEFAULT: "var(--surface)", 2: "var(--surface-2)" },
-        tray:      { DEFAULT: "var(--tray)", 2: "var(--tray-2)" },
-        line:      { DEFAULT: "var(--line)", strong: "var(--line-strong)" },
-        ink:       { DEFAULT: "var(--ink)", 2: "var(--ink-2)" },
-        muted:     { DEFAULT: "var(--muted)", 2: "var(--muted-2)" },
-        gold:      { DEFAULT: "var(--gold)", deep: "var(--gold-deep)", soft: "var(--gold-soft)" },
-        sage:      { DEFAULT: "var(--sage)", deep: "var(--sage-deep)", soft: "var(--sage-soft)" },
-        tomato:    { DEFAULT: "var(--tomato)", soft: "var(--tomato-soft)" },
-        terracotta:{ DEFAULT: "var(--terracotta)", soft: "var(--terracotta-soft)" },
-      },
-      fontFamily: {
-        display: ["Fraunces", "Georgia", "serif"],
-        body:    ["Inter Tight", "system-ui", "sans-serif"],
-        mono:    ["JetBrains Mono", "ui-monospace", "monospace"],
-      },
-      borderRadius: {
-        xs: "8px", sm: "12px", md: "18px", lg: "24px", pill: "999px",
-      },
-      boxShadow: {
-        sm:   "0 2px 8px -2px rgba(58,50,30,0.08)",
-        md:   "0 12px 28px -10px rgba(58,50,30,0.12)",
-        lg:   "0 30px 70px -24px rgba(58,50,30,0.20)",
-        gold: "0 10px 24px -8px rgba(224,169,58,0.40)",
-      },
-      transitionTimingFunction: { soft: "cubic-bezier(0.22,1,0.36,1)" },
-    },
-  },
-}
-```
+Utilities available (names stable from the old system; values are the tricolour palette):
+`bg-canvas/-surface/-surface-2/-tray/-tray-2`, `border-line/-line-strong`, `text-ink/-ink-2/-muted/-muted-2`,
+`{bg,text,border}-gold[-deep|-soft|-soft-2]`, `…-sage[-deep|-soft|-soft-2]`, `…-navy[-deep|-soft]`/`text-navy-text`,
+`…-tomato[-soft]`, `rounded-{xs,sm,md,lg,pill}`, `shadow-{sm,md,lg,gold}`, `font-display/-body/-mono/-devanagari`.
 
 Usage example: `class="bg-surface rounded-md shadow-sm text-ink font-body"`,
 primary button `class="bg-gold hover:bg-gold-deep text-white rounded-sm shadow-gold"`.
@@ -331,10 +302,12 @@ primary button `class="bg-gold hover:bg-gold-deep text-white rounded-sm shadow-g
 - **Body text** uses `--ink`/`--ink-2` on white → comfortably ≥ 7:1 and ≥ 5:1.
 - `--muted` on white is ~3:1 — **use only for non-essential captions/labels**, never for content
   a user must read to act. Bump to `--ink-2` for anything functional.
-- **Gold buttons:** `--gold` (#E0A93A) under white text is ~2.0:1 — **not** AA for normal text.
-  Use white text on gold only at **≥16px bold** (large-text threshold), or prefer `--ink` text on
-  gold for small labels. For the primary CTA, `--gold-deep` + white text gets closer; verify in
-  context.
+- **Saffron (`--gold` #FF9933) buttons:** white text on saffron is ~1.9:1 — below AA for normal
+  text. Per the product decision the primary buttons use **white text on saffron** to match the
+  reference design (`BTN_PRIMARY`, Apply, Sign In, active settings tab, current-page pill); treat
+  this as an accepted brand exception. Where contrast matters more (dense data, small labels on a
+  saffron tint), prefer `--gold-deep` on `--gold-soft` (the stat-card / pill pattern), which is
+  comfortably legible.
 - Never signal state by **color alone** — pair status dots/badges with a label or icon
   (`● Active`, `● Failed`).
 - Focus rings: the `0 0 0 3px rgba(gold,0.18)` glow plus a solid `--gold` border must remain on
@@ -345,38 +318,15 @@ primary button `class="bg-gold hover:bg-gold-deep text-white rounded-sm shadow-g
 
 ## 9. Dark variant (parity)
 
-Dark is a **manual user choice** via the Appearance toggle in the profile dropdown
-(`components/shell/theme-control.tsx`), persisted in `localStorage` under `theme` (default
-**Light**). The inline script in `app/layout.tsx` reads that choice and sets/removes
-`[data-theme="dark"]` before first paint. Keep the warm hue family but invert surfaces under
-`[data-theme="dark"]`:
-
-```css
-[data-theme="dark"] {
-  --canvas: #16140f;
-  --surface: #201d17;
-  --surface-2: #272219;
-  --tray: #1b1812;
-  --tray-2: #221e16;
-  --line: #342e22;
-  --line-strong: #463e2d;
-  --ink: #f1ece0;
-  --ink-2: #c4bdac; /* warm light gray */
-  --muted: #8f897a;
-  --muted-2: #6c6658;
-  /* accents keep their hue; soft tints get darker, lower-alpha equivalents */
-  --gold-soft: rgba(224,169,58,0.16);
-  --sage-soft: rgba(127,168,140,0.16);
-  --tomato-soft: rgba(212,90,74,0.16);
-  --terracotta-soft: rgba(201,121,74,0.16);
-  --shadow-sm: 0 2px 8px -2px rgba(0,0,0,0.4);
-  --shadow-md: 0 12px 28px -10px rgba(0,0,0,0.5);
-  --shadow-lg: 0 30px 70px -24px rgba(0,0,0,0.6);
-}
-```
-
-> The existing dark lime theme in [`base-theme.css`](base-theme.css) is a separate, older
-> direction. This warm system is the default; light vs. dark follows the OS, not a user switch.
+Dark is a **manual user choice** — **not** the OS `prefers-color-scheme`. The Appearance toggle
+lives both in the topbar ([`theme-control.tsx`](components/shell/theme-control.tsx) →
+`ThemeToggleButton`) and the profile dropdown (`ThemeControl`), sharing one store; the choice is
+persisted in `localStorage` under `theme` (default **Light**) and applied pre-paint by the inline
+script in [`app/layout.tsx`](app/layout.tsx), which toggles `[data-theme="dark"]` on `<html>`. The
+authoritative dark values live in [`app/globals.css`](app/globals.css) `[data-theme="dark"]` —
+including the re-tuned neutrals (e.g. `--canvas: #161310`, `--surface: #211d18`), the bright-indigo
+`--navy` (#6e8bff, since navy is invisible on dark), and brightened `--gold`/`--sage`. If values
+here ever differ, globals.css wins.
 
 ---
 
@@ -387,11 +337,12 @@ Dark is a **manual user choice** via the Appearance toggle in the profile dropdo
 | Page background | `--canvas` |
 | Main panel | `--surface`, `--radius-lg`, `--shadow-lg` |
 | Sidebar | `--tray`→`--tray-2` gradient |
-| Primary button | `--gold` bg, white/`--ink` text, `--shadow-gold` |
-| Positive KPI / credit | `--sage` family |
-| Pending / warning | `--terracotta` family |
-| Error / failed scan | `--tomato` family |
-| Headings | Fraunces, `--ink` |
-| Card numbers / balances | JetBrains Mono, `--ink` |
-| Captions | Inter Tight, `--muted` |
-| Card radius / padding | `--radius-md` / 20–24px |
+| Primary button | `--gold` (saffron) bg, white text, `--shadow-gold` |
+| Positive KPI / credit / profit | `--sage` (green) family |
+| Info / collections | `--navy` family |
+| Error / failed scan / danger | `--tomato` family |
+| Headings | Spline Sans (`font-display`), `--ink` |
+| Card numbers / balances | JetBrains Mono (`font-mono`), `--ink` |
+| Captions | Spline Sans, `--muted`/`--muted-2` |
+| Devanagari wordmark (भोजन) | Tiro Devanagari Marathi (`font-devanagari`) |
+| Card radius / padding | `--radius-md` (16px) / 18–20px |

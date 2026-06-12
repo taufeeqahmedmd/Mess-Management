@@ -24,7 +24,7 @@ export function CounterMealRows({
     return (
       <p className="rounded-sm bg-gold-soft px-3 py-2.5 text-sm text-ink-2">
         No active meals yet.{" "}
-        <Link href="/settings/meals/new" className="font-semibold text-gold-deep hover:underline">
+        <Link href="/settings/meals" className="font-semibold text-gold-deep hover:underline">
           Create a meal
         </Link>{" "}
         first, then assign it here.

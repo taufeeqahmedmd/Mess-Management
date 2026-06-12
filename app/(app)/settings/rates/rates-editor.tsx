@@ -2,6 +2,8 @@
 
 import { useRef, useState } from "react";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
+import { BTN_PRIMARY, BTN_GHOST } from "@/components/ui/controls";
+import { PlusGlyph } from "@/components/ui/glyphs";
 import { saveRatesAction, type RatesEditorState } from "./counter-rate-actions";
 
 type Item = { id: string; name: string };
@@ -12,9 +14,35 @@ export type InitialRow = { mealId: string; cells: Record<string, Cell> };
 const initial: RatesEditorState = {};
 
 const selectCls =
-  "min-w-36 rounded-sm border border-line-strong bg-surface-2 px-2 py-1.5 text-sm text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20 disabled:opacity-60";
-const cellInput =
-  "w-20 rounded-sm border border-line-strong bg-surface-2 px-2 py-1 text-right font-mono text-sm text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+  "w-full min-w-36 rounded-sm border border-line-strong bg-surface px-3 py-2 text-[13px] text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20 disabled:opacity-60";
+
+/** A single ₹-prefixed rate input, tinted saffron (sale) or green (cost). */
+function RateField({
+  kind,
+  value,
+  onChange,
+  ariaLabel,
+}: {
+  kind: "sale" | "cost";
+  value: string;
+  onChange: (v: string) => void;
+  ariaLabel: string;
+}) {
+  const tint = kind === "sale" ? "border-gold-soft-2 bg-gold-soft" : "border-sage-soft-2 bg-sage-soft";
+  return (
+    <div className="relative">
+      <span className="pointer-events-none absolute left-2.5 top-1/2 -translate-y-1/2 text-[11px] text-muted-2">₹</span>
+      <input
+        inputMode="decimal"
+        value={value}
+        onChange={(e) => onChange(e.target.value)}
+        aria-label={ariaLabel}
+        placeholder={kind === "sale" ? "Charge" : "Vendor"}
+        className={`w-24 rounded-[9px] border ${tint} py-1.5 pl-[18px] pr-2.5 text-right font-mono text-[13px] tabular-nums text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20`}
+      />
+    </div>
+  );
+}
 
 export function RatesEditor({
   branchId,
@@ -70,35 +98,35 @@ export function RatesEditor({
       <input type="hidden" name="rows" value={payload} />
 
       {state.error ? (
-        <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">{state.error}</p>
+        <p role="alert" className="rounded-sm border border-tomato/30 bg-tomato-soft px-3 py-2.5 text-[12.5px] font-medium text-tomato">{state.error}</p>
       ) : null}
       {state.success ? (
-        <p role="status" className="rounded-sm bg-sage-soft px-3 py-2.5 text-sm text-sage-deep">Rates saved.</p>
+        <p role="status" className="rounded-sm border border-sage-soft-2 bg-sage-soft px-3 py-2.5 text-[12.5px] font-medium text-sage-deep">Rates saved.</p>
       ) : null}
 
       {/* Meal is frozen (sticky-left); category columns scroll. */}
-      <div className="overflow-x-auto rounded-md border border-line bg-surface">
-        <table className="w-full border-separate border-spacing-0 text-sm">
+      <div className="overflow-x-auto rounded-md border border-line bg-surface shadow-sm">
+        <table className="w-full border-separate border-spacing-0">
           <thead>
-            <tr className="text-left text-[11px] uppercase tracking-[0.06em] text-muted">
-              <th className="sticky left-0 z-20 w-44 min-w-44 border-r border-line bg-surface-2 px-3 py-3 font-semibold">Meal</th>
+            <tr className="text-left">
+              <th className="sticky left-0 z-20 w-44 min-w-44 border-b border-r border-line bg-surface-2 px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted-2">Meal</th>
               {categories.map((c) => (
-                <th key={c.id} className="min-w-28 bg-surface-2 px-2 py-3 text-center font-semibold">{c.name}</th>
+                <th key={c.id} className="min-w-[120px] border-b border-line bg-surface-2 px-3 py-2.5 text-right text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted-2">{c.name}</th>
               ))}
-              <th className="bg-surface-2 px-2 py-3" aria-label="Remove" />
+              <th className="border-b border-line bg-surface-2 px-3 py-2.5" aria-label="Remove" />
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={categories.length + 2} className="border-t border-line px-4 py-8 text-center text-ink-2">
+                <td colSpan={categories.length + 2} className="px-5 py-10 text-center text-muted">
                   No rows. Add one to set a rate.
                 </td>
               </tr>
             ) : (
               rows.map((row) => (
                 <tr key={row.key}>
-                  <td className="sticky left-0 z-10 w-44 min-w-44 border-t border-r border-line bg-surface px-3 py-3">
+                  <td className="sticky left-0 z-10 w-44 min-w-44 border-b border-r border-line bg-surface px-5 py-3.5">
                     <select value={row.mealId} onChange={(e) => setMeal(row.key, e.target.value)} aria-label="Meal" className={selectCls}>
                       <option value="">Select meal…</option>
                       {meals.map((m) => (
@@ -109,20 +137,20 @@ export function RatesEditor({
                   {categories.map((c) => {
                     const cell = row.cells[c.id] ?? { charge: "", vendor: "" };
                     return (
-                      <td key={c.id} className="border-t border-line px-2 py-3 text-center">
-                        <div className="inline-flex flex-col gap-1">
-                          <input inputMode="decimal" placeholder="Charge" value={cell.charge} onChange={(e) => setCell(row.key, c.id, "charge", e.target.value)} aria-label={`${c.name} charge`} className={cellInput} />
-                          <input inputMode="decimal" placeholder="Vendor" value={cell.vendor} onChange={(e) => setCell(row.key, c.id, "vendor", e.target.value)} aria-label={`${c.name} vendor`} className={cellInput} />
+                      <td key={c.id} className="border-b border-line px-3 py-3.5">
+                        <div className="flex flex-col items-end gap-1.5">
+                          <RateField kind="sale" value={cell.charge} onChange={(v) => setCell(row.key, c.id, "charge", v)} ariaLabel={`${c.name} charge`} />
+                          <RateField kind="cost" value={cell.vendor} onChange={(v) => setCell(row.key, c.id, "vendor", v)} ariaLabel={`${c.name} vendor`} />
                         </div>
                       </td>
                     );
                   })}
-                  <td className="border-t border-line px-2 py-3">
+                  <td className="border-b border-line px-3 py-3.5 align-top">
                     <button
                       type="button"
                       onClick={() => removeRow(row.key)}
                       aria-label="Remove row"
-                      className="grid size-7 place-items-center rounded-sm text-tomato transition-colors hover:bg-tomato-soft"
+                      className="grid size-7 place-items-center rounded-sm text-muted transition-colors hover:bg-tomato-soft hover:text-tomato"
                     >
                       <span aria-hidden="true">✕</span>
                     </button>
@@ -134,24 +162,22 @@ export function RatesEditor({
         </table>
       </div>
 
-      <div className="flex flex-wrap items-center gap-3">
-        <button
-          type="submit"
-          disabled={pending}
-          className="rounded-sm bg-gold px-5 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60"
-        >
+      <div className="flex gap-4 text-[11.5px] text-muted">
+        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-[3px] bg-gold" />Sale (charge)</span>
+        <span className="inline-flex items-center gap-1.5"><span className="size-2.5 rounded-[3px] bg-sage" />Vendor (cost)</span>
+      </div>
+
+      <div className="flex flex-wrap items-center gap-2.5">
+        <button type="submit" disabled={pending} className={BTN_PRIMARY}>
           {pending ? "Saving…" : "Save rates"}
         </button>
-        <button
-          type="button"
-          onClick={addRow}
-          className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep"
-        >
-          + Add row
+        <button type="button" onClick={addRow} className={BTN_GHOST}>
+          <PlusGlyph />
+          Add row
         </button>
       </div>
 
-      <p className="text-xs text-muted">
+      <p className="text-[11.5px] leading-relaxed text-muted-2">
         One row per meal, priced across categories — these rates apply to the whole branch. Blank
         category cells set no rate. Saving replaces this branch&rsquo;s current rates with the rows above.
       </p>

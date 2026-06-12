@@ -8,9 +8,11 @@ import { FlashToast } from "@/components/ui/flash-toast";
 import { SEARCHABLE_PERMISSIONS } from "@/lib/rbac";
 
 /**
- * YouTube-style app shell: a sticky full-width navbar over a [sidebar | content]
- * row. The navbar's menu button collapses the rail on desktop and opens an
- * off-canvas drawer on mobile. Theme tokens throughout (Warm Cafeteria).
+ * App shell (Bhojan Tricolour): a full-height [sidebar | (topbar over content)]
+ * layout. The sidebar carries the brand (Ashoka Chakra + wordmark) and nav; the
+ * topbar carries search, the appearance toggle, notifications, and profile. The
+ * navbar's menu button collapses the rail on desktop and opens an off-canvas
+ * drawer on mobile. Theme tokens throughout.
  */
 export type ShellUser = { name: string; role: string };
 
@@ -39,34 +41,32 @@ export function AppShell({
   }
 
   return (
-    <div className="flex min-h-screen flex-col bg-canvas">
+    <div className="flex min-h-screen bg-canvas">
       <Suspense fallback={null}>
         <FlashToast />
       </Suspense>
-      <AppNavbar onMenuClick={handleMenuClick} user={user} canSearch={canSearch} />
 
-      <div className="flex min-h-0 flex-1">
-        <AppSidebar
-          expanded={railExpanded}
-          mobileOpen={mobileOpen}
-          onNavigate={() => setMobileOpen(false)}
-          permissions={permissions}
-          isSuperAdmin={isSuperAdmin}
+      <AppSidebar
+        expanded={railExpanded}
+        mobileOpen={mobileOpen}
+        onNavigate={() => setMobileOpen(false)}
+        permissions={permissions}
+        isSuperAdmin={isSuperAdmin}
+      />
+
+      {/* Mobile drawer backdrop */}
+      {mobileOpen ? (
+        <button
+          type="button"
+          aria-label="Close navigation menu"
+          onClick={() => setMobileOpen(false)}
+          className="fixed inset-0 z-40 bg-ink/40 md:hidden"
         />
+      ) : null}
 
-        {/* Mobile drawer backdrop */}
-        {mobileOpen ? (
-          <button
-            type="button"
-            aria-label="Close navigation menu"
-            onClick={() => setMobileOpen(false)}
-            className="fixed inset-0 top-14 z-40 bg-ink/40 md:hidden"
-          />
-        ) : null}
-
-        <main className="min-w-0 flex-1 overflow-x-hidden bg-surface">
-          {children}
-        </main>
+      <div className="flex min-w-0 flex-1 flex-col">
+        <AppNavbar onMenuClick={handleMenuClick} user={user} canSearch={canSearch} />
+        <main className="min-w-0 flex-1 overflow-x-hidden bg-canvas">{children}</main>
       </div>
     </div>
   );

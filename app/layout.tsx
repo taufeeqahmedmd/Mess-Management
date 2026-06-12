@@ -1,26 +1,35 @@
 import type { Metadata, Viewport } from "next";
 import Script from "next/script";
-import { Fraunces, Inter_Tight, JetBrains_Mono } from "next/font/google";
+import { Spline_Sans, Inter, JetBrains_Mono, Tiro_Devanagari_Marathi } from "next/font/google";
 import "./globals.css";
 import { Providers } from "@/components/providers";
 import { InstallPrompt } from "@/components/pwa/install-prompt";
-import { Preloader } from "@/components/ui/preloader";
 
-const fraunces = Fraunces({
+// Spline Sans is the primary UI + display face (Bhojan Tricolour system); Inter
+// is the latin fallback woven into the --font-body/-display stacks.
+const splineSans = Spline_Sans({
   subsets: ["latin"],
-  variable: "--font-fraunces",
+  variable: "--font-spline-sans",
   display: "swap",
 });
 
-const interTight = Inter_Tight({
+const inter = Inter({
   subsets: ["latin"],
-  variable: "--font-inter-tight",
+  variable: "--font-inter",
   display: "swap",
 });
 
 const jetbrainsMono = JetBrains_Mono({
   subsets: ["latin"],
   variable: "--font-jetbrains-mono",
+  display: "swap",
+});
+
+// Devanagari face for the brand wordmark ("भोजन") in the shell + auth screens.
+const tiroMarathi = Tiro_Devanagari_Marathi({
+  subsets: ["devanagari", "latin"],
+  weight: "400",
+  variable: "--font-tiro-marathi",
   display: "swap",
 });
 
@@ -47,8 +56,8 @@ export const metadata: Metadata = {
 
 export const viewport: Viewport = {
   themeColor: [
-    { media: "(prefers-color-scheme: light)", color: "#fdfbf6" },
-    { media: "(prefers-color-scheme: dark)", color: "#16140f" },
+    { media: "(prefers-color-scheme: light)", color: "#fffcf6" },
+    { media: "(prefers-color-scheme: dark)", color: "#161310" },
   ],
 };
 
@@ -76,7 +85,7 @@ export default function RootLayout({
     <html
       lang="en"
       suppressHydrationWarning
-      className={`${fraunces.variable} ${interTight.variable} ${jetbrainsMono.variable}`}
+      className={`${splineSans.variable} ${inter.variable} ${jetbrainsMono.variable} ${tiroMarathi.variable}`}
     >
       <body className="font-body bg-canvas text-ink antialiased">
         {/* Applies the saved Light/Dark choice before hydration (no flash), via
@@ -86,7 +95,6 @@ export default function RootLayout({
         </Script>
         <Providers>{children}</Providers>
         <InstallPrompt />
-        <Preloader />
       </body>
     </html>
   );

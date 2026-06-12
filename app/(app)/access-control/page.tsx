@@ -20,12 +20,12 @@ export default async function AccessControlPage() {
   }));
 
   return (
-    <div className="mx-auto flex max-w-6xl flex-col gap-6 p-5 sm:p-6">
+    <div className="mx-auto flex w-full max-w-[1500px] flex-col gap-4 px-5 py-6 sm:px-7">
       <div>
-        <h1 className="font-display text-2xl font-semibold text-ink">Access Control</h1>
-        <p className="mt-1 max-w-prose text-sm text-ink-2">
-          Grant each role access to screens and actions. Changes take effect the next
-          time an affected staff member signs in.
+        <h1 className="font-display text-[27px] font-bold tracking-[-0.6px] text-ink">Access Control</h1>
+        <p className="mt-1 max-w-[560px] text-[13px] leading-relaxed text-muted">
+          Grant each role access to screens and actions. Changes take effect the next time an
+          affected staff member signs in.
         </p>
       </div>
 

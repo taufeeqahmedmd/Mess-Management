@@ -4,7 +4,7 @@ import { revalidatePath } from "next/cache";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
-import { PERMISSIONS } from "@/lib/rbac";
+import { PERMISSIONS, type Permission } from "@/lib/rbac";
 
 const PERMISSION_SET = new Set<string>(PERMISSIONS);
 
@@ -59,6 +59,14 @@ export async function saveAccessControlAction(
     if (!Array.isArray(desiredRaw)) continue; // role not present in payload
 
     const after = [...new Set(desiredRaw.map(String).filter((c) => PERMISSION_SET.has(c)))].sort();
+
+    // No privilege escalation: a non-Super-Admin can only grant permissions they
+    // themselves hold (defence-in-depth — prevents a limited role that happens
+    // to carry accessControl.manage from minting capabilities it lacks).
+    if (!actor.isSuperAdmin) {
+      const beyond = after.find((c) => !actor.permissions.has(c as Permission));
+      if (beyond) return { error: "You can only grant permissions you hold yourself." };
+    }
     const before = role.permissions
       .map((rp) => codeById.get(rp.permissionId.toString()))
       .filter((c): c is string => Boolean(c))

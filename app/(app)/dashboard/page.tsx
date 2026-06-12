@@ -6,7 +6,7 @@ import { inr } from "@/lib/format";
 import { StatCard } from "@/components/ui/stat-card";
 import { DateRangeForm } from "@/components/reports/date-range-form";
 import { BreakdownTable } from "@/components/reports/breakdown-table";
-import { ProfitChart } from "@/components/reports/profit-chart";
+import { ProfitAreaChart } from "@/components/reports/profit-area-chart";
 import { UsersIcon, ReceiptIcon, BagIcon, TrendingUpIcon, WalletIcon, CoinsIcon, ChefHatIcon, BankIcon } from "@/components/reports/stat-icons";
 import {
   resolveDateRange,
@@ -19,6 +19,7 @@ import {
   usageByCardholderType,
   usageByMeal,
   usageByCounter,
+  mealColorMap,
 } from "@/services/reporting";
 
 export default async function DashboardPage({
@@ -59,62 +60,62 @@ export default async function DashboardPage({
       usageByMeal(prisma, f),
       usageByCounter(prisma, f),
     ]);
+  const mealColors = await mealColorMap(prisma);
 
   const plPositive = !consumption.pl.isNegative();
   const operatingRevenue = overallColl.minus(overallVendor);
   const orPositive = !operatingRevenue.isNegative();
 
   return (
-    <div className="flex w-full flex-col gap-6 px-5 py-5 sm:px-8 sm:py-6">
-      <div className="flex flex-wrap items-end justify-between gap-3">
+    <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-5 py-6 sm:px-7">
+      <div className="flex flex-wrap items-end justify-between gap-6">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-ink">Dashboard</h1>
-          <p className="mt-1 text-sm text-ink-2">
+          <h1 className="font-display text-[27px] font-bold tracking-[-0.6px] text-ink">Dashboard</h1>
+          <p className="mt-1 text-[13px] text-muted">
             {range.fromStr} → {range.toStr} · consumption, collections, and profit.
           </p>
         </div>
         <DateRangeForm action="/dashboard" fromStr={range.fromStr} toStr={range.toStr} />
       </div>
 
-      <section className="grid grid-cols-1 gap-5 lg:grid-cols-12">
-        {/* 8 KPI cards — 4 per row × 2 */}
-        <div className="grid grid-cols-2 gap-4 sm:gap-5 md:grid-cols-4 lg:col-span-8">
-          <StatCard label="Cardholders" value={cardholders.toLocaleString("en-IN")} hint="active" icon={<UsersIcon />} accent="ink" />
-          <StatCard label="Sale" value={inr(consumption.sale)} hint="value of meals served" variant="gold" icon={<ReceiptIcon />} />
-          <StatCard label="Vendor cost" value={inr(consumption.cost)} hint="in selected range" icon={<BagIcon />} accent="tomato" />
-          <StatCard
-            label={plPositive ? "Profit" : "Loss"}
-            value={`${plPositive ? "" : "−"}${inr(consumption.pl.abs())}`}
-            hint="sale − vendor cost"
-            variant={plPositive ? "sage" : "plain"}
-            icon={<TrendingUpIcon />}
-            accent={plPositive ? "sage" : "tomato"}
-          />
-          <StatCard label="Collections" value={inr(collections.amount)} hint={`${collections.count} recharges in range`} icon={<WalletIcon />} accent="gold" />
-          <StatCard label="Overall collection" value={inr(overallColl)} hint="all time" icon={<CoinsIcon />} accent="gold" />
-          <StatCard label="Payable to caterer" value={inr(overallVendor)} hint="all time" icon={<ChefHatIcon />} accent="tomato" />
-          <StatCard
-            label="Operating revenue"
-            value={`${orPositive ? "" : "−"}${inr(operatingRevenue.abs())}`}
-            hint="overall collection − caterer"
-            variant={orPositive ? "sage" : "plain"}
-            icon={<BankIcon />}
-            accent={orPositive ? "sage" : "tomato"}
-          />
-        </div>
-
-        {/* Profit chart — honours the date filter (defaults to current month) */}
-        <div className="lg:col-span-4">
-          <ProfitChart points={trend} rangeLabel={`${range.fromStr} → ${range.toStr}`} />
+      {/* Row 1: four KPIs + the profit-trend chart, one row on wide screens */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:[grid-template-columns:repeat(4,minmax(0,1fr))_1.55fr]">
+        <StatCard label="Cardholders" value={cardholders.toLocaleString("en-IN")} hint="active" variant="saffron" icon={<UsersIcon />} />
+        <StatCard label="Sale" value={inr(consumption.sale)} hint="value of meals served" variant="saffron" icon={<ReceiptIcon />} />
+        <StatCard label="Vendor cost" value={inr(consumption.cost)} hint="in selected range" variant="plain" icon={<BagIcon />} />
+        <StatCard
+          label={plPositive ? "Profit" : "Loss"}
+          value={`${plPositive ? "" : "−"}${inr(consumption.pl.abs())}`}
+          hint="sale − vendor cost"
+          variant={plPositive ? "green" : "plain"}
+          icon={<TrendingUpIcon />}
+        />
+        <div className="sm:col-span-2 xl:col-span-1">
+          <ProfitAreaChart points={trend} rangeLabel={`${range.fromStr} → ${range.toStr}`} />
         </div>
       </section>
 
-      <section className="grid grid-cols-1 gap-5 xl:grid-cols-2">
-        <BreakdownTable title="Usage by category" unit="Identifier" rows={byCardholderType} />
-        <BreakdownTable title="Usage by meal" unit="Meal" rows={byMeal} />
+      {/* Row 2: collections + operating revenue */}
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <StatCard label="Collections" value={inr(collections.amount)} hint={`${collections.count} recharges in range`} variant="navy" icon={<WalletIcon />} />
+        <StatCard label="Overall collection" value={inr(overallColl)} hint="all time" variant="navy" icon={<CoinsIcon />} />
+        <StatCard label="Payable to caterer" value={inr(overallVendor)} hint="all time" variant="plain" icon={<ChefHatIcon />} />
+        <StatCard
+          label="Operating revenue"
+          value={`${orPositive ? "" : "−"}${inr(operatingRevenue.abs())}`}
+          hint="overall collection − caterer"
+          variant={orPositive ? "green" : "plain"}
+          icon={<BankIcon />}
+        />
       </section>
 
-      <BreakdownTable title="Usage by counter" unit="Counter" rows={byCounter} />
+      {/* Row 3: breakdown tables */}
+      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
+        <BreakdownTable title="Usage by category" unit="Category" rows={byCardholderType} accent="saffron" />
+        <BreakdownTable title="Usage by meal" unit="Meal" rows={byMeal} accent="green" rowDot dotColors={mealColors} />
+      </section>
+
+      <BreakdownTable title="Usage by counter" unit="Counter" rows={byCounter} accent="navy" />
     </div>
   );
 }

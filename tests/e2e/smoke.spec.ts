@@ -7,7 +7,5 @@ test("dashboard renders the Phase 0 shell", async ({ page }) => {
 
 test("counter screen prompts for a tap", async ({ page }) => {
   await page.goto("/counter");
-  await expect(
-    page.getByRole("heading", { name: "Tap a card to begin" }),
-  ).toBeVisible();
+  await expect(page.getByText("Tap a card", { exact: true })).toBeVisible();
 });

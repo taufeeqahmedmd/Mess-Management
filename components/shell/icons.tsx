@@ -17,7 +17,8 @@ export type IconName =
   | "card"
   | "reports"
   | "vendor"
-  | "settings";
+  | "settings"
+  | "shield";
 
 const ICONS: Record<IconName, ReactNode> = {
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
@@ -115,7 +116,55 @@ const ICONS: Record<IconName, ReactNode> = {
       <path d="M19.4 13.5a1.7 1.7 0 0 0 .34 1.87l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.7 1.7 0 0 0-2.87 1.2V21a2 2 0 1 1-4 0v-.09a1.7 1.7 0 0 0-2.87-1.2l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.7 1.7 0 0 0 .34-1.87 1.7 1.7 0 0 0-1.56-1H3a2 2 0 1 1 0-4h.09a1.7 1.7 0 0 0 1.56-1 1.7 1.7 0 0 0-.34-1.87l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.7 1.7 0 0 0 1.87.34h.06a1.7 1.7 0 0 0 1-1.56V3a2 2 0 1 1 4 0v.09a1.7 1.7 0 0 0 1 1.56 1.7 1.7 0 0 0 1.87-.34l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.7 1.7 0 0 0-.34 1.87v.06a1.7 1.7 0 0 0 1.56 1H21a2 2 0 1 1 0 4h-.09a1.7 1.7 0 0 0-1.51 1z" />
     </>
   ),
+  shield: (
+    <>
+      <path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z" />
+      <path d="m9 12 2 2 4-4" />
+    </>
+  ),
 };
+
+/**
+ * Ashoka Chakra brand mark — 24 navy spokes (stroked via the `.chakra` class in
+ * globals.css). Used in the app-shell sidebar brand block and the auth screens.
+ */
+const CHAKRA_SPOKES = Array.from({ length: 24 }, (_, i) => {
+  const a = (i * 15 * Math.PI) / 180;
+  const inner = 8;
+  const outer = 44;
+  return {
+    x1: 50 + inner * Math.cos(a),
+    y1: 50 + inner * Math.sin(a),
+    x2: 50 + outer * Math.cos(a),
+    y2: 50 + outer * Math.sin(a),
+  };
+});
+
+export function Chakra({ className }: { className?: string }) {
+  return (
+    <svg className={`chakra ${className ?? ""}`} viewBox="0 0 100 100" aria-hidden="true">
+      <circle cx="50" cy="50" r="46" fill="none" strokeWidth={3} />
+      <circle cx="50" cy="50" r="7" fill="none" strokeWidth={3} />
+      <g strokeWidth={2}>
+        {CHAKRA_SPOKES.map((s, i) => (
+          <line key={i} x1={s.x1} y1={s.y1} x2={s.x2} y2={s.y2} />
+        ))}
+      </g>
+    </svg>
+  );
+}
+
+/**
+ * Brand logo image. Replaces the Chakra mark across the app. The asset is not
+ * square (458×363), so size it by HEIGHT — callers pass an `h-*` class and the
+ * width follows the intrinsic ratio via `w-auto` (no distortion).
+ */
+export function Logo({ className }: { className?: string }) {
+  return (
+    // eslint-disable-next-line @next/next/no-img-element -- static brand asset, no layout-shift concern
+    <img src="/assets/images/logo/logo.svg" alt="" className={`w-auto ${className ?? ""}`} />
+  );
+}
 
 export function Icon({
   name,

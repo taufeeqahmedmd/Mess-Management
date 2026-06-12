@@ -3,6 +3,8 @@
 import { useTransition } from "react";
 import { useConfirm } from "@/components/ui/confirm";
 import { useToast } from "@/components/ui/toast";
+import { BTN_GHOST } from "@/components/ui/controls";
+import { ClockGlyph } from "@/components/ui/glyphs";
 import { runExpiryAction } from "./actions";
 
 /** Confirmed, toast-reporting manual expiry sweep. */
@@ -27,12 +29,8 @@ export function ExpirySweepButton() {
   }
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
-      disabled={pending}
-      className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep disabled:opacity-60"
-    >
+    <button type="button" onClick={onClick} disabled={pending} className={BTN_GHOST}>
+      <ClockGlyph />
       {pending ? "Running…" : "Run expiry sweep"}
     </button>
   );

@@ -67,12 +67,12 @@ export default async function EditRechargePage({
   };
 
   return (
-    <div className="flex w-full flex-col gap-6 px-5 py-5 sm:px-8 sm:py-6">
+    <div className="mx-auto flex w-full max-w-2xl flex-col gap-6 px-5 py-6 sm:px-7">
       <div>
-        <p className="text-xs text-muted">
+        <p className="text-[12px] text-muted-2">
           <Link href="/recharge" className="hover:text-gold-deep">Recharge</Link> / Edit
         </p>
-        <h1 className="font-display text-2xl font-semibold text-ink">Edit recharge — {recharge.user.fullName}</h1>
+        <h1 className="mt-1 font-display text-[27px] font-bold tracking-[-0.6px] text-ink">Edit recharge — {recharge.user.fullName}</h1>
       </div>
 
       <RechargeForm

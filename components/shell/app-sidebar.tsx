@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Icon, type IconName } from "./icons";
+import { Logo, Icon, type IconName } from "./icons";
 
 type NavItem = { label: string; href: string; icon: IconName; permission?: string };
 type NavSection = { title: string; items: NavItem[] };
@@ -43,7 +43,7 @@ const SECTIONS: NavSection[] = [
       {
         label: "Access Control",
         href: "/access-control",
-        icon: "users",
+        icon: "shield",
         permission: "accessControl.manage",
       },
     ],
@@ -81,12 +81,36 @@ export function AppSidebar({
     <aside
       aria-label="Primary"
       className={cx(
-        "fixed bottom-0 left-0 top-14 z-50 flex w-64 flex-col gap-5 overflow-y-auto border-r border-line bg-gradient-to-b from-tray-2 to-tray p-3 transition-transform duration-200",
+        "fixed inset-y-0 left-0 z-50 flex w-64 flex-col gap-4 overflow-y-auto border-r border-line bg-tray p-3.5 transition-transform duration-200",
         mobileOpen ? "translate-x-0" : "-translate-x-full",
-        "md:static md:top-0 md:z-0 md:translate-x-0 md:transition-[width]",
+        "md:sticky md:top-0 md:z-0 md:h-screen md:translate-x-0 md:transition-[width]",
         expanded ? "md:w-60" : "md:w-[76px]",
       )}
     >
+      {/* Brand: Ashoka Chakra + wordmark + tricolour rule */}
+      <div>
+        <Link
+          href="/dashboard"
+          onClick={onNavigate}
+          aria-label="Mess Management — go to dashboard"
+          className={cx(
+            "flex items-center gap-3 rounded-sm px-2 py-1.5 focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20",
+            !expanded && "md:justify-center md:px-0",
+          )}
+        >
+          <Logo className="h-[34px] shrink-0" />
+          <div className={cx("min-w-0", !expanded && "md:hidden")}>
+            <div className="truncate font-display text-base font-bold leading-tight text-ink">
+              Mess Management
+            </div>
+            <div className="text-[10.5px] font-medium uppercase tracking-[0.04em] text-muted-2">
+              Bhojan · <span className="font-devanagari normal-case">भोजन</span>
+            </div>
+          </div>
+        </Link>
+        <div className={cx("tricolour mt-3.5", !expanded && "md:mx-1")} />
+      </div>
+
       {sections.map((section) => (
         <div key={section.title} className="flex flex-col gap-1">
           <span
@@ -109,16 +133,16 @@ export function AppSidebar({
                 aria-current={active ? "page" : undefined}
                 title={!expanded ? item.label : undefined}
                 className={cx(
-                  "flex items-center gap-3 rounded-sm px-3 py-2.5 text-sm transition-colors",
+                  "flex items-center gap-3 rounded-sm px-2.5 py-2.5 text-sm transition-colors",
                   active
-                    ? "bg-gold-soft font-semibold text-ink"
-                    : "text-ink-2 hover:bg-gold/10 hover:text-gold-deep",
+                    ? "bg-gold-soft-2 font-semibold text-gold-deep"
+                    : "text-ink-2 hover:bg-gold-soft hover:text-gold-deep",
                   !expanded && "md:justify-center md:px-0",
                 )}
               >
                 <Icon
                   name={item.icon}
-                  className={cx("size-5 shrink-0", active ? "text-gold-deep" : "")}
+                  className={cx("size-[18px] shrink-0", active ? "text-gold-deep" : "")}
                 />
                 <span className={cx("truncate", !expanded && "md:hidden")}>
                   {item.label}

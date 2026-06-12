@@ -20,12 +20,12 @@ export default async function NewUserPage() {
   ]);
 
   return (
-    <div className="flex w-full max-w-3xl flex-col gap-6 px-5 py-5 sm:px-8 sm:py-6">
+    <div className="mx-auto flex w-full max-w-3xl flex-col gap-6 px-5 py-6 sm:px-7">
       <div>
-        <p className="text-xs text-muted">
+        <p className="text-[12px] text-muted-2">
           <Link href="/users" className="hover:text-gold-deep">Cardholders</Link> / New
         </p>
-        <h1 className="font-display text-2xl font-semibold text-ink">New cardholder</h1>
+        <h1 className="mt-1 font-display text-[27px] font-bold tracking-[-0.6px] text-ink">New cardholder</h1>
       </div>
       <UserForm
         action={createUserAction}

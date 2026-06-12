@@ -1,56 +1,69 @@
 @import "tailwindcss";
 
 /* =========================================================================
-   "Warm Cafeteria" design system — see theme.md (source of truth).
-   Tokens live as CSS custom properties; the @theme block maps them onto
-   Tailwind v4 utilities (bg-surface, text-ink, rounded-md, shadow-lg, ...).
+   "Bhojan Tricolour" design system — see theme.md (source of truth).
+   Saffron / India-green / navy accents on warm off-white, with the Ashoka
+   Chakra mark. Tokens live as CSS custom properties; the @theme block maps
+   them onto Tailwind v4 utilities (bg-surface, text-ink, bg-gold, rounded-md,
+   shadow-lg, ...). The semantic utility NAMES are stable — `gold` is the
+   primary (saffron), `sage` is positive (green), `navy` is the info accent.
    ========================================================================= */
 
 :root {
   /* neutrals */
-  --canvas: #d7d9dd;
+  --canvas: #fbf8f2;
   --surface: #ffffff;
-  --surface-2: #fdfbf6;
-  --tray: #f7f0da;
-  --tray-2: #fbf6e8;
-  --line: #ece6d6;
-  --line-strong: #ded7c2;
+  --surface-2: #fcfaf5;
+  --tray: #fffcf6;
+  --tray-2: #fffefb;
+  --line: #ece7dd;
+  --line-strong: #e2dcd0;
 
   /* text */
-  --ink: #2a2a28;
-  --ink-2: #5a574f;
-  --muted: #9c988c;
-  --muted-2: #bcb8ac;
+  --ink: #1c1a17;
+  --ink-2: #5a544b;
+  --muted: #7c766c;
+  --muted-2: #a8a096;
 
-  /* brand + accents */
-  --gold: #e0a93a;
-  --gold-deep: #c8902a;
-  --gold-soft: #f6e4b8;
-  --sage: #7fa88c;
-  --sage-deep: #5f8b6e;
-  --sage-soft: #dce8df;
-  --tomato: #d45a4a;
-  --tomato-soft: #f6dad4;
+  /* brand + accents — primary (saffron) mapped to `gold` token name */
+  --gold: #ff9933;
+  --gold-deep: #e07b1f;
+  --gold-soft: #fff3e6;
+  --gold-soft-2: #fde7cc;
+  /* positive / secondary (India-green) mapped to `sage` token name */
+  --sage: #138808;
+  --sage-deep: #0e6606;
+  --sage-soft: #e8f4e6;
+  --sage-soft-2: #d6ecd2;
+  /* info accent (navy / Chakra blue) */
+  --navy: #0a2472;
+  --navy-deep: #000080;
+  --navy-soft: #e6eaf6;
+  --navy-text: #0a2472;
+  /* danger */
+  --tomato: #c2402e;
+  --tomato-soft: #fbeae6;
   --terracotta: #c9794a;
   --terracotta-soft: #f1e0d2;
 
   /* fonts (wired to next/font variables in layout.tsx, with fallbacks) */
-  --font-display: var(--font-fraunces), Georgia, serif;
-  --font-body: var(--font-inter-tight), system-ui, -apple-system, sans-serif;
+  --font-display: var(--font-spline-sans), "Inter", system-ui, sans-serif;
+  --font-body: var(--font-spline-sans), "Inter", system-ui, -apple-system, sans-serif;
   --font-mono: var(--font-jetbrains-mono), ui-monospace, monospace;
+  --font-devanagari: var(--font-tiro-marathi), Georgia, serif;
 
   /* radius */
   --radius-pill: 999px;
-  --radius-lg: 24px;
-  --radius-md: 18px;
-  --radius-sm: 12px;
+  --radius-lg: 20px;
+  --radius-md: 16px;
+  --radius-sm: 10px;
   --radius-xs: 8px;
 
   /* elevation (soft, diffuse) */
-  --shadow-sm: 0 2px 8px -2px rgba(58, 50, 30, 0.08);
-  --shadow-md: 0 12px 28px -10px rgba(58, 50, 30, 0.12);
-  --shadow-lg: 0 30px 70px -24px rgba(58, 50, 30, 0.2);
-  --shadow-gold: 0 10px 24px -8px rgba(224, 169, 58, 0.4);
+  --shadow-sm: 0 1px 2px rgba(28, 26, 23, 0.04), 0 4px 16px rgba(28, 26, 23, 0.05);
+  --shadow-md: 0 4px 12px -2px rgba(28, 26, 23, 0.08), 0 12px 28px -10px rgba(28, 26, 23, 0.1);
+  --shadow-lg: 0 30px 70px -24px rgba(28, 26, 23, 0.22);
+  --shadow-gold: 0 2px 6px rgba(224, 123, 31, 0.3);
 
   /* motion */
   --ease: cubic-bezier(0.22, 1, 0.36, 1);
@@ -59,23 +72,36 @@
 }
 
 [data-theme="dark"] {
-  --canvas: #16140f;
-  --surface: #201d17;
-  --surface-2: #272219;
-  --tray: #1b1812;
-  --tray-2: #221e16;
-  --line: #342e22;
-  --line-strong: #463e2d;
-  --ink: #f1ece0;
+  --canvas: #161310;
+  --surface: #211d18;
+  --surface-2: #1c1915;
+  --tray: #1b1814;
+  --tray-2: #1b1814;
+  --line: #2c2823;
+  --line-strong: #37322b;
+  --ink: #f3eee4;
   --ink-2: #c4bdac;
-  --muted: #8f897a;
-  --muted-2: #6c6658;
-  --gold-soft: rgba(224, 169, 58, 0.16);
-  --sage-soft: rgba(127, 168, 140, 0.16);
-  --tomato-soft: rgba(212, 90, 74, 0.16);
+  --muted: #a39c90;
+  --muted-2: #7e776b;
+  --gold: #ffa94d;
+  --gold-deep: #ffbe6b;
+  --gold-soft: #2a2016;
+  --gold-soft-2: #3a2a18;
+  --sage: #3fbf3f;
+  --sage-deep: #5fd15f;
+  --sage-soft: #16240f;
+  --sage-soft-2: #1e3415;
+  /* navy is invisible on dark — shift the Chakra accent to bright indigo */
+  --navy: #6e8bff;
+  --navy-deep: #9db2ff;
+  --navy-soft: #1e2540;
+  --navy-text: #9db2ff;
+  --tomato: #ff8a75;
+  --tomato-soft: #33201b;
+  --terracotta: #e09a6b;
   --terracotta-soft: rgba(201, 121, 74, 0.16);
-  --shadow-sm: 0 2px 8px -2px rgba(0, 0, 0, 0.4);
-  --shadow-md: 0 12px 28px -10px rgba(0, 0, 0, 0.5);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.3), 0 6px 20px rgba(0, 0, 0, 0.35);
+  --shadow-md: 0 4px 12px -2px rgba(0, 0, 0, 0.4), 0 12px 28px -10px rgba(0, 0, 0, 0.5);
   --shadow-lg: 0 30px 70px -24px rgba(0, 0, 0, 0.6);
 }
 
@@ -97,9 +123,15 @@
   --color-gold: var(--gold);
   --color-gold-deep: var(--gold-deep);
   --color-gold-soft: var(--gold-soft);
+  --color-gold-soft-2: var(--gold-soft-2);
   --color-sage: var(--sage);
   --color-sage-deep: var(--sage-deep);
   --color-sage-soft: var(--sage-soft);
+  --color-sage-soft-2: var(--sage-soft-2);
+  --color-navy: var(--navy);
+  --color-navy-deep: var(--navy-deep);
+  --color-navy-soft: var(--navy-soft);
+  --color-navy-text: var(--navy-text);
   --color-tomato: var(--tomato);
   --color-tomato-soft: var(--tomato-soft);
   --color-terracotta: var(--terracotta);
@@ -108,6 +140,7 @@
   --font-display: var(--font-display);
   --font-body: var(--font-body);
   --font-mono: var(--font-mono);
+  --font-devanagari: var(--font-devanagari);
 
   --radius-xs: var(--radius-xs);
   --radius-sm: var(--radius-sm);
@@ -176,32 +209,55 @@ body {
 }
 
 /* =========================================================================
-   Preloader — first-paint splash (components/ui/preloader.tsx). A slim
-   indeterminate bar reads as "intentional loading", not a stalled page.
-   Honors prefers-reduced-motion via the global neutralizer above.
+   Brand marks — the tricolour rule and the Ashoka Chakra. Used in the app
+   shell sidebar brand block and the login/auth screens.
    ========================================================================= */
-.preloader-track {
-  position: relative;
-  height: 3px;
-  width: 168px;
-  overflow: hidden;
+.tricolour {
+  height: 4px;
   border-radius: var(--radius-pill);
-  background: var(--gold-soft);
+  background: linear-gradient(
+    to right,
+    var(--gold) 0 33.3%,
+    #ffffff 33.3% 66.6%,
+    var(--sage) 66.6% 100%
+  );
+  box-shadow: inset 0 0 0 1px var(--line);
 }
 
-.preloader-bar {
+[data-theme="dark"] .tricolour {
+  background: linear-gradient(
+    to right,
+    var(--gold) 0 33.3%,
+    var(--ink-2) 33.3% 66.6%,
+    var(--sage) 66.6% 100%
+  );
+}
+
+.chakra circle,
+.chakra line {
+  stroke: var(--navy);
+}
+
+/* =========================================================================
+   Counter tap-ring — the idle "waiting for a card" pulse on /counter. Two
+   rings expand outward from the reader badge. Honors prefers-reduced-motion
+   via the global neutralizer above.
+   ========================================================================= */
+.tap-ring::before,
+.tap-ring::after {
+  content: "";
   position: absolute;
-  top: 0;
-  left: 0;
-  bottom: 0;
-  display: block;
-  width: 42%;
+  inset: 0;
   border-radius: var(--radius-pill);
-  background: linear-gradient(90deg, var(--gold-deep), var(--gold));
-  animation: preloader-bar 1.15s var(--ease) infinite;
+  border: 1px solid var(--gold);
+  opacity: 0;
+  animation: tap-pulse 2.4s var(--ease) infinite;
+}
+.tap-ring::after {
+  animation-delay: 1.2s;
 }
 
-@keyframes preloader-bar {
-  0% { transform: translateX(-130%); }
-  100% { transform: translateX(330%); }
+@keyframes tap-pulse {
+  0% { transform: scale(1); opacity: 0.45; }
+  100% { transform: scale(1.9); opacity: 0; }
 }

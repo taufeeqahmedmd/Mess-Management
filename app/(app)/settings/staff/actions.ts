@@ -8,7 +8,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
-import type { Actor } from "@/lib/rbac";
+import type { Actor, Permission } from "@/lib/rbac";
 
 export type StaffFormState = { error?: string };
 
@@ -36,10 +36,19 @@ async function resolve(
   roleId: string,
   branchIdRaw: string,
 ): Promise<{ branchId: bigint | null; roleId: bigint } | { error: string }> {
-  const role = await prisma.role.findUnique({ where: { id: BigInt(roleId) } });
+  const role = await prisma.role.findUnique({
+    where: { id: BigInt(roleId) },
+    include: { permissions: { include: { permission: { select: { code: true } } } } },
+  });
   if (!role) return { error: "Invalid role." };
   if (role.name === "Super Admin" && !actor.isSuperAdmin) {
     return { error: "Only a Super Admin can assign the Super Admin role." };
+  }
+  // No privilege escalation: a non-Super-Admin can't assign a role that carries
+  // a permission the actor doesn't hold themselves.
+  if (!actor.isSuperAdmin) {
+    const beyond = role.permissions.find((rp) => !actor.permissions.has(rp.permission.code as Permission));
+    if (beyond) return { error: "You can't assign a role with permissions beyond your own." };
   }
   // Scoped admins can only create staff in their own branch.
   const branchId = actor.branchId

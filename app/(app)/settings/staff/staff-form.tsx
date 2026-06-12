@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { MultiSelect } from "@/components/ui/multi-select";
+import { BTN_PRIMARY, BTN_GHOST, FORM_LABEL, FORM_INPUT } from "@/components/ui/controls";
 import type { StaffFormState } from "./actions";
 
 export type StaffData = {
@@ -18,8 +19,7 @@ export type StaffData = {
 type Option = { id: string; name: string };
 type Action = (prev: StaffFormState, formData: FormData) => Promise<StaffFormState>;
 
-const inputClass =
-  "w-full rounded-sm border border-line-strong bg-surface-2 px-3 py-2.5 text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+const inputClass = FORM_INPUT;
 
 export function StaffForm({
   action,
@@ -29,6 +29,7 @@ export function StaffForm({
   counters,
   assignedCounterIds = [],
   canChooseBranch,
+  onCancel,
 }: {
   action: Action;
   staff?: StaffData;
@@ -37,6 +38,7 @@ export function StaffForm({
   counters: Option[];
   assignedCounterIds?: string[];
   canChooseBranch: boolean;
+  onCancel?: () => void;
 }) {
   const isEdit = Boolean(staff);
   const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
@@ -49,52 +51,44 @@ export function StaffForm({
   const [counterSel, setCounterSel] = useState<string[]>(assignedCounterIds);
 
   return (
-    <form onSubmit={onSubmit} className="flex max-w-lg flex-col gap-4">
+    <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
       {staff ? <input type="hidden" name="id" value={staff.id} /> : null}
 
       {state.error ? (
-        <p role="alert" className="rounded-sm bg-tomato-soft px-3 py-2.5 text-sm text-tomato">
+        <p role="alert" className="rounded-sm border border-tomato/30 bg-tomato-soft px-3 py-2.5 text-[12.5px] font-medium text-tomato">
           {state.error}
         </p>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="name" className="text-xs font-semibold text-ink-2">Name</label>
+      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="name" className={FORM_LABEL}>Name</label>
           <input id="name" name="name" required maxLength={150} defaultValue={staff?.name} placeholder="Jane Doe" className={inputClass} />
         </div>
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="mobile" className="text-xs font-semibold text-ink-2">Mobile number</label>
+        <div>
+          <label htmlFor="mobile" className={FORM_LABEL}>Mobile number</label>
           <input id="mobile" name="mobile" required inputMode="numeric" defaultValue={staff?.mobile} placeholder="9000000000" className={`${inputClass} font-mono`} />
         </div>
-      </div>
-
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="roleId" className="text-xs font-semibold text-ink-2">Role</label>
+        <div>
+          <label htmlFor="roleId" className={FORM_LABEL}>Role</label>
           <select id="roleId" name="roleId" required defaultValue={staff?.roleId ?? ""} className={inputClass}>
             <option value="" disabled>Select a role</option>
-            {roles.map((r) => (
-              <option key={r.id} value={r.id}>{r.name}</option>
-            ))}
+            {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
         </div>
-
         {canChooseBranch ? (
-          <div className="flex flex-col gap-1.5">
-            <label htmlFor="branchId" className="text-xs font-semibold text-ink-2">Branch</label>
+          <div>
+            <label htmlFor="branchId" className={FORM_LABEL}>Branch</label>
             <select id="branchId" name="branchId" defaultValue={staff?.branchId ?? ""} className={inputClass}>
               <option value="">All branches (Super Admin)</option>
-              {branches.map((b) => (
-                <option key={b.id} value={b.id}>{b.name}</option>
-              ))}
+              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
             </select>
           </div>
         ) : null}
       </div>
 
-      <div className="flex flex-col gap-1.5">
-        <span className="text-xs font-semibold text-ink-2">Counters</span>
+      <div>
+        <span className={FORM_LABEL}>Counters</span>
         <MultiSelect
           options={counters.map((c) => ({ value: c.id, label: c.name }))}
           selected={counterSel}
@@ -102,17 +96,13 @@ export function StaffForm({
           ariaLabel="Assigned counters"
           placeholder={counters.length ? "Assign counters…" : "No counters available"}
         />
-        {counterSel.map((id) => (
-          <input key={id} type="hidden" name="counterIds" value={id} />
-        ))}
-        <p className="text-xs text-muted">
-          Counters this staff may sign in and operate. Mirrored on each counter&rsquo;s Operators list.
-        </p>
+        {counterSel.map((id) => <input key={id} type="hidden" name="counterIds" value={id} />)}
+        <p className="mt-1.5 text-[11px] text-muted-2">Counters this staff may sign in and operate. Mirrored on each counter&rsquo;s Operators list.</p>
       </div>
 
       {isEdit ? (
-        <div className="flex flex-col gap-1.5">
-          <label htmlFor="status" className="text-xs font-semibold text-ink-2">Status</label>
+        <div>
+          <label htmlFor="status" className={FORM_LABEL}>Status</label>
           <select id="status" name="status" defaultValue={staff?.status ?? "active"} className={`${inputClass} max-w-40`}>
             <option value="active">Active</option>
             <option value="disabled">Disabled</option>
@@ -123,23 +113,21 @@ export function StaffForm({
         <input type="hidden" name="status" value="active" />
       )}
 
-      <div className="flex flex-col gap-1.5">
-        <label htmlFor="password" className="text-xs font-semibold text-ink-2">
-          {isEdit ? "Reset password" : "Password"}
-        </label>
+      <div>
+        <label htmlFor="password" className={FORM_LABEL}>{isEdit ? "Reset password" : "Password"}</label>
         <input id="password" name="password" type="password" autoComplete="new-password" required={!isEdit} minLength={6} className={inputClass} />
-        <p className="text-xs text-muted">
-          {isEdit ? "Leave blank to keep the current password. " : ""}At least 6 characters.
-        </p>
+        <p className="mt-1.5 text-[11px] text-muted-2">{isEdit ? "Leave blank to keep the current password. " : ""}At least 6 characters.</p>
       </div>
 
-      <div className="mt-2 flex items-center gap-3">
-        <button type="submit" disabled={pending} className="rounded-sm bg-gold px-5 py-2.5 font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep disabled:cursor-not-allowed disabled:opacity-60">
+      <div className="mt-1 flex items-center gap-2.5">
+        <button type="submit" disabled={pending} className={BTN_PRIMARY}>
           {pending ? "Saving…" : isEdit ? "Save changes" : "Create staff"}
         </button>
-        <Link href="/settings/staff" className="rounded-sm border border-line-strong bg-surface-2 px-5 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
-          Cancel
-        </Link>
+        {onCancel ? (
+          <button type="button" onClick={onCancel} className={BTN_GHOST}>Cancel</button>
+        ) : (
+          <Link href="/settings/staff" className={BTN_GHOST}>Cancel</Link>
+        )}
       </div>
     </form>
   );

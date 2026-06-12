@@ -157,8 +157,8 @@ export async function importRechargesAction(
         `recharge-import:${ident}:${amount}:${couponSig}:${validTillStr}:${rowNum}`,
       );
 
-      await prisma.$transaction((tx) =>
-        applyRecharge(tx, {
+      await prisma.$transaction(async (tx) => {
+        const r = await applyRecharge(tx, {
           userId: user.id,
           amount: new Prisma.Decimal(amount),
           coupons,
@@ -170,8 +170,19 @@ export async function importRechargesAction(
           remarks: at(idx.remarks) || null,
           clientUuid,
           creditWallet: false,
-        }),
-      );
+        });
+        // Per-row audit, atomic with the money move (no partial-import audit gap).
+        await writeAudit(
+          {
+            appUserId: BigInt(actor.id),
+            action: "recharge.import",
+            entity: "recharge",
+            entityId: r.id,
+            after: { userId: user.id.toString(), amount, coupons: coupons.length, row: rowNum },
+          },
+          tx,
+        );
+      });
       created++;
     } catch (e) {
       if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {

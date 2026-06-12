@@ -3,6 +3,9 @@
 import Link from "next/link";
 import { useEffect, useRef, useState, useSyncExternalStore } from "react";
 import { SignOutButton } from "@/components/shell/sign-out-button";
+import { Logo } from "@/components/shell/icons";
+import { ThemeToggleButton } from "@/components/shell/theme-control";
+import { useDismiss } from "@/components/shell/hooks";
 import {
   enqueueTap,
   getQueuedTaps,
@@ -12,6 +15,63 @@ import {
 } from "@/lib/offline-queue";
 
 type Counter = { id: string; name: string; code: string };
+
+function CardReaderGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.7} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <rect x="3" y="4" width="18" height="14" rx="2" />
+      <path d="M3 18h18M8 22h8" />
+    </svg>
+  );
+}
+
+/** Pill counter selector matching the mockup (gold dot + caret + tick menu). */
+function CounterDropdown({ counters, value, onChange }: { counters: Counter[]; value: string; onChange: (id: string) => void }) {
+  const [open, setOpen] = useState(false);
+  const ref = useDismiss<HTMLDivElement>(open, () => setOpen(false));
+  const selected = counters.find((c) => c.id === value);
+  return (
+    <div ref={ref} className="relative">
+      <button
+        type="button"
+        onClick={() => setOpen((o) => !o)}
+        aria-haspopup="listbox"
+        aria-expanded={open}
+        className="flex items-center gap-2 rounded-pill border border-line-strong bg-surface px-3.5 py-2 text-[13px] font-medium text-ink transition-colors hover:border-gold focus:outline-none focus-visible:border-gold focus-visible:ring-3 focus-visible:ring-gold/15"
+      >
+        <span className="size-[7px] rounded-full bg-gold" />
+        {selected?.name ?? "Select counter"}
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className={`size-3.5 text-muted transition-transform ${open ? "rotate-180" : ""}`} aria-hidden="true">
+          <path d="m6 9 6 6 6-6" />
+        </svg>
+      </button>
+      {open ? (
+        <div role="listbox" className="absolute left-0 top-[calc(100%+8px)] z-20 min-w-[240px] rounded-md border border-line bg-surface p-1.5 shadow-lg">
+          <p className="px-3 py-1.5 text-[10px] font-bold uppercase tracking-[0.1em] text-muted-2">Counter</p>
+          {counters.map((c) => {
+            const sel = c.id === value;
+            return (
+              <button
+                key={c.id}
+                type="button"
+                role="option"
+                aria-selected={sel}
+                onClick={() => { onChange(c.id); setOpen(false); }}
+                className={`flex w-full items-center gap-2.5 rounded-sm px-3 py-2 text-left text-[13.5px] transition-colors ${sel ? "bg-gold-soft-2 font-semibold text-gold-deep" : "text-ink-2 hover:bg-gold-soft hover:text-gold-deep"}`}
+              >
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.4} strokeLinecap="round" strokeLinejoin="round" className={`size-[15px] text-gold-deep ${sel ? "opacity-100" : "opacity-0"}`} aria-hidden="true">
+                  <path d="m5 12 5 5L20 7" />
+                </svg>
+                <span className="flex-1">{c.name}</span>
+                <span className="font-mono text-[11px] text-muted-2">{c.code}</span>
+              </button>
+            );
+          })}
+        </div>
+      ) : null}
+    </div>
+  );
+}
 
 type TapResult = {
   // ERROR = a transport/server failure, NOT a business decision — kept distinct
@@ -33,16 +93,36 @@ type TapResult = {
   redemptionId?: string;
 };
 
-type RecentTap = { key: string; name: string; status: TapResult["status"]; meal?: string; charged?: string; at: string };
-type SyncResult = { clientTxId: string; status: string; reason: string; name?: string; charged?: string; meal?: string };
+type RecentTap = { key: string; name: string; status: TapResult["status"]; meal?: string; charged?: string; paidBy?: "wallet" | "coupon"; at: string };
+type SyncResult = { clientTxId: string; status: string; reason: string; name?: string; charged?: string; paidBy?: "wallet" | "coupon"; meal?: string };
 
-const STATUS_STYLE: Record<TapResult["status"], { panel: string; chip: string }> = {
-  APPROVED: { panel: "border-sage bg-sage-soft", chip: "bg-sage-deep text-white" },
-  REJECTED: { panel: "border-tomato bg-tomato-soft", chip: "bg-tomato text-white" },
-  BLOCKED: { panel: "border-tomato bg-tomato-soft", chip: "bg-tomato text-white" },
-  QUEUED: { panel: "border-gold bg-gold-soft", chip: "bg-gold-deep text-white" },
+const STATUS_STYLE: Record<TapResult["status"], { panel: string; chip: string; title: string; ring: string }> = {
+  APPROVED: {
+    panel: "border-sage-soft-2 bg-[linear-gradient(160deg,var(--sage-soft)_0%,var(--surface)_70%)]",
+    chip: "bg-sage-deep text-white",
+    title: "text-sage-deep",
+    ring: "bg-sage-soft-2 text-sage-deep",
+  },
+  REJECTED: {
+    panel: "border-tomato/30 bg-[linear-gradient(160deg,var(--tomato-soft)_0%,var(--surface)_70%)]",
+    chip: "bg-tomato text-white",
+    title: "text-tomato",
+    ring: "bg-tomato-soft text-tomato",
+  },
+  BLOCKED: {
+    panel: "border-tomato/30 bg-[linear-gradient(160deg,var(--tomato-soft)_0%,var(--surface)_70%)]",
+    chip: "bg-tomato text-white",
+    title: "text-tomato",
+    ring: "bg-tomato-soft text-tomato",
+  },
+  QUEUED: {
+    panel: "border-gold-soft-2 bg-[linear-gradient(160deg,var(--gold-soft)_0%,var(--surface)_70%)]",
+    chip: "bg-gold-deep text-white",
+    title: "text-gold-deep",
+    ring: "bg-gold-soft-2 text-gold-deep",
+  },
   // Neutral, not red — this is a system error to retry, not a card decline.
-  ERROR: { panel: "border-line-strong bg-surface-2", chip: "bg-ink-2 text-white" },
+  ERROR: { panel: "border-line-strong bg-surface-2", chip: "bg-ink-2 text-white", title: "text-ink", ring: "bg-surface-2 text-muted" },
 };
 
 function dotFor(status: TapResult["status"]) {
@@ -117,8 +197,9 @@ export function CounterScreen({
     };
   }, []);
 
-  // After a result is shown, auto-reset to the "Tap a card" state after 5s and
-  // re-arm the reader. Each new tap restarts the timer.
+  // After a result is shown, auto-reset to the "Tap a card" state after 2s and
+  // re-arm the reader. A new tap replaces the result immediately (this only
+  // governs the idle return when no further tap arrives).
   useEffect(() => {
     if (!result) return;
     const t = setTimeout(() => {
@@ -237,7 +318,7 @@ export function CounterScreen({
       setRecent((list) =>
         list.map((t) => {
           const r = all.find((x) => x.clientTxId === t.key);
-          return r ? { ...t, status: r.status as TapResult["status"], charged: r.charged, meal: r.meal } : t;
+          return r ? { ...t, status: r.status as TapResult["status"], charged: r.charged, paidBy: r.paidBy, meal: r.meal } : t;
         }),
       );
       setSyncReport({
@@ -298,6 +379,7 @@ export function CounterScreen({
           status: res.status,
           meal: res.meal?.name,
           charged: res.charged,
+          paidBy: res.paidBy,
           at: new Date().toLocaleTimeString(),
         });
       } else if (r.status >= 500) {
@@ -327,45 +409,42 @@ export function CounterScreen({
 
   const ch = result?.cardholder;
 
+  const selectedCounter = counters.find((c) => c.id === counterId);
+
   return (
     <main className="flex min-h-screen flex-col bg-canvas">
-      <header className="flex flex-wrap items-center justify-between gap-3 border-b border-line bg-surface px-5 py-3">
-        <div className="flex items-center gap-3">
-          <span className="font-display text-lg font-semibold text-ink">RFID Counter</span>
-          <select
-            value={counterId}
-            onChange={(e) => setCounterId(e.target.value)}
-            aria-label="Counter"
-            className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 text-sm text-ink focus:border-gold focus:outline-none"
-          >
-            {counters.map((c) => (
-              <option key={c.id} value={c.id}>{c.name}</option>
-            ))}
-          </select>
+      {/* Topbar */}
+      <header className="sticky top-0 z-20 flex flex-wrap items-center gap-3.5 border-b border-line bg-canvas/85 px-5 py-3 backdrop-blur-md">
+        <div className="flex items-center gap-2.5">
+          <Logo className="h-7 shrink-0" />
+          <span className="font-display text-base font-bold tracking-[-0.2px] text-ink">RFID Counter</span>
         </div>
-        <div className="flex items-center gap-3 text-sm">
+        <CounterDropdown counters={counters} value={counterId} onChange={setCounterId} />
+
+        <div className="ml-auto flex items-center gap-3.5">
           {queued > 0 ? (
             <button
               type="button"
               onClick={() => void syncQueue()}
               disabled={syncing || !online}
-              className="inline-flex items-center gap-1.5 rounded-pill bg-gold-soft px-3 py-1 font-medium text-gold-deep disabled:opacity-60"
+              className="inline-flex items-center gap-1.5 rounded-pill bg-gold-soft px-3 py-1.5 text-[12.5px] font-semibold text-gold-deep disabled:opacity-60"
             >
-              <span className="size-2 rounded-pill bg-gold-deep" />
+              <span className="size-2 rounded-full bg-gold-deep" />
               {syncing ? "Syncing…" : `${queued} queued`}
             </button>
           ) : null}
-          <span className="inline-flex items-center gap-1.5 text-ink-2">
-            <span className={`size-2 rounded-pill ${online ? "bg-sage" : "bg-tomato"}`} />
+          <ThemeToggleButton />
+          <span className="inline-flex items-center gap-2 text-[12.5px] text-muted">
+            <span className={`size-2 rounded-full ${online ? "bg-sage shadow-[0_0_0_3px_var(--sage-soft)]" : "bg-tomato shadow-[0_0_0_3px_var(--tomato-soft)]"}`} />
             {online ? "Online" : "Offline"}
           </span>
-          <span className="text-ink-2">{operatorName}</span>
+          <span className="hidden text-[13px] font-medium text-ink sm:inline">{operatorName}</span>
           {counterOnly ? (
-            <SignOutButton className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep disabled:opacity-60">
+            <SignOutButton className="rounded-pill border border-line-strong bg-surface px-[18px] py-2 text-[13px] font-semibold text-ink-2 transition-colors hover:border-gold-soft-2 hover:bg-gold-soft hover:text-gold-deep disabled:opacity-60">
               Logout
             </SignOutButton>
           ) : (
-            <Link href="/vendor-dashboard" className="rounded-sm border border-line-strong bg-surface-2 px-3 py-1.5 font-medium text-ink-2 hover:border-gold hover:text-gold-deep">
+            <Link href="/vendor-dashboard" className="rounded-pill border border-line-strong bg-surface px-[18px] py-2 text-[13px] font-semibold text-ink-2 transition-colors hover:border-gold-soft-2 hover:bg-gold-soft hover:text-gold-deep">
               Exit
             </Link>
           )}
@@ -375,10 +454,10 @@ export function CounterScreen({
       {syncError ? (
         <div role="alert" className="flex items-center justify-between gap-3 border-b border-line bg-tomato-soft px-5 py-2 text-sm">
           <span className="inline-flex items-center gap-1.5 text-tomato">
-            <span className="size-2 rounded-pill bg-tomato" />
+            <span className="size-2 rounded-full bg-tomato" />
             {syncError}
           </span>
-          <button type="button" onClick={() => void syncQueue()} disabled={syncing || !online} className="font-medium text-tomato underline disabled:opacity-60">
+          <button type="button" onClick={() => void syncQueue()} disabled={syncing || !online} className="font-semibold text-tomato underline disabled:opacity-60">
             Retry now
           </button>
         </div>
@@ -387,9 +466,9 @@ export function CounterScreen({
       {syncReport ? (
         <div className="flex items-center justify-between gap-3 border-b border-line bg-surface-2 px-5 py-2 text-sm">
           <span className="text-ink-2">
-            Synced: <span className="font-medium text-sage-deep">{syncReport.approved} approved</span>
+            Synced: <span className="font-semibold text-sage-deep">{syncReport.approved} approved</span>
             {syncReport.rejected + syncReport.blocked > 0 ? (
-              <>, <span className="font-medium text-tomato">{syncReport.rejected + syncReport.blocked} not applied</span> (balance/rules changed)</>
+              <>, <span className="font-semibold text-tomato">{syncReport.rejected + syncReport.blocked} not applied</span> (balance/rules changed)</>
             ) : null}
             .
           </span>
@@ -397,53 +476,74 @@ export function CounterScreen({
         </div>
       ) : null}
 
-      <div className="grid flex-1 grid-cols-1 gap-4 p-4 lg:grid-cols-[1fr_320px]">
-        <section className="flex flex-col gap-4">
+      {/* Stage */}
+      <div className="mx-auto grid w-full max-w-[1600px] flex-1 grid-cols-1 gap-4 p-4 sm:px-5 sm:pb-5 lg:grid-cols-[1fr_270px]">
+        <section className="flex min-h-0 flex-col">
           <div
-            className={`flex min-h-[360px] flex-1 flex-col items-center justify-center gap-5 rounded-lg border-2 p-8 text-center transition-colors ${
+            className={`flex min-h-[440px] flex-1 flex-col items-center justify-center rounded-md border p-8 text-center shadow-sm transition-colors sm:p-12 ${
               result ? STATUS_STYLE[result.status].panel : "border-line bg-surface"
             }`}
           >
             {!result ? (
               <>
-                <p className="font-display text-3xl font-semibold text-ink">Tap a card</p>
-                <p className="text-sm text-muted">Waiting for the reader…</p>
+                <div className="tap-ring relative mb-7 grid size-24 place-items-center rounded-full border border-gold-soft-2 bg-gold-soft text-gold-deep">
+                  <CardReaderGlyph className="size-10" />
+                </div>
+                <p className="font-display text-[30px] font-bold tracking-[-0.6px] text-ink">Tap a card</p>
+                <p className="mt-2 text-[13px] text-muted-2">Waiting for the reader…</p>
               </>
             ) : (
               <>
                 {ch?.photoUrl ? (
                   // eslint-disable-next-line @next/next/no-img-element -- arbitrary external cardholder photo
-                  <img src={ch.photoUrl} alt={ch.name ? `Photo of ${ch.name}` : "Cardholder photo"} className="size-40 rounded-md border border-line object-cover shadow-md" />
+                  <img src={ch.photoUrl} alt={ch.name ? `Photo of ${ch.name}` : "Cardholder photo"} className="mb-5 size-36 rounded-md border border-line object-cover shadow-md" />
                 ) : (
-                  <div className="grid size-40 place-items-center rounded-md border border-line bg-surface-2">
-                    <span className="font-display text-4xl font-semibold text-muted-2">
-                      {ch?.name ? ch.name.slice(0, 1).toUpperCase() : result.status === "QUEUED" ? "⏱" : "?"}
-                    </span>
+                  <div className={`mb-5 grid size-24 place-items-center rounded-full ${STATUS_STYLE[result.status].ring}`}>
+                    {result.status === "QUEUED" ? <CardReaderGlyph className="size-10" /> : <span className="font-display text-4xl font-bold">{ch?.name ? ch.name.slice(0, 1).toUpperCase() : "?"}</span>}
                   </div>
                 )}
 
-                <span className={`rounded-pill px-5 py-1.5 text-lg font-bold tracking-wide ${STATUS_STYLE[result.status].chip}`}>
+                <span className={`mb-3 rounded-pill px-5 py-1.5 text-lg font-bold tracking-wide ${STATUS_STYLE[result.status].chip}`}>
                   {result.status}
                 </span>
 
                 {ch ? (
                   <div>
-                    <p className="font-display text-2xl font-semibold text-ink">{ch.name}</p>
-                    <p className="mt-0.5 text-sm text-ink-2"><span className="font-mono">{ch.code}</span> · {ch.category}</p>
+                    <p className={`font-display text-2xl font-bold ${STATUS_STYLE[result.status].title}`}>{ch.name}</p>
+                    <p className="mt-0.5 text-[13px] text-ink-2"><span className="font-mono">{ch.code}</span> · {ch.category}</p>
                   </div>
                 ) : null}
 
-                <p className="text-base font-medium text-ink-2">{result.reason}</p>
+                <p className="mt-2 text-[15px] font-medium text-ink-2">{result.reason}</p>
 
-                <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-1 text-sm text-ink-2">
-                  {result.meal ? <span>Meal: <span className="font-medium text-ink">{result.meal.name}</span></span> : null}
-                  {result.status === "APPROVED" ? (
-                    <span>{result.paidBy === "coupon" ? "Coupon" : `Charged ₹${result.charged}`}</span>
-                  ) : null}
-                  {ch ? <span>Wallet: <span className="font-mono text-ink">₹{ch.walletBalance}</span></span> : null}
-                </div>
+                {ch ? (
+                  <div className="mt-6 flex flex-wrap items-start justify-center gap-x-8 gap-y-3">
+                    {result.meal ? (
+                      <div className="text-center">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Meal</div>
+                        <div className="mt-0.5 text-[17px] font-bold text-ink">{result.meal.name}</div>
+                      </div>
+                    ) : null}
+                    {result.status === "APPROVED" ? (
+                      <div className="text-center">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Charged</div>
+                        <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">{result.paidBy === "coupon" ? "Coupon" : `₹${result.charged}`}</div>
+                      </div>
+                    ) : null}
+                    <div className="text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Balance</div>
+                      <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">₹{ch.walletBalance}</div>
+                    </div>
+                  </div>
+                ) : null}
               </>
             )}
+
+            {/* selected-counter chip */}
+            <div className="mt-7 inline-flex items-center gap-2 rounded-pill border border-line bg-surface-2 px-3.5 py-1.5 text-[11px] font-bold uppercase tracking-[0.06em] text-muted">
+              <span className="size-[7px] rounded-full bg-gold" />
+              {selectedCounter?.name ?? "No counter"}
+            </div>
           </div>
 
           {/* Hidden capture field — the USB reader types the card number here while
@@ -462,24 +562,38 @@ export function CounterScreen({
           />
         </section>
 
-        <aside className="flex flex-col gap-2 rounded-lg border border-line bg-surface p-4">
-          <h2 className="font-display text-sm font-semibold uppercase tracking-[0.06em] text-muted">Recent</h2>
+        <aside className="flex max-h-[280px] flex-col overflow-hidden rounded-md border border-line bg-surface shadow-sm lg:max-h-none">
+          <div className="flex items-center gap-2.5 px-5 pb-3 pt-4">
+            <span className="h-[15px] w-1 rounded-full bg-gold" />
+            <h2 className="text-[11px] font-bold uppercase tracking-[0.1em] text-muted-2">Recent</h2>
+          </div>
           {recent.length === 0 ? (
-            <p className="text-sm text-ink-2">No taps yet.</p>
+            <p className="px-5 pb-4 text-[13px] text-muted">No taps yet.</p>
           ) : (
-            <ul className="flex flex-col gap-1.5">
+            <ul className="overflow-y-auto pb-2">
               {recent.map((t) => (
-                <li key={t.key} className="flex items-center justify-between gap-2 rounded-sm border border-line bg-surface-2 px-3 py-2 text-sm">
-                  <span className="min-w-0">
-                    <span className="inline-flex items-center gap-1.5">
-                      <span className={`size-2 rounded-pill ${dotFor(t.status)}`} />
-                      <span className="truncate text-ink">{t.name}</span>
-                    </span>
-                    {/* status as text, not colour alone (theme.md §8 / a11y) */}
-                    <span className="ml-3 text-[11px] font-semibold uppercase tracking-wide text-ink-2">{t.status}</span>
-                    {t.meal ? <span className="ml-2 text-xs text-muted">{t.meal}</span> : null}
+                <li key={t.key} className="flex items-center gap-3 border-t border-line px-5 py-2.5">
+                  <span className="grid size-[30px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,var(--gold),var(--sage))] text-[12px] font-bold text-white">
+                    {t.name.slice(0, 1).toUpperCase()}
                   </span>
-                  <span className="shrink-0 font-mono text-xs text-muted">{t.at}</span>
+                  <span className="min-w-0 flex-1">
+                    <span className="block truncate text-[13px] font-semibold text-ink">{t.name}</span>
+                    <span className="flex flex-wrap items-center gap-x-1.5 gap-y-0.5 text-[11px] text-muted-2">
+                      <span className={`size-[6px] shrink-0 rounded-full ${dotFor(t.status)}`} />
+                      {/* status as text, not colour alone (theme.md §8 / a11y) */}
+                      <span className="uppercase tracking-wide">{t.status}</span>
+                      {t.meal ? <span>· {t.meal}</span> : null}
+                      <span>· {t.at}</span>
+                    </span>
+                  </span>
+                  {/* Mirror the main panel: a coupon-paid tap reads "Coupon", not ₹0.00. */}
+                  {t.status === "APPROVED" ? (
+                    t.paidBy === "coupon" ? (
+                      <span className="shrink-0 rounded-pill bg-sage-soft-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sage-deep">Coupon</span>
+                    ) : t.charged ? (
+                      <span className="shrink-0 font-mono text-[13px] font-bold text-sage-deep">₹{t.charged}</span>
+                    ) : null
+                  ) : null}
                 </li>
               ))}
             </ul>

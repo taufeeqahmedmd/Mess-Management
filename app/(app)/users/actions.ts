@@ -80,11 +80,26 @@ async function validateCommon(
       : null;
   if (branchId === null) return { error: "Select a branch." };
 
+  // A department must belong to the resolved branch — never let a forged
+  // departmentId attach a cardholder to another branch's department.
+  let departmentId: bigint | null = null;
+  if (input.departmentId) {
+    let depId: bigint;
+    try {
+      depId = BigInt(input.departmentId);
+    } catch {
+      return { error: "Invalid department." };
+    }
+    const dep = await prisma.department.findUnique({ where: { id: depId }, select: { branchId: true } });
+    if (!dep || dep.branchId !== branchId) return { error: "Invalid department for this branch." };
+    departmentId = depId;
+  }
+
   return {
     code,
     categoryId: category.id,
     branchId,
-    departmentId: input.departmentId ? BigInt(input.departmentId) : null,
+    departmentId,
     cardExpiryDate: input.cardExpiryDate ? new Date(input.cardExpiryDate) : null,
   };
 }
