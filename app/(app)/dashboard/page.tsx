@@ -2,12 +2,13 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
-import { inr } from "@/lib/format";
 import { StatCard } from "@/components/ui/stat-card";
+import { CountUp } from "@/components/ui/count-up";
 import { DateRangeForm } from "@/components/reports/date-range-form";
-import { BreakdownTable } from "@/components/reports/breakdown-table";
+import { BreakdownTableInner } from "@/components/reports/breakdown-table";
+import { UsageBreakdownTabs } from "@/components/reports/usage-breakdown-tabs";
 import { ProfitAreaChart } from "@/components/reports/profit-area-chart";
-import { UsersIcon, ReceiptIcon, BagIcon, TrendingUpIcon, WalletIcon, CoinsIcon, ChefHatIcon, BankIcon } from "@/components/reports/stat-icons";
+import { UsersIcon, ReceiptIcon, BagIcon, TrendingUpIcon, BanknoteIcon, CoinStackIcon, ChefHatIcon, BankIcon } from "@/components/reports/stat-icons";
 import {
   resolveDateRange,
   consumptionSummary,
@@ -31,20 +32,10 @@ export default async function DashboardPage({
   if (!can(actor, "dashboard.view")) redirect("/counter");
 
   const sp = await searchParams;
-  // Dashboard (and its profit chart) default to the last 7 days; once the user
-  // picks a range it's honoured. Other reports keep the month default.
+  // Dashboard defaults to "this month" (first of month → today); once the user
+  // picks a range it's honoured. resolveDateRange supplies the month default.
   const now = new Date();
-  let fromStr = sp.from;
-  let toStr = sp.to;
-  if (!fromStr && !toStr) {
-    const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
-    const weekAgo = new Date(today);
-    weekAgo.setDate(today.getDate() - 6);
-    const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-    fromStr = ymd(weekAgo);
-    toStr = ymd(today);
-  }
-  const range = resolveDateRange(fromStr, toStr, now);
+  const range = resolveDateRange(sp.from, sp.to, now);
   const branchId = actor.branchId ? BigInt(actor.branchId) : null;
   const f = { branchId, from: range.from, toExclusive: range.toExclusive };
 
@@ -78,44 +69,55 @@ export default async function DashboardPage({
         <DateRangeForm action="/dashboard" fromStr={range.fromStr} toStr={range.toStr} />
       </div>
 
-      {/* Row 1: four KPIs + the profit-trend chart, one row on wide screens */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:[grid-template-columns:repeat(4,minmax(0,1fr))_1.55fr]">
-        <StatCard label="Cardholders" value={cardholders.toLocaleString("en-IN")} hint="active" variant="saffron" icon={<UsersIcon />} />
-        <StatCard label="Sale" value={inr(consumption.sale)} hint="value of meals served" variant="saffron" icon={<ReceiptIcon />} />
-        <StatCard label="Vendor cost" value={inr(consumption.cost)} hint="in selected range" variant="plain" icon={<BagIcon />} />
-        <StatCard
-          label={plPositive ? "Profit" : "Loss"}
-          value={`${plPositive ? "" : "−"}${inr(consumption.pl.abs())}`}
-          hint="sale − vendor cost"
-          variant={plPositive ? "green" : "plain"}
-          icon={<TrendingUpIcon />}
-        />
-        <div className="sm:col-span-2 xl:col-span-1">
+      {/* One grid drives both layouts via `order`:
+          • mobile  → chart, KPIs (2×2), collection cards, usage tabs
+          • desktop → KPIs row, collection cards row, then [usage tabs | chart] */}
+      <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
+        {/* Profit trend — first on mobile, right column on desktop */}
+        <div className="order-1 xl:order-4">
           <ProfitAreaChart points={trend} rangeLabel={`${range.fromStr} → ${range.toStr}`} />
         </div>
-      </section>
 
-      {/* Row 2: collections + operating revenue */}
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
-        <StatCard label="Collections" value={inr(collections.amount)} hint={`${collections.count} recharges in range`} variant="navy" icon={<WalletIcon />} />
-        <StatCard label="Overall collection" value={inr(overallColl)} hint="all time" variant="navy" icon={<CoinsIcon />} />
-        <StatCard label="Payable to caterer" value={inr(overallVendor)} hint="all time" variant="plain" icon={<ChefHatIcon />} />
-        <StatCard
-          label="Operating revenue"
-          value={`${orPositive ? "" : "−"}${inr(operatingRevenue.abs())}`}
-          hint="overall collection − caterer"
-          variant={orPositive ? "green" : "plain"}
-          icon={<BankIcon />}
+        {/* Consumption KPIs — 2×2 on mobile, 4-across on desktop */}
+        <section className="order-2 grid grid-cols-2 gap-4 xl:order-1 xl:col-span-2 xl:grid-cols-4">
+          <StatCard label="Cardholders" value={<CountUp value={cardholders} />} hint="active" variant="saffron" icon={<UsersIcon />} />
+          <StatCard label="Sale" value={<CountUp value={consumption.sale.toNumber()} prefix="₹" decimals={2} />} hint="value of meals served" variant="saffron" icon={<ReceiptIcon />} />
+          <StatCard label="Vendor cost" value={<CountUp value={consumption.cost.toNumber()} prefix="₹" decimals={2} />} hint="in selected range" variant="plain" icon={<BagIcon />} />
+          <StatCard
+            label={plPositive ? "Profit" : "Loss"}
+            value={<CountUp value={consumption.pl.abs().toNumber()} prefix={`${plPositive ? "" : "−"}₹`} decimals={2} />}
+            hint="sale − vendor cost"
+            variant={plPositive ? "green" : "plain"}
+            icon={<TrendingUpIcon />}
+          />
+        </section>
+
+        {/* Collections + operating revenue — single column on mobile (unchanged) */}
+        <section className="order-3 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:order-2 xl:col-span-2 xl:grid-cols-4">
+          <StatCard label="Collections" value={<CountUp value={collections.amount.toNumber()} prefix="₹" decimals={2} />} hint={`${collections.count} recharges in range`} variant="navy" icon={<BanknoteIcon />} />
+          <StatCard label="Overall collection" value={<CountUp value={overallColl.toNumber()} prefix="₹" decimals={2} />} hint="all time" variant="navy" icon={<CoinStackIcon />} />
+          <StatCard label="Payable to caterer" value={<CountUp value={overallVendor.toNumber()} prefix="₹" decimals={2} />} hint="all time" variant="plain" icon={<ChefHatIcon />} />
+          <StatCard
+            label="Operating revenue"
+            value={<CountUp value={operatingRevenue.abs().toNumber()} prefix={`${orPositive ? "" : "−"}₹`} decimals={2} />}
+            hint="overall collection − caterer"
+            variant={orPositive ? "green" : "plain"}
+            icon={<BankIcon />}
+          />
+        </section>
+
+        {/* Usage breakdown tabs — left column on desktop */}
+        <UsageBreakdownTabs
+          className="order-4 xl:order-3"
+          taps={consumption.count}
+          sale={consumption.sale.toNumber()}
+          tabs={[
+            { id: "category", label: "By category", content: <BreakdownTableInner unit="Category" rows={byCardholderType} /> },
+            { id: "meal", label: "By meal", content: <BreakdownTableInner unit="Meal" rows={byMeal} rowDot dotColors={mealColors} /> },
+            { id: "counter", label: "By counter", content: <BreakdownTableInner unit="Counter" rows={byCounter} /> },
+          ]}
         />
-      </section>
-
-      {/* Row 3: breakdown tables */}
-      <section className="grid grid-cols-1 gap-4 xl:grid-cols-2">
-        <BreakdownTable title="Usage by category" unit="Category" rows={byCardholderType} accent="saffron" />
-        <BreakdownTable title="Usage by meal" unit="Meal" rows={byMeal} accent="green" rowDot dotColors={mealColors} />
-      </section>
-
-      <BreakdownTable title="Usage by counter" unit="Counter" rows={byCounter} accent="navy" />
+      </div>
     </div>
   );
 }

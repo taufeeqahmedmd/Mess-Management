@@ -58,6 +58,22 @@ export const CoinsIcon = () => (
   </svg>
 );
 
+export const BanknoteIcon = () => (
+  <svg {...base}>
+    <rect x="2" y="6" width="20" height="12" rx="2" />
+    <circle cx="12" cy="12" r="2.5" />
+    <path d="M6 12h.01M18 12h.01" />
+  </svg>
+);
+
+export const CoinStackIcon = () => (
+  <svg {...base}>
+    <ellipse cx="12" cy="6" rx="7" ry="3" />
+    <path d="M5 6v6c0 1.66 3.13 3 7 3s7-1.34 7-3V6" />
+    <path d="M5 12v6c0 1.66 3.13 3 7 3s7-1.34 7-3v-6" />
+  </svg>
+);
+
 export const ChefHatIcon = () => (
   <svg {...base}>
     <path d="M6 14a4 4 0 0 1-1-7.9A5 5 0 0 1 15 5a4 4 0 0 1 4 8" />

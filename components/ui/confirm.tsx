@@ -128,7 +128,7 @@ function ConfirmDialog({
   // plain --tomato + white is only ~3.3:1.
   const confirmClass = danger
     ? "text-white shadow-md transition hover:brightness-110"
-    : "bg-gold text-ink shadow-gold transition-colors hover:bg-gold-deep";
+    : "bg-gold-deep text-white shadow-gold transition hover:brightness-110";
 
   return (
     <div

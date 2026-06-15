@@ -161,8 +161,13 @@ export function Chakra({ className }: { className?: string }) {
  */
 export function Logo({ className }: { className?: string }) {
   return (
-    // eslint-disable-next-line @next/next/no-img-element -- static brand asset, no layout-shift concern
-    <img src="/assets/images/logo/logo.svg" alt="" className={`w-auto ${className ?? ""}`} />
+    <>
+      {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no layout-shift concern */}
+      <img src="/assets/images/logo/logo.svg" alt="" className={`w-auto dark:hidden ${className ?? ""}`} />
+      {/* White variant for dark mode ([data-theme="dark"]). */}
+      {/* eslint-disable-next-line @next/next/no-img-element -- static brand asset, no layout-shift concern */}
+      <img src="/assets/images/logo/logo-white.png" alt="" className={`hidden w-auto dark:block ${className ?? ""}`} />
+    </>
   );
 }
 

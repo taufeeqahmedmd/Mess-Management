@@ -40,6 +40,37 @@ const VAL: Record<"saffron" | "green" | "navy" | "plain", string> = {
   navy: "text-navy-text",
   plain: "text-ink",
 };
+/** Accent the decorative sparkline borrows (via currentColor) per variant. */
+const CHART: Record<"saffron" | "green" | "navy" | "plain", string> = {
+  saffron: "text-gold",
+  green: "text-sage-deep",
+  navy: "text-navy-text",
+  plain: "text-muted-2",
+};
+
+/**
+ * Static, decorative bar sparkline tucked beside the value. Purely cosmetic
+ * (aria-hidden) — it does NOT represent data; it fades from the variant accent
+ * (top) to translucent (bottom) like the theme's soft depth.
+ */
+const SPARK = [46, 64, 40, 78, 56, 90, 70];
+function MiniBars({ className }: { className?: string }) {
+  return (
+    <div className={`flex h-10 shrink-0 items-end gap-[3px] ${className ?? ""}`} aria-hidden>
+      {SPARK.map((h, i) => (
+        <span
+          key={i}
+          className="w-1.5 rounded-t-[2px]"
+          style={{
+            height: `${h}%`,
+            background:
+              "linear-gradient(to top, color-mix(in srgb, currentColor 16%, transparent), currentColor)",
+          }}
+        />
+      ))}
+    </div>
+  );
+}
 
 export function StatCard({
   label,
@@ -73,14 +104,20 @@ export function StatCard({
           </span>
         ) : null}
       </div>
-      {/* Font scales with the card's own width (container query) so long ₹ values
-          fit on narrow grids, capping at the mockup's 28px on wide cards. */}
-      <p
-        className={`mt-3.5 font-display text-[clamp(1.1rem,9cqi,1.75rem)] font-bold leading-[1.1] tracking-[-0.04em] tabular-nums ${VAL[v]}`}
-      >
-        {value}
-      </p>
-      {hint ? <p className="mt-[7px] text-[11.5px] text-muted-2">{hint}</p> : null}
+      <div className="mt-3.5 flex items-end justify-between gap-3">
+        <div className="min-w-0 flex-1">
+          {/* Font scales with the card's own width (container query) so long ₹ values
+              fit on narrow grids, capping at the mockup's 28px on wide cards. */}
+          <p
+            className={`font-display text-[clamp(1.05rem,8.5cqi,1.7rem)] font-bold leading-[1.1] tracking-[-0.04em] tabular-nums ${VAL[v]}`}
+          >
+            {value}
+          </p>
+          {hint ? <p className="mt-[7px] text-[11.5px] text-muted-2">{hint}</p> : null}
+        </div>
+        {/* Decorative only — hidden on very narrow cards so it never crowds the value. */}
+        <MiniBars className={`hidden @[180px]:flex ${CHART[v]}`} />
+      </div>
     </div>
   );
 }

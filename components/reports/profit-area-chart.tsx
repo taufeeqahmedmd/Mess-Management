@@ -14,6 +14,16 @@ export type ChartPoint = { date: string; label: string; profit: number };
 const inr0 = (n: number) =>
   new Intl.NumberFormat("en-IN", { style: "currency", currency: "INR", maximumFractionDigits: 0 }).format(n);
 
+/** Compact ₹ for Y-axis ticks: ₹2k, ₹-1.5k, ₹900. */
+const inrShort = (n: number) => {
+  const a = Math.abs(n);
+  if (a >= 1000) {
+    const k = n / 1000;
+    return `₹${a % 1000 === 0 ? k.toFixed(0) : k.toFixed(1)}k`;
+  }
+  return `₹${n}`;
+};
+
 function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{ payload: ChartPoint }> }) {
   if (!active || !payload?.length) return null;
   const p = payload[0].payload;
@@ -33,7 +43,7 @@ function ChartTooltip({ active, payload }: { active?: boolean; payload?: Array<{
 export function ProfitAreaChart({ points, rangeLabel }: { points: ChartPoint[]; rangeLabel: string }) {
   const total = points.reduce((s, p) => s + p.profit, 0);
   return (
-    <div className="flex flex-col overflow-hidden rounded-md border border-line bg-surface px-[19px] py-[18px] shadow-sm">
+    <div className="flex h-full flex-col overflow-hidden rounded-md border border-line bg-surface px-[19px] py-[18px] shadow-sm">
       <div className="mb-1.5 flex items-start justify-between gap-3">
         <div>
           <h2 className="font-display text-[15px] font-bold text-ink">Profit trend</h2>
@@ -44,32 +54,57 @@ export function ProfitAreaChart({ points, rangeLabel }: { points: ChartPoint[]; 
           <p className="mt-1 text-[10px] uppercase tracking-[0.05em] text-muted-2">total in range</p>
         </div>
       </div>
-      <div className="h-[150px] w-full">
+      <div className="min-h-[220px] w-full flex-1">
         {points.length === 0 ? (
           <div className="flex h-full items-center justify-center py-8 text-sm text-ink-2">
             No profit data in this range.
           </div>
         ) : (
           <ResponsiveContainer width="100%" height="100%" minWidth={0} minHeight={120}>
-            <AreaChart data={points} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
+            <AreaChart data={points} margin={{ top: 8, right: 6, bottom: 0, left: 0 }}>
               <defs>
-                <linearGradient id="dash-profit-fill" x1="0" y1="0" x2="0" y2="1">
-                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.28} />
-                  <stop offset="100%" stopColor="var(--gold)" stopOpacity={0} />
+                {/* Horizontal saffron → sage: the line and fill flow warm-to-green
+                    across the range, echoing the Tricolour theme. */}
+                <linearGradient id="dash-profit-stroke" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="var(--gold)" />
+                  <stop offset="45%" stopColor="var(--gold)" />
+                  <stop offset="70%" stopColor="var(--sage)" />
+                  <stop offset="100%" stopColor="var(--sage-deep)" />
+                </linearGradient>
+                <linearGradient id="dash-profit-fill" x1="0" y1="0" x2="1" y2="0">
+                  <stop offset="0%" stopColor="var(--gold)" stopOpacity={0.22} />
+                  <stop offset="45%" stopColor="var(--gold)" stopOpacity={0.16} />
+                  <stop offset="70%" stopColor="var(--sage)" stopOpacity={0.16} />
+                  <stop offset="100%" stopColor="var(--sage)" stopOpacity={0.12} />
                 </linearGradient>
               </defs>
-              <CartesianGrid vertical={false} stroke="var(--line)" />
-              <XAxis dataKey="label" hide />
-              <YAxis hide domain={["auto", "auto"]} />
-              <Tooltip content={<ChartTooltip />} cursor={{ stroke: "var(--gold-deep)", strokeOpacity: 0.4 }} />
+              <CartesianGrid vertical={false} stroke="var(--line)" strokeOpacity={0.7} />
+              <XAxis
+                dataKey="label"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: "var(--muted)" }}
+                minTickGap={18}
+                interval="preserveStartEnd"
+                dy={4}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                tick={{ fontSize: 10, fill: "var(--muted)" }}
+                width={40}
+                tickFormatter={inrShort}
+                domain={["auto", "auto"]}
+              />
+              <Tooltip content={<ChartTooltip />} cursor={{ stroke: "var(--ink-2)", strokeOpacity: 0.3 }} />
               <Area
                 type="monotone"
                 dataKey="profit"
-                stroke="var(--gold)"
+                stroke="url(#dash-profit-stroke)"
                 strokeWidth={2.4}
                 fill="url(#dash-profit-fill)"
                 dot={false}
-                activeDot={{ r: 3.4, fill: "var(--surface)", stroke: "var(--gold-deep)", strokeWidth: 2 }}
+                activeDot={{ r: 3.4, fill: "var(--surface)", stroke: "var(--sage-deep)", strokeWidth: 2 }}
               />
             </AreaChart>
           </ResponsiveContainer>

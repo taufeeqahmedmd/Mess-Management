@@ -197,15 +197,18 @@ export function CounterScreen({
     };
   }, []);
 
-  // After a result is shown, auto-reset to the "Tap a card" state after 2s and
-  // re-arm the reader. A new tap replaces the result immediately (this only
-  // governs the idle return when no further tap arrives).
+  // A tap result stays on screen for 10s, then the panel returns to "Tap a card"
+  // and re-arms the reader. A new tap mid-window replaces the result immediately:
+  // setResult re-runs this effect, the cleanup clears the old timer, and a fresh
+  // 10s countdown starts for the new result. This only governs the idle return
+  // when no further tap arrives.
+  const RESULT_HOLD_MS = 10_000;
   useEffect(() => {
     if (!result) return;
     const t = setTimeout(() => {
       setResult(null);
       inputRef.current?.focus();
-    }, 2000);
+    }, RESULT_HOLD_MS);
     return () => clearTimeout(t);
   }, [result]);
 

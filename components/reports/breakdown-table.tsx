@@ -23,40 +23,34 @@ const BAR: Record<"saffron" | "green" | "navy", string> = {
 };
 
 /**
- * Usage breakdown by some dimension (category / meal / counter). `mode="pl"`
- * shows sale / vendor cost / P&L; `mode="vendor"` shows only the vendor payable
- * (the vendor dashboard's caterer-facing view). An optional `accent` renders the
- * coloured panel bar before the title; `rowDot` prefixes each first-column label
- * with a saffron meal-chip dot.
+ * Bare usage-breakdown table (no card chrome / title) for some dimension
+ * (category / meal / counter). `mode="pl"` shows sale / vendor cost / P&L;
+ * `mode="vendor"` shows only the vendor payable. `rowDot` prefixes each
+ * first-column label with a meal-chip dot. Used directly inside a card by
+ * `BreakdownTable`, or inside the dashboard's tabbed `UsageBreakdownTabs`.
  */
-export function BreakdownTable({
-  title,
+export function BreakdownTableInner({
   unit,
   rows,
   mode = "pl",
-  accent,
   rowDot = false,
   dotColors,
 }: {
-  title: string;
   unit: string; // header for the dimension column, e.g. "Meal"
   rows: Breakdown[];
   mode?: "pl" | "vendor";
-  accent?: "saffron" | "green" | "navy";
   rowDot?: boolean;
   /** Stable per-row dot colour keyed by row id (e.g. meal colours). */
   dotColors?: Record<string, string>;
 }) {
   const totalCount = rows.reduce((s, r) => s + r.count, 0);
-  const th = "px-5 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted-2";
-  const td = "px-5 py-3.5 font-mono text-ink-2";
+  const th = "px-3 py-2.5 text-[10.5px] font-bold uppercase tracking-[0.07em] text-muted-2 sm:px-5";
+  const td = "px-3 py-3.5 font-mono text-ink-2 sm:px-5";
+  // Vendor cost is derivable (Sale − P&L), so it folds away on small screens to
+  // keep the five-column table from overflowing the phone viewport.
+  const hideSm = "hidden sm:table-cell";
   return (
-    <div className="overflow-hidden rounded-md border border-line bg-surface shadow-sm">
-      <div className="flex items-center gap-2.5 px-5 py-3.5">
-        {accent ? <span className={`h-[17px] w-1 shrink-0 rounded-full ${BAR[accent]}`} /> : null}
-        <h3 className="font-display text-base font-bold text-ink">{title}</h3>
-      </div>
-      <div className="overflow-x-auto">
+    <div className="overflow-x-auto">
         <table className="w-full text-[13.5px]">
           <thead>
             <tr className="border-y border-line bg-surface-2 text-left">
@@ -65,7 +59,7 @@ export function BreakdownTable({
               {mode === "pl" ? (
                 <>
                   <th className={`${th} text-right`}>Sale</th>
-                  <th className={`${th} text-right`}>Vendor cost</th>
+                  <th className={`${th} ${hideSm} text-right`}>Vendor cost</th>
                   <th className={`${th} text-right`}>P&amp;L</th>
                 </>
               ) : (
@@ -76,14 +70,14 @@ export function BreakdownTable({
           <tbody>
             {rows.length === 0 ? (
               <tr>
-                <td colSpan={mode === "pl" ? 5 : 3} className="px-5 py-10 text-center text-muted">
+                <td colSpan={mode === "pl" ? 5 : 3} className="px-3 py-10 text-center text-muted sm:px-5">
                   No activity in this range.
                 </td>
               </tr>
             ) : (
               rows.map((r) => (
                 <tr key={r.id || r.label} className="border-b border-line transition-colors last:border-0 hover:bg-surface-2">
-                  <td className="px-5 py-3.5 font-medium text-ink">
+                  <td className="px-3 py-3.5 font-medium text-ink sm:px-5">
                     {rowDot ? (
                       <span className="inline-flex items-center gap-2">
                         <span
@@ -100,13 +94,13 @@ export function BreakdownTable({
                   {mode === "pl" ? (
                     <>
                       <td className={`${td} text-right`}>{inr(r.sale)}</td>
-                      <td className={`${td} text-right`}>{inr(r.cost)}</td>
-                      <td className="px-5 py-3.5 text-right">
+                      <td className={`${td} ${hideSm} text-right`}>{inr(r.cost)}</td>
+                      <td className="px-3 py-3.5 text-right sm:px-5">
                         <PL value={r.pl} />
                       </td>
                     </>
                   ) : (
-                    <td className="px-5 py-3.5 text-right font-mono text-ink">{inr(r.cost)}</td>
+                    <td className="px-3 py-3.5 text-right font-mono text-ink sm:px-5">{inr(r.cost)}</td>
                   )}
                 </tr>
               ))
@@ -115,24 +109,56 @@ export function BreakdownTable({
           {rows.length > 0 ? (
             <tfoot>
               <tr className="border-t border-line-strong bg-surface-2 font-bold text-ink">
-                <td className="px-5 py-3.5">Total</td>
-                <td className="px-5 py-3.5 text-right font-mono">{totalCount}</td>
+                <td className="px-3 py-3.5 sm:px-5">Total</td>
+                <td className="px-3 py-3.5 text-right font-mono sm:px-5">{totalCount}</td>
                 {mode === "pl" ? (
                   <>
-                    <td className="px-5 py-3.5 text-right font-mono">{inr(sum(rows, (r) => r.sale))}</td>
-                    <td className="px-5 py-3.5 text-right font-mono">{inr(sum(rows, (r) => r.cost))}</td>
-                    <td className="px-5 py-3.5 text-right">
+                    <td className="px-3 py-3.5 text-right font-mono sm:px-5">{inr(sum(rows, (r) => r.sale))}</td>
+                    <td className={`px-3 py-3.5 text-right font-mono sm:px-5 ${hideSm}`}>{inr(sum(rows, (r) => r.cost))}</td>
+                    <td className="px-3 py-3.5 text-right sm:px-5">
                       <PL value={sum(rows, (r) => r.pl)} />
                     </td>
                   </>
                 ) : (
-                  <td className="px-5 py-3.5 text-right font-mono">{inr(sum(rows, (r) => r.cost))}</td>
+                  <td className="px-3 py-3.5 text-right font-mono sm:px-5">{inr(sum(rows, (r) => r.cost))}</td>
                 )}
               </tr>
             </tfoot>
           ) : null}
         </table>
       </div>
+  );
+}
+
+/**
+ * Usage breakdown card: title (+ optional coloured accent bar) over a
+ * {@link BreakdownTableInner}. Used standalone on the vendor dashboard and
+ * reports. The main dashboard instead tabs three inners via `UsageBreakdownTabs`.
+ */
+export function BreakdownTable({
+  title,
+  unit,
+  rows,
+  mode = "pl",
+  accent,
+  rowDot = false,
+  dotColors,
+}: {
+  title: string;
+  unit: string;
+  rows: Breakdown[];
+  mode?: "pl" | "vendor";
+  accent?: "saffron" | "green" | "navy";
+  rowDot?: boolean;
+  dotColors?: Record<string, string>;
+}) {
+  return (
+    <div className="overflow-hidden rounded-md border border-line bg-surface shadow-sm">
+      <div className="flex items-center gap-2.5 px-5 py-3.5">
+        {accent ? <span className={`h-[17px] w-1 shrink-0 rounded-full ${BAR[accent]}`} /> : null}
+        <h3 className="font-display text-base font-bold text-ink">{title}</h3>
+      </div>
+      <BreakdownTableInner unit={unit} rows={rows} mode={mode} rowDot={rowDot} dotColors={dotColors} />
     </div>
   );
 }

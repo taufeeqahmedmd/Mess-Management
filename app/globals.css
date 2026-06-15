@@ -1,5 +1,9 @@
 @import "tailwindcss";
 
+/* Dark mode is a manual choice via [data-theme="dark"] on <html> (theme.md) —
+   not prefers-color-scheme. Bind Tailwind's `dark:` variant to that attribute. */
+@custom-variant dark ([data-theme="dark"] &);
+
 /* =========================================================================
    "Bhojan Tricolour" design system — see theme.md (source of truth).
    Saffron / India-green / navy accents on warm off-white, with the Ashoka
