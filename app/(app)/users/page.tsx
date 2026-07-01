@@ -7,10 +7,11 @@ import { can } from "@/lib/rbac";
 import { inr } from "@/lib/format";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { Pager } from "@/components/ui/pager";
-import { BTN_GHOST, BTN_PRIMARY, INPUT_FIND, PANEL, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, LINK_ACT_SAGE, clampPageSize } from "@/components/ui/controls";
+import { BTN_GHOST, BTN_PRIMARY, PANEL, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, LINK_ACT_SAGE, clampPageSize } from "@/components/ui/controls";
 import { DownloadGlyph, UploadGlyph, PlusGlyph } from "@/components/ui/glyphs";
 import { setUserStatusAction } from "./actions";
 import { CardholderDrawer } from "./cardholder-drawer";
+import { UserSearch } from "./user-search";
 
 const ST: Record<string, { dot: string; text: string; label: string }> = {
   active: { dot: "bg-sage", text: "text-sage-deep", label: "Active" },
@@ -97,13 +98,7 @@ export default async function UsersPage({
       </div>
 
       <div className={`${PANEL} p-[18px_20px]`}>
-        <form method="get" className="flex flex-col gap-2.5 sm:flex-row">
-          <input name="q" defaultValue={q} placeholder="Search by id, name, phone, email, card UID…" className={`${INPUT_FIND} sm:max-w-[420px]`} />
-          <button type="submit" className={BTN_PRIMARY}>Search</button>
-          {q ? (
-            <Link href="/users" className="inline-flex items-center px-3 text-[13px] font-medium text-muted transition-colors hover:text-ink-2">Clear</Link>
-          ) : null}
-        </form>
+        <UserSearch initialQ={q} />
       </div>
 
       <div className={PANEL}>
