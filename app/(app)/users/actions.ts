@@ -114,6 +114,7 @@ export async function createUserAction(
   if ("error" in v) return v;
 
   const cardUid = String(formData.get("cardUid") ?? "").trim();
+  if (!cardUid) return { error: "RFID card UID is required." };
 
   try {
     await prisma.$transaction(async (tx) => {

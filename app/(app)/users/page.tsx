@@ -64,7 +64,7 @@ export default async function UsersPage({
     canManage
       ? prisma.department.findMany({ where: actor.branchId ? { branchId: BigInt(actor.branchId) } : {}, orderBy: { name: "asc" } })
       : Promise.resolve([]),
-    canManage ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
+    canManage ? prisma.branch.findMany({ where: actor.branchId ? { id: BigInt(actor.branchId) } : {}, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
 
   return (
