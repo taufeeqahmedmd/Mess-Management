@@ -2,6 +2,7 @@ import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { type Actor } from "@/lib/rbac";
 import { inr } from "@/lib/format";
+import { formatDateTimeInZone } from "@/lib/time";
 import { StatCard } from "@/components/ui/stat-card";
 import { DateRangeForm } from "@/components/reports/date-range-form";
 import { PL } from "@/components/reports/breakdown-table";
@@ -161,7 +162,7 @@ export async function ConsumptionReport({ actor, sp }: { actor: Actor; sp: Consu
               ) : (
                 rows.map((r) => (
                   <tr key={r.id.toString()} className="border-b border-line transition-colors last:border-0 hover:bg-surface-2">
-                    <td className={`${TD} whitespace-nowrap font-mono text-[12.5px] text-muted`}>{r.redeemedAt.toISOString().slice(0, 16).replace("T", " ")}</td>
+                    <td className={`${TD} whitespace-nowrap font-mono text-[12.5px] text-muted`}>{formatDateTimeInZone(r.redeemedAt)}</td>
                     <td className={`${TD} whitespace-nowrap`}>
                       <Link href={`/users/${r.userId}`} className="font-medium text-ink transition-colors hover:text-gold-deep">{r.user.fullName}</Link>
                       <span className="ml-2 font-mono text-[11.5px] text-muted-2">{r.user.code}</span>

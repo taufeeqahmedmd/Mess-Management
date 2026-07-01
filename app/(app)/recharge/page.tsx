@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { inr } from "@/lib/format";
+import { formatDateInZone } from "@/lib/time";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { Pager } from "@/components/ui/pager";
 import { BTN_PRIMARY, INPUT_FIND, PANEL, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, clampPageSize } from "@/components/ui/controls";
@@ -135,7 +136,7 @@ export default async function RechargePage({
                     <tr key={r.id.toString()} className="border-b border-line transition-colors last:border-0 hover:bg-surface-2">
                       <td className={`${TD} whitespace-nowrap`}>
                         <Link href={`/recharge/${r.id}`} className="text-muted transition-colors hover:text-gold-deep">
-                          {r.rechargedAt.toISOString().slice(0, 10)}
+                          {formatDateInZone(r.rechargedAt)}
                         </Link>
                       </td>
                       <td className={`${TD} whitespace-nowrap`}>

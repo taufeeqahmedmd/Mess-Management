@@ -6,6 +6,7 @@ import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { inr } from "@/lib/format";
+import { formatDateInZone, formatDateTimeInZone } from "@/lib/time";
 import { BTN_GHOST, BTN_PRIMARY, TH, TD, LINK_ACT_DANGER, LINK_ACT_SAGE } from "@/components/ui/controls";
 import { mealColorMap } from "@/services/reporting";
 import { mealTint } from "@/lib/meal-colors";
@@ -16,8 +17,8 @@ import { ActivityTabs } from "./activity-tabs";
 import { RechargeDrawer } from "../../recharge/edit-drawer";
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
-const fmtDate = (d: Date | null) => (d ? d.toISOString().slice(0, 10) : "—");
-const fmtDateTime = (d: Date) => d.toISOString().slice(0, 16).replace("T", " ");
+const fmtDate = (d: Date | null) => (d ? formatDateInZone(d) : "—");
+const fmtDateTime = (d: Date) => formatDateTimeInZone(d);
 
 const CARD_DOT: Record<string, string> = { active: "bg-sage", blocked: "bg-tomato" };
 const RECHARGE_DOT: Record<string, { dot: string; text: string }> = {

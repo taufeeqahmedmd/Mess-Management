@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { localDateValue, localDayRange, minutesOfDayInZone } from "@/lib/time";
+import {
+  localDateValue,
+  localDayRange,
+  minutesOfDayInZone,
+  formatDateInZone,
+  formatDateTimeInZone,
+} from "@/lib/time";
 
 const IST = "Asia/Kolkata"; // UTC+5:30, no DST — exact for the deployment target
 
@@ -37,5 +43,21 @@ describe("localDayRange", () => {
     const { start, end } = localDayRange(at, IST);
     expect(at >= start && at < end).toBe(true);
     expect(start.toISOString()).toBe("2026-06-09T18:30:00.000Z"); // IST midnight Jun 10
+  });
+});
+
+describe("formatDateInZone / formatDateTimeInZone", () => {
+  it("renders IST wall-clock, never UTC — the toISOString display regression", () => {
+    // 18:00Z is 23:30 IST the SAME day.
+    const d = new Date("2026-07-01T18:00:00Z");
+    expect(formatDateInZone(d, IST)).toBe("2026-07-01");
+    expect(formatDateTimeInZone(d, IST)).toBe("2026-07-01 23:30");
+  });
+
+  it("rolls the date over when the UTC instant is past IST midnight", () => {
+    // 20:00Z is 01:30 IST on the NEXT day — UTC slice would wrongly show Jul 01.
+    const d = new Date("2026-07-01T20:00:00Z");
+    expect(formatDateInZone(d, IST)).toBe("2026-07-02");
+    expect(formatDateTimeInZone(d, IST)).toBe("2026-07-02 01:30");
   });
 });

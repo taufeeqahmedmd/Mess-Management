@@ -6,6 +6,7 @@ import { can } from "@/lib/rbac";
 import { toCsv } from "@/lib/csv";
 import { resolveDateRange } from "@/services/reporting";
 import { auditKind, type AuditKind } from "@/lib/audit-kind";
+import { formatDateTimeInZone } from "@/lib/time";
 
 const HEADER = ["when", "actor", "action", "kind", "entity", "entityId", "changed", "ip"];
 
@@ -48,7 +49,7 @@ export async function GET(req: Request) {
   const filtered = kind ? rows.filter((r) => auditKind(r.action) === kind) : rows;
 
   const body = filtered.map((r) => [
-    r.createdAt.toISOString(),
+    formatDateTimeInZone(r.createdAt),
     r.appUser?.name ?? "system",
     r.action,
     auditKind(r.action),

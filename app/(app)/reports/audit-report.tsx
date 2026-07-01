@@ -9,6 +9,7 @@ import { ReceiptIcon, UsersIcon, TrendingUpIcon, BankIcon } from "@/components/r
 import { BTN_GHOST, PANEL, TH, TD, clampPageSize } from "@/components/ui/controls";
 import { DownloadGlyph } from "@/components/ui/glyphs";
 import { resolveDateRange } from "@/services/reporting";
+import { formatDateTimeInZone } from "@/lib/time";
 import { auditKind, AUDIT_KINDS, AUDIT_KIND_META, type AuditKind } from "@/lib/audit-kind";
 
 export type AuditParams = { from?: string; to?: string; entity?: string; kind?: string; page?: string; size?: string };
@@ -162,7 +163,7 @@ export async function AuditReport({ actor, sp }: { actor: Actor; sp: AuditParams
                   const name = r.appUser?.name ?? "system";
                   return (
                     <tr key={r.id.toString()} className="border-b border-line align-middle transition-colors last:border-0 hover:bg-surface-2">
-                      <td className={`${TD} whitespace-nowrap font-mono text-[12.5px] text-muted`}>{r.createdAt.toISOString().slice(0, 16).replace("T", " ")}</td>
+                      <td className={`${TD} whitespace-nowrap font-mono text-[12.5px] text-muted`}>{formatDateTimeInZone(r.createdAt)}</td>
                       <td className={`${TD} whitespace-nowrap`}>
                         <span className="inline-flex items-center gap-2.5">
                           <span className="grid size-[26px] shrink-0 place-items-center rounded-full bg-[linear-gradient(135deg,var(--gold),var(--sage))] text-[10.5px] font-bold text-white">{name.slice(0, 1).toUpperCase()}</span>

@@ -3,10 +3,11 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { formatDateInZone, formatDateTimeInZone } from "@/lib/time";
 import { PrintButton } from "../print-button";
 
 function fmtDate(d: Date | null) {
-  return d ? d.toISOString().slice(0, 10) : "—";
+  return d ? formatDateInZone(d) : "—";
 }
 
 export default async function RechargeReceiptPage({
@@ -53,7 +54,7 @@ export default async function RechargeReceiptPage({
           <div>
             <h1 className="font-display text-xl font-semibold text-ink">Recharge receipt</h1>
             <p className="mt-1 text-sm text-ink-2">
-              #{r.id.toString()} · {r.rechargedAt.toISOString().slice(0, 16).replace("T", " ")}
+              #{r.id.toString()} · {formatDateTimeInZone(r.rechargedAt)}
             </p>
           </div>
           <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-2 px-3 py-1 text-sm text-ink-2">
