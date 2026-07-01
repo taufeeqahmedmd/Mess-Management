@@ -6,6 +6,7 @@
  */
 
 import { Prisma, type PrismaClient } from "@prisma/client";
+import { formatDateTimeInZone } from "@/lib/time";
 
 type Db = PrismaClient | Prisma.TransactionClient;
 
@@ -68,7 +69,7 @@ export async function getPublicHistory(
   return {
     name: user.fullName,
     rows: reds.map((r) => ({
-      date: r.redeemedAt.toISOString(),
+      date: formatDateTimeInZone(r.redeemedAt),
       meal: r.mealType.name,
       paidBy: r.paidBy ?? "",
       amount: r.amount.toFixed(2),

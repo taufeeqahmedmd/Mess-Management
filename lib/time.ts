@@ -62,6 +62,28 @@ export function minutesOfDayInZone(d: Date, tz: string = APP_TIMEZONE): number {
   return p.hour * 60 + p.minute;
 }
 
+const pad2 = (n: number) => String(n).padStart(2, "0");
+
+/**
+ * The calendar date of `d` in the app timezone as `YYYY-MM-DD`. Use this for
+ * *display* of any date — unlike `Date#toISOString()` (which is always UTC and
+ * so renders IST timestamps 5:30 behind), this reads the wall-clock in `tz`.
+ */
+export function formatDateInZone(d: Date, tz: string = APP_TIMEZONE): string {
+  const p = zonedParts(d, tz);
+  return `${p.year}-${pad2(p.month)}-${pad2(p.day)}`;
+}
+
+/**
+ * `d` in the app timezone as `YYYY-MM-DD HH:mm` (minute precision). The display
+ * counterpart of `formatDateInZone` for `timestamptz` values (redeemed_at,
+ * recharged_at, audit created_at, …) so the operator always sees IST wall-clock.
+ */
+export function formatDateTimeInZone(d: Date, tz: string = APP_TIMEZONE): string {
+  const p = zonedParts(d, tz);
+  return `${p.year}-${pad2(p.month)}-${pad2(p.day)} ${pad2(p.hour)}:${pad2(p.minute)}`;
+}
+
 /**
  * The local calendar date (in `tz`) as a Date at UTC midnight. Use this to compare
  * against `@db.Date` columns, which Postgres returns as UTC-midnight Dates.

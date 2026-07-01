@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { toCsv } from "@/lib/csv";
+import { formatDateTimeInZone } from "@/lib/time";
 import { resolveDateRange, redemptionWhere, type ConsumptionFilter } from "@/services/reporting";
 
 const HEADER = [
@@ -62,7 +63,7 @@ export async function GET(req: Request) {
   const catName = new Map(categories.map((c) => [c.id.toString(), c.name]));
 
   const body = rows.map((r) => [
-    r.redeemedAt.toISOString(),
+    formatDateTimeInZone(r.redeemedAt),
     r.user.fullName,
     r.user.code,
     r.categoryId ? catName.get(r.categoryId.toString()) ?? "" : "",

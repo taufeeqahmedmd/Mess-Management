@@ -32,7 +32,7 @@ export default async function EditUserPage({
       where: actor.branchId ? { branchId: BigInt(actor.branchId) } : {},
       orderBy: { name: "asc" },
     }),
-    prisma.branch.findMany({ orderBy: { name: "asc" } }),
+    prisma.branch.findMany({ where: actor.branchId ? { id: BigInt(actor.branchId) } : {}, orderBy: { name: "asc" } }),
   ]);
 
   const userData: UserData = {

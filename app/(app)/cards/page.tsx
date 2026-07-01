@@ -4,6 +4,7 @@ import { Prisma, type CardEventType } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { formatDateTimeInZone } from "@/lib/time";
 import { Pager } from "@/components/ui/pager";
 import { BTN_PRIMARY, INPUT_FIND, PANEL, TH, TD, clampPageSize } from "@/components/ui/controls";
 import { ArrowRightGlyph } from "@/components/ui/glyphs";
@@ -168,8 +169,9 @@ export default async function CardsPage({
               ) : (
                 events.map((e) => {
                   const meta = EVENT_META[e.type] ?? { label: e.type, pill: "bg-surface-2 text-muted", dot: "bg-muted-2" };
-                  const date = e.createdAt.toISOString().slice(0, 10);
-                  const time = e.createdAt.toISOString().slice(11, 16);
+                  const dt = formatDateTimeInZone(e.createdAt); // "YYYY-MM-DD HH:mm" in IST
+                  const date = dt.slice(0, 10);
+                  const time = dt.slice(11);
                   return (
                     <tr key={e.id.toString()} className="border-b border-line transition-colors last:border-0 hover:bg-surface-2">
                       <td className={`${TD} whitespace-nowrap text-muted`}>

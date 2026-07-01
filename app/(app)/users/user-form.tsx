@@ -110,19 +110,27 @@ export function UserForm({
           </select>
         </div>
 
-        {canChooseBranch ? (
+        <div>
+          <label htmlFor="branchId" className={DLABEL}>Branch</label>
+          <select
+            id="branchId"
+            name="branchId"
+            required
+            defaultValue={user?.branchId ?? (canChooseBranch ? "" : branches[0]?.id ?? "")}
+            className={DINPUT}
+          >
+            <option value="" disabled>Select branch…</option>
+            {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
+          </select>
+        </div>
+        {/* Validity is set/extended via recharge; only surface it when editing. */}
+        {isEdit ? (
           <div>
-            <label htmlFor="branchId" className={DLABEL}>Branch</label>
-            <select id="branchId" name="branchId" defaultValue={user?.branchId ?? branches[0]?.id ?? ""} className={DINPUT}>
-              {branches.map((b) => <option key={b.id} value={b.id}>{b.name}</option>)}
-            </select>
+            <label htmlFor="cardExpiryDate" className={DLABEL}>Validity <span className={OPT}>(expiry date)</span></label>
+            <input id="cardExpiryDate" name="cardExpiryDate" type="date" defaultValue={user?.cardExpiryDate} className={DINPUT} />
+            <p className="mt-1.5 text-[11px] text-muted-2">Past this date the wallet and coupons are zeroed. Leave blank for no expiry.</p>
           </div>
         ) : null}
-        <div>
-          <label htmlFor="cardExpiryDate" className={DLABEL}>Validity <span className={OPT}>(expiry date)</span></label>
-          <input id="cardExpiryDate" name="cardExpiryDate" type="date" defaultValue={user?.cardExpiryDate} className={DINPUT} />
-          <p className="mt-1.5 text-[11px] text-muted-2">Past this date the wallet and coupons are zeroed. Leave blank for no expiry.</p>
-        </div>
 
         <div>
           <label htmlFor="status" className={DLABEL}>Status</label>
@@ -141,9 +149,9 @@ export function UserForm({
       {!isEdit ? (
         <div className="border-t border-line pt-4">
           <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-2">Card</div>
-          <label htmlFor="cardUid" className={DLABEL}>RFID card UID <span className={OPT}>(optional)</span></label>
+          <label htmlFor="cardUid" className={DLABEL}>RFID card UID</label>
           <div className="flex gap-2.5">
-            <input ref={uidRef} id="cardUid" name="cardUid" maxLength={64} className={`${DINPUT} font-mono`} placeholder="Tap a card to fill" />
+            <input ref={uidRef} id="cardUid" name="cardUid" required maxLength={64} className={`${DINPUT} font-mono`} placeholder="Tap a card to fill" />
             <button type="button" onClick={() => uidRef.current?.focus()} className={`${BTN_GHOST} shrink-0`}>
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="size-[15px]" aria-hidden="true"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></svg>
               Tap

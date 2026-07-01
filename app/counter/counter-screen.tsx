@@ -89,6 +89,7 @@ type TapResult = {
     photoUrl: string | null;
     status: string;
     walletBalance: string;
+    couponsRemaining: number;
   };
   redemptionId?: string;
 };
@@ -343,7 +344,7 @@ export function CounterScreen({
     setResult(res);
     beep("queued");
     speak("Queued");
-    pushRecent({ key: clientTxId, name: cardUid, status: "QUEUED", at: new Date().toLocaleTimeString() });
+    pushRecent({ key: clientTxId, name: cardUid, status: "QUEUED", at: new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" }) });
   }
 
   async function submit(cardUid: string) {
@@ -383,7 +384,7 @@ export function CounterScreen({
           meal: res.meal?.name,
           charged: res.charged,
           paidBy: res.paidBy,
-          at: new Date().toLocaleTimeString(),
+          at: new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" }),
         });
       } else if (r.status >= 500) {
         // Server error — the tap is idempotent, so queue and let sync retry it
@@ -396,7 +397,7 @@ export function CounterScreen({
         setResult(res);
         beep("bad");
         speak("Error");
-        pushRecent({ key: clientTxId, name: cardUid, status: "ERROR", at: new Date().toLocaleTimeString() });
+        pushRecent({ key: clientTxId, name: cardUid, status: "ERROR", at: new Date().toLocaleTimeString("en-IN", { timeZone: "Asia/Kolkata" }) });
       }
     } catch {
       // network dropped mid-request — queue it (idempotent on the server).
@@ -533,10 +534,21 @@ export function CounterScreen({
                         <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">{result.paidBy === "coupon" ? "Coupon" : `₹${result.charged}`}</div>
                       </div>
                     ) : null}
-                    <div className="text-center">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Balance</div>
-                      <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">₹{ch.walletBalance}</div>
-                    </div>
+                    {/* Coupons are consumed first; wallet is the fallback. Mirror that
+                        on screen: show the coupon count when the tap was paid by
+                        coupon (or the cardholder still holds coupons), otherwise the
+                        remaining wallet balance. */}
+                    {result.paidBy === "coupon" || (result.paidBy !== "wallet" && ch.couponsRemaining > 0) ? (
+                      <div className="text-center">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Coupons Left</div>
+                        <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">{ch.couponsRemaining}</div>
+                      </div>
+                    ) : (
+                      <div className="text-center">
+                        <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Balance</div>
+                        <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">₹{ch.walletBalance}</div>
+                      </div>
+                    )}
                   </div>
                 ) : null}
               </>

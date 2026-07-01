@@ -150,21 +150,14 @@ export function RechargeForm({
         <span className="font-display text-xl font-bold tabular-nums text-gold-deep">{inr(total)}</span>
       </div>
 
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="paymentModeId" className={DLABEL}>Payment mode</label>
-          <select id="paymentModeId" name="paymentModeId" required className={DINPUT} defaultValue={initial?.paymentModeId ?? ""}>
-            <option value="" disabled>Select…</option>
-            {paymentModes.map((p) => (
-              <option key={p.id} value={p.id}>{p.name}</option>
-            ))}
-          </select>
-        </div>
-        <div>
-          <label htmlFor="validTill" className={DLABEL}>Valid till <span className="font-medium normal-case tracking-normal text-muted-2">(optional)</span></label>
-          <input id="validTill" name="validTill" type="date" defaultValue={initial?.validTill ?? ""} className={DINPUT} />
-          <p className="mt-1.5 text-[11px] text-muted-2">Extends the cardholder&rsquo;s validity (never shortens it).</p>
-        </div>
+      <div>
+        <label htmlFor="paymentModeId" className={DLABEL}>Payment mode</label>
+        <select id="paymentModeId" name="paymentModeId" required className={DINPUT} defaultValue={initial?.paymentModeId ?? ""}>
+          <option value="" disabled>Select…</option>
+          {paymentModes.map((p) => (
+            <option key={p.id} value={p.id}>{p.name}</option>
+          ))}
+        </select>
       </div>
 
       <div>

@@ -7,10 +7,11 @@ import { can } from "@/lib/rbac";
 import { inr } from "@/lib/format";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { Pager } from "@/components/ui/pager";
-import { BTN_GHOST, BTN_PRIMARY, INPUT_FIND, PANEL, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, LINK_ACT_SAGE, clampPageSize } from "@/components/ui/controls";
+import { BTN_GHOST, BTN_PRIMARY, PANEL, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, LINK_ACT_SAGE, clampPageSize } from "@/components/ui/controls";
 import { DownloadGlyph, UploadGlyph, PlusGlyph } from "@/components/ui/glyphs";
 import { setUserStatusAction } from "./actions";
 import { CardholderDrawer } from "./cardholder-drawer";
+import { UserSearch } from "./user-search";
 
 const ST: Record<string, { dot: string; text: string; label: string }> = {
   active: { dot: "bg-sage", text: "text-sage-deep", label: "Active" },
@@ -54,7 +55,7 @@ export default async function UsersPage({
   const [users, total, categories, departments, branches] = await Promise.all([
     prisma.user.findMany({
       where,
-      include: { category: true, wallet: true, cards: { where: { status: "active" }, take: 1 } },
+      include: { category: true, wallet: true, couponBalances: true, cards: { where: { status: "active" }, take: 1 } },
       orderBy: { fullName: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -64,7 +65,7 @@ export default async function UsersPage({
     canManage
       ? prisma.department.findMany({ where: actor.branchId ? { branchId: BigInt(actor.branchId) } : {}, orderBy: { name: "asc" } })
       : Promise.resolve([]),
-    canManage ? prisma.branch.findMany({ orderBy: { name: "asc" } }) : Promise.resolve([]),
+    canManage ? prisma.branch.findMany({ where: actor.branchId ? { id: BigInt(actor.branchId) } : {}, orderBy: { name: "asc" } }) : Promise.resolve([]),
   ]);
 
   return (
@@ -97,18 +98,12 @@ export default async function UsersPage({
       </div>
 
       <div className={`${PANEL} p-[18px_20px]`}>
-        <form method="get" className="flex flex-col gap-2.5 sm:flex-row">
-          <input name="q" defaultValue={q} placeholder="Search by id, name, phone, email, card UID…" className={`${INPUT_FIND} sm:max-w-[420px]`} />
-          <button type="submit" className={BTN_PRIMARY}>Search</button>
-          {q ? (
-            <Link href="/users" className="inline-flex items-center px-3 text-[13px] font-medium text-muted transition-colors hover:text-ink-2">Clear</Link>
-          ) : null}
-        </form>
+        <UserSearch initialQ={q} />
       </div>
 
       <div className={PANEL}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px]">
+          <table className="w-full min-w-[1040px]">
             <thead>
               <tr className="border-b border-line bg-surface-2 text-left">
                 <th className={TH}>Identifier</th>
@@ -116,6 +111,7 @@ export default async function UsersPage({
                 <th className={TH}>Category</th>
                 <th className={TH}>Card UID</th>
                 <th className={`${TH} text-right`}>Wallet</th>
+                <th className={`${TH} text-right`}>Coupons</th>
                 <th className={TH}>Validity</th>
                 <th className={TH}>Status</th>
                 <th className={`${TH} text-right`}>Actions</th>
@@ -123,7 +119,7 @@ export default async function UsersPage({
             </thead>
             <tbody>
               {users.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-12 text-center text-muted">{q ? "No cardholders match your search." : "No cardholders yet."}</td></tr>
+                <tr><td colSpan={9} className="px-5 py-12 text-center text-muted">{q ? "No cardholders match your search." : "No cardholders yet."}</td></tr>
               ) : (
                 users.map((u) => {
                   const st = ST[u.status] ?? ST.inactive;
@@ -142,6 +138,7 @@ export default async function UsersPage({
                       </td>
                       <td className={`${TD} whitespace-nowrap font-mono text-ink-2`}>{u.cards[0]?.cardUid ?? "—"}</td>
                       <td className={`${TD} text-right font-mono font-semibold text-ink`}>{inr(u.wallet?.balanceAmount ?? new Prisma.Decimal(0))}</td>
+                      <td className={`${TD} text-right font-mono font-semibold text-ink`}>{u.couponBalances.reduce((s, cb) => s + cb.count, 0)}</td>
                       <td className={`${TD} whitespace-nowrap text-muted`}>{u.cardExpiryDate ? u.cardExpiryDate.toISOString().slice(0, 10) : "—"}</td>
                       <td className={TD}>
                         <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-medium ${st.text}`}>

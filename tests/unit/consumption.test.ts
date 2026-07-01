@@ -54,6 +54,7 @@ function buildTx(s: Scenario) {
     photoUrl: null,
     category: { name: "Staff" },
     wallet,
+    couponBalances: [{ count: s.couponCount ?? 0 }],
   };
   const card = s.cardMissing ? null : { id: 2, status: s.cardStatus ?? "active", user };
   const meals = [{ id: 1, name: "Lunch", startTime: "00:00", endTime: "23:59", active: true }];
