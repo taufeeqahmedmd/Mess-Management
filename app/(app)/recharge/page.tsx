@@ -8,11 +8,12 @@ import { inr } from "@/lib/format";
 import { formatDateInZone } from "@/lib/time";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { Pager } from "@/components/ui/pager";
-import { BTN_PRIMARY, INPUT_FIND, PANEL, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, clampPageSize } from "@/components/ui/controls";
+import { PANEL, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, clampPageSize } from "@/components/ui/controls";
 import { reverseRechargeAction } from "./actions";
 import { ExpirySweepButton } from "./expiry-button";
 import { RechargeImportModal } from "./import-modal";
 import { RechargeDrawer } from "./edit-drawer";
+import { RechargeSearch } from "./recharge-search";
 
 const STATUS: Record<string, { dot: string; text: string; label: string }> = {
   posted: { dot: "bg-sage", text: "text-sage-deep", label: "Posted" },
@@ -23,7 +24,7 @@ const STATUS: Record<string, { dot: string; text: string; label: string }> = {
 export default async function RechargePage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; size?: string }>;
+  searchParams: Promise<{ page?: string; size?: string }>;
 }) {
   const actor = await requireActor();
   if (!can(actor, "recharge.view")) redirect("/dashboard");
@@ -33,29 +34,8 @@ export default async function RechargePage({
   const canImport = can(actor, "recharge.import");
 
   const sp = await searchParams;
-  const q = (sp.q ?? "").trim();
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const pageSize = clampPageSize(sp.size, 25);
-  const branchFilter = actor.branchId ? { branchId: BigInt(actor.branchId) } : {};
-
-  // Cardholder search (to start a recharge)
-  const matches = q
-    ? await prisma.user.findMany({
-        where: {
-          deletedAt: null,
-          ...branchFilter,
-          OR: [
-            { code: { contains: q, mode: "insensitive" } },
-            { fullName: { contains: q, mode: "insensitive" } },
-            { phone: { contains: q } },
-            { cards: { some: { cardUid: { contains: q } } } },
-          ],
-        },
-        include: { category: true, wallet: true },
-        orderBy: { fullName: "asc" },
-        take: 10,
-      })
-    : [];
 
   // Recent recharges
   const where: Prisma.RechargeWhereInput = actor.branchId
@@ -85,31 +65,7 @@ export default async function RechargePage({
         </div>
       </div>
 
-      {canCreate ? (
-        <div className={`${PANEL} p-[18px_20px]`}>
-          <form method="get" className="flex flex-col gap-2.5 sm:flex-row">
-            <input name="q" defaultValue={q} placeholder="Find a cardholder to recharge…" className={`${INPUT_FIND} sm:max-w-[420px]`} />
-            <button type="submit" className={BTN_PRIMARY}>Search</button>
-          </form>
-          {q ? (
-            <div className="mt-3 flex flex-col gap-1.5">
-              {matches.length === 0 ? (
-                <p className="text-sm text-muted">No cardholders match.</p>
-              ) : (
-                matches.map((u) => (
-                  <div key={u.id.toString()} className="flex flex-wrap items-center justify-between gap-2 rounded-sm border border-line bg-surface-2 px-3 py-2 text-[13px]">
-                    <span className="text-ink">
-                      <span className="font-mono">{u.code}</span> · {u.fullName} · {u.category.name}
-                      <span className="ml-2 font-mono text-muted">{inr(u.wallet?.balanceAmount ?? new Prisma.Decimal(0))}</span>
-                    </span>
-                    <button type="button" data-recharge-user={u.id.toString()} className={BTN_PRIMARY}>Recharge</button>
-                  </div>
-                ))
-              )}
-            </div>
-          ) : null}
-        </div>
-      ) : null}
+      {canCreate ? <RechargeSearch /> : null}
 
       <div className={PANEL}>
         <div className="overflow-x-auto">
