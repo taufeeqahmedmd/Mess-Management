@@ -54,7 +54,7 @@ export default async function UsersPage({
   const [users, total, categories, departments, branches] = await Promise.all([
     prisma.user.findMany({
       where,
-      include: { category: true, wallet: true, cards: { where: { status: "active" }, take: 1 } },
+      include: { category: true, wallet: true, couponBalances: true, cards: { where: { status: "active" }, take: 1 } },
       orderBy: { fullName: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -108,7 +108,7 @@ export default async function UsersPage({
 
       <div className={PANEL}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[960px]">
+          <table className="w-full min-w-[1040px]">
             <thead>
               <tr className="border-b border-line bg-surface-2 text-left">
                 <th className={TH}>Identifier</th>
@@ -116,6 +116,7 @@ export default async function UsersPage({
                 <th className={TH}>Category</th>
                 <th className={TH}>Card UID</th>
                 <th className={`${TH} text-right`}>Wallet</th>
+                <th className={`${TH} text-right`}>Coupons</th>
                 <th className={TH}>Validity</th>
                 <th className={TH}>Status</th>
                 <th className={`${TH} text-right`}>Actions</th>
@@ -123,7 +124,7 @@ export default async function UsersPage({
             </thead>
             <tbody>
               {users.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-12 text-center text-muted">{q ? "No cardholders match your search." : "No cardholders yet."}</td></tr>
+                <tr><td colSpan={9} className="px-5 py-12 text-center text-muted">{q ? "No cardholders match your search." : "No cardholders yet."}</td></tr>
               ) : (
                 users.map((u) => {
                   const st = ST[u.status] ?? ST.inactive;
@@ -142,6 +143,7 @@ export default async function UsersPage({
                       </td>
                       <td className={`${TD} whitespace-nowrap font-mono text-ink-2`}>{u.cards[0]?.cardUid ?? "—"}</td>
                       <td className={`${TD} text-right font-mono font-semibold text-ink`}>{inr(u.wallet?.balanceAmount ?? new Prisma.Decimal(0))}</td>
+                      <td className={`${TD} text-right font-mono font-semibold text-ink`}>{u.couponBalances.reduce((s, cb) => s + cb.count, 0)}</td>
                       <td className={`${TD} whitespace-nowrap text-muted`}>{u.cardExpiryDate ? u.cardExpiryDate.toISOString().slice(0, 10) : "—"}</td>
                       <td className={TD}>
                         <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-medium ${st.text}`}>
