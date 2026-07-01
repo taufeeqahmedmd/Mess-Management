@@ -58,6 +58,8 @@ export type Cardholder = {
   photoUrl: string | null;
   status: string;
   walletBalance: string;
+  /** Total coupons remaining across all meals — shown on the counter in place of the wallet balance. */
+  couponsRemaining: number;
 };
 
 export type TapResult = {
@@ -83,7 +85,7 @@ export type TapParams = {
 
 const ZERO = new Prisma.Decimal(0);
 
-type LoadedUser = Prisma.UserGetPayload<{ include: { category: true; wallet: true } }>;
+type LoadedUser = Prisma.UserGetPayload<{ include: { category: true; wallet: true; couponBalances: true } }>;
 
 function cardholderInfo(user: LoadedUser): Cardholder {
   return {
@@ -94,6 +96,7 @@ function cardholderInfo(user: LoadedUser): Cardholder {
     photoUrl: user.photoUrl,
     status: user.status,
     walletBalance: (user.wallet?.balanceAmount ?? ZERO).toFixed(2),
+    couponsRemaining: user.couponBalances.reduce((s, cb) => s + cb.count, 0),
   };
 }
 
@@ -111,7 +114,7 @@ export async function tapEngine(
   // 1. Idempotency — replay returns the original APPROVED result.
   const existing = await tx.redemption.findUnique({
     where: { clientUuid: p.clientUuid },
-    include: { user: { include: { category: true, wallet: true } }, mealType: true },
+    include: { user: { include: { category: true, wallet: true, couponBalances: true } }, mealType: true },
   });
   if (existing) {
     return {
@@ -128,13 +131,13 @@ export async function tapEngine(
   // 2. Resolve cardholder by card UID, else by code (manual/id entry).
   let card = await tx.rfidCard.findUnique({
     where: { cardUid: p.cardUid },
-    include: { user: { include: { category: true, wallet: true } } },
+    include: { user: { include: { category: true, wallet: true, couponBalances: true } } },
   });
   let user: LoadedUser | null = card?.user ?? null;
   if (!user) {
     const byCode = await tx.user.findUnique({
       where: { code: p.cardUid },
-      include: { category: true, wallet: true, cards: { where: { status: "active" }, take: 1 } },
+      include: { category: true, wallet: true, couponBalances: true, cards: { where: { status: "active" }, take: 1 } },
     });
     if (byCode) {
       user = byCode;
@@ -354,7 +357,11 @@ export async function tapEngine(
     paidBy: decision.paidBy,
     charged: decision.charged.toFixed(2),
     meal,
-    cardholder: { ...ch, walletBalance: walletAfter.toFixed(2) },
+    cardholder: {
+      ...ch,
+      walletBalance: walletAfter.toFixed(2),
+      couponsRemaining: decision.paidBy === "coupon" ? Math.max(0, ch.couponsRemaining - 1) : ch.couponsRemaining,
+    },
     redemptionId: redemption.id.toString(),
   };
 }

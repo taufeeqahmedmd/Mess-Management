@@ -89,6 +89,7 @@ type TapResult = {
     photoUrl: string | null;
     status: string;
     walletBalance: string;
+    couponsRemaining: number;
   };
   redemptionId?: string;
 };
@@ -534,8 +535,8 @@ export function CounterScreen({
                       </div>
                     ) : null}
                     <div className="text-center">
-                      <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Balance</div>
-                      <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">₹{ch.walletBalance}</div>
+                      <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Coupons Left</div>
+                      <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">{ch.couponsRemaining}</div>
                     </div>
                   </div>
                 ) : null}
