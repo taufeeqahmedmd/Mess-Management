@@ -70,7 +70,7 @@ export default async function VendorDashboardPage({
             {broad ? "all counters" : `${counters.length} assigned counter${counters.length > 1 ? "s" : ""}`}.
           </p>
         </div>
-        <DateRangeForm action="/vendor-dashboard" fromStr={range.fromStr} toStr={range.toStr} />
+        <DateRangeForm action="/vendor-dashboard" fromStr={range.fromStr} toStr={range.toStr} active={Boolean(sp.from || sp.to)} />
       </div>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">

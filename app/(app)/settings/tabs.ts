@@ -11,4 +11,6 @@ export const SETTINGS_TABS: SettingsTab[] = [
   { href: "/settings/meals", label: "Meals", permission: "meals.manage" },
   { href: "/settings/rates", label: "Rates", permission: "rates.manage" },
   { href: "/settings/consumption", label: "Consumption", permission: "categories.manage" },
+  { href: "/settings/food-items", label: "Food Items", permission: "foodItems.manage" },
+  { href: "/settings/food-requests", label: "Food Requests", permission: "settings.manage" },
 ];

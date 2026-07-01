@@ -5,9 +5,11 @@ import { can } from "@/lib/rbac";
 import { ConsumptionReport } from "./consumption-report";
 import { BalanceReport } from "./balance-report";
 import { AuditReport } from "./audit-report";
+import { FoodRequestReport } from "./food-request-report";
 
 const TABS = [
   { key: "consumption", label: "Consumption report" },
+  { key: "foodRequests", label: "Food requests" },
   { key: "balances", label: "Balance report" },
   { key: "audit", label: "Audit log" },
 ] as const;
@@ -65,6 +67,8 @@ export default async function ReportsPage({
 
       {tab === "consumption" ? (
         <ConsumptionReport actor={actor} sp={sp} />
+      ) : tab === "foodRequests" ? (
+        <FoodRequestReport actor={actor} sp={sp} />
       ) : tab === "balances" ? (
         <BalanceReport actor={actor} sp={sp} />
       ) : (

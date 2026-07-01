@@ -17,6 +17,8 @@ export type IconName =
   | "card"
   | "reports"
   | "vendor"
+  | "cart"
+  | "bag"
   | "settings"
   | "shield";
 
@@ -108,6 +110,20 @@ const ICONS: Record<IconName, ReactNode> = {
       <path d="M4 9h16l-1-4H5z" />
       <path d="M4 9v9a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V9" />
       <path d="M9 20v-5h6v5" />
+    </>
+  ),
+  cart: (
+    <>
+      <path d="M3 2h13l-1 9H4L3 2Z" />
+      <path d="M4 11l-1 7h13" />
+      <circle cx="7" cy="21" r="1" />
+      <circle cx="15" cy="21" r="1" />
+    </>
+  ),
+  bag: (
+    <>
+      <path d="M5 7h14l-1 11a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 7Z" />
+      <path d="M9 7V5a3 3 0 0 1 6 0v2" />
     </>
   ),
   settings: (

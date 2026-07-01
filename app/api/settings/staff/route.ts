@@ -36,7 +36,10 @@ export async function GET(req: Request) {
     } catch {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    const s = await prisma.appUser.findUnique({ where: { id: staffId } });
+    const s = await prisma.appUser.findUnique({
+      where: { id: staffId },
+      include: { cardholder: { select: { code: true } } },
+    });
     if (!s || s.deletedAt) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (actor.branchId && s.branchId?.toString() !== actor.branchId)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -48,6 +51,7 @@ export async function GET(req: Request) {
       roleId: s.roleId.toString(),
       branchId: s.branchId?.toString() ?? "",
       status: s.status,
+      cardholderCode: s.cardholder?.code ?? "",
     };
     payload.assignedCounterIds = assigned.map((a) => a.counterId.toString());
   }

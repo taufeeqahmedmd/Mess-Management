@@ -59,6 +59,26 @@ async function resolve(
   return { branchId, roleId: role.id };
 }
 
+/**
+ * Resolve the optional "linked RFID account" code to a cardholder id. Empty →
+ * unlink (null). The cardholder must exist, not be deleted, and be in the staff
+ * member's branch (any branch when the staff is all-branch). The cardholder≠staff
+ * split is preserved — this only points a login at a cardholder record.
+ */
+async function resolveCardholder(
+  staffBranchId: bigint | null,
+  code: string,
+): Promise<{ userId: bigint | null } | { error: string }> {
+  const trimmed = code.trim();
+  if (!trimmed) return { userId: null };
+  const user = await prisma.user.findUnique({ where: { code: trimmed } });
+  if (!user || user.deletedAt) return { error: `No cardholder found with code “${trimmed}”.` };
+  if (staffBranchId && user.branchId !== staffBranchId) {
+    return { error: "That cardholder is in a different branch than this staff member." };
+  }
+  return { userId: user.id };
+}
+
 function parseCounterIds(formData: FormData): bigint[] {
   return formData
     .getAll("counterIds")
@@ -120,12 +140,15 @@ export async function createStaffAction(
   const r = await resolve(actor, input.roleId, input.branchId);
   if ("error" in r) return r;
 
+  const linked = await resolveCardholder(r.branchId, String(formData.get("cardholderCode") ?? ""));
+  if ("error" in linked) return linked;
+
   const counterIds = parseCounterIds(formData);
   const passwordHash = await bcrypt.hash(password, 10);
   try {
     await prisma.$transaction(async (tx) => {
       const created = await tx.appUser.create({
-        data: { name: input.name, mobile: input.mobile, roleId: r.roleId, branchId: r.branchId, status: "active", passwordHash },
+        data: { name: input.name, mobile: input.mobile, roleId: r.roleId, branchId: r.branchId, status: "active", passwordHash, cardholderUserId: linked.userId },
       });
       const assignedCounters = await syncStaffCounters(tx, {
         appUserId: created.id,
@@ -175,12 +198,16 @@ export async function updateStaffAction(
   const r = await resolve(actor, input.roleId, input.branchId);
   if ("error" in r) return r;
 
+  const linked = await resolveCardholder(r.branchId, String(formData.get("cardholderCode") ?? ""));
+  if ("error" in linked) return linked;
+
   const data: Prisma.AppUserUpdateInput = {
     name: input.name,
     mobile: input.mobile,
     role: { connect: { id: r.roleId } },
     branch: r.branchId ? { connect: { id: r.branchId } } : { disconnect: true },
     status: input.status as AppUserStatus,
+    cardholder: linked.userId ? { connect: { id: linked.userId } } : { disconnect: true },
   };
 
   const password = String(formData.get("password") ?? "");

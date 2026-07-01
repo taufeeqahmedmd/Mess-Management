@@ -14,6 +14,7 @@ export type StaffData = {
   roleId: string;
   branchId: string; // "" = all branches
   status: "active" | "disabled" | "locked";
+  cardholderCode?: string; // the staff member's own RFID/cardholder account code, "" if unlinked
 };
 
 type Option = { id: string; name: string };
@@ -85,6 +86,24 @@ export function StaffForm({
             </select>
           </div>
         ) : null}
+      </div>
+
+      <div>
+        <label htmlFor="cardholderCode" className={FORM_LABEL}>
+          Linked RFID account <span className="font-medium normal-case tracking-normal text-muted-2">(optional)</span>
+        </label>
+        <input
+          id="cardholderCode"
+          name="cardholderCode"
+          maxLength={40}
+          defaultValue={staff?.cardholderCode ?? ""}
+          placeholder="Cardholder code, e.g. EMP1001"
+          className={`${inputClass} font-mono`}
+        />
+        <p className="mt-1.5 text-[11px] text-muted-2">
+          This staff member&rsquo;s own cardholder account. When set, they can raise food requests charged to
+          themselves without searching. Leave blank to unlink.
+        </p>
       </div>
 
       <div>

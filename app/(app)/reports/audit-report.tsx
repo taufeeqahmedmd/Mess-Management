@@ -87,23 +87,22 @@ export async function AuditReport({ actor, sp }: { actor: Actor; sp: AuditParams
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px] text-muted">{total.toLocaleString("en-IN")} events · {range.fromStr} → {range.toStr}</p>
-        <a href={`/api/reports/audit?${csvQuery.toString()}`} className={BTN_GHOST}>
-          <DownloadGlyph />
-          Export CSV
-        </a>
-      </div>
-
-      <div className={`${PANEL} p-[16px_20px]`}>
-        <DateRangeForm action="/reports" fromStr={range.fromStr} toStr={range.toStr} hidden={{ tab: "audit" }}>
-          <select name="entity" defaultValue={entity} aria-label="Entity" className={SELECT}>
-            <option value="">All entities</option>
-            {entities.map((e) => <option key={e.entity} value={e.entity}>{e.entity}</option>)}
-          </select>
-          <select name="kind" defaultValue={kind ?? ""} aria-label="Action type" className={SELECT}>
-            <option value="">All actions</option>
-            {AUDIT_KINDS.map((k) => <option key={k} value={k}>{AUDIT_KIND_META[k].label}</option>)}
-          </select>
-        </DateRangeForm>
+        <div className="flex items-center gap-2">
+          <DateRangeForm action="/reports" fromStr={range.fromStr} toStr={range.toStr} hidden={{ tab: "audit" }} active={Boolean(sp.from || sp.to || entity || kind)}>
+            <select name="entity" defaultValue={entity} aria-label="Entity" className={SELECT}>
+              <option value="">All entities</option>
+              {entities.map((e) => <option key={e.entity} value={e.entity}>{e.entity}</option>)}
+            </select>
+            <select name="kind" defaultValue={kind ?? ""} aria-label="Action type" className={SELECT}>
+              <option value="">All actions</option>
+              {AUDIT_KINDS.map((k) => <option key={k} value={k}>{AUDIT_KIND_META[k].label}</option>)}
+            </select>
+          </DateRangeForm>
+          <a href={`/api/reports/audit?${csvQuery.toString()}`} className={BTN_GHOST}>
+            <DownloadGlyph />
+            Export CSV
+          </a>
+        </div>
       </div>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">

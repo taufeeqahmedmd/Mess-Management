@@ -22,7 +22,10 @@ export default async function EditStaffPage({
     notFound();
   }
 
-  const s = await prisma.appUser.findUnique({ where: { id: staffId } });
+  const s = await prisma.appUser.findUnique({
+    where: { id: staffId },
+    include: { cardholder: { select: { code: true } } },
+  });
   if (!s || s.deletedAt) notFound();
 
   // A scoped admin can't edit staff outside their branch.
@@ -51,6 +54,7 @@ export default async function EditStaffPage({
     roleId: s.roleId.toString(),
     branchId: s.branchId?.toString() ?? "",
     status: s.status,
+    cardholderCode: s.cardholder?.code ?? "",
   };
 
   return (
