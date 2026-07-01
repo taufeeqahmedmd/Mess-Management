@@ -37,12 +37,17 @@ export default async function EditFoodRequestPage({ params }: { params: Promise<
   if (actor.branchId && req.branchId.toString() !== actor.branchId) notFound();
   if (!isEditable(req.status)) redirect(`/food-requests/${req.id}`);
 
-  const [catalog, vendors] = await Promise.all([
+  const [catalog, vendors, locations] = await Promise.all([
     prisma.foodItem.findMany({
       where: { active: true, OR: [{ branchId: null }, { branchId: req.user.branchId }] },
       orderBy: { name: "asc" },
     }),
     prisma.vendor.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }),
+    prisma.deliveryLocation.findMany({
+      where: { status: "active", OR: [{ branchId: null }, { branchId: req.user.branchId }] },
+      orderBy: { name: "asc" },
+      select: { name: true },
+    }),
   ]);
 
   return (
@@ -63,8 +68,9 @@ export default async function EditFoodRequestPage({ params }: { params: Promise<
         userId={req.userId.toString()}
         userName={req.user.fullName}
         requestId={req.id.toString()}
-        catalog={catalog.map((c) => ({ id: c.id.toString(), name: c.name, kind: c.kind, unitPrice: c.unitPrice.toFixed(2) }))}
+        catalog={catalog.map((c) => ({ id: c.id.toString(), name: c.name, kind: c.kind, unitPrice: c.unitPrice.toFixed(2), vendorPrice: c.unitVendorPrice.toFixed(2) }))}
         vendors={vendors.map((v) => ({ id: v.id.toString(), name: v.name }))}
+        locations={locations.map((l) => l.name)}
         initial={{
           vendorId: req.vendorId?.toString() ?? "",
           deliveryLocation: req.deliveryLocation,

@@ -168,6 +168,7 @@ model Branch {
   settings     Setting[]
   foodItems    FoodItem[]
   foodRequests FoodRequest[]
+  deliveryLocations DeliveryLocation[]
 
   @@map("branches")
 }
@@ -223,6 +224,9 @@ model AppUser {
   // raise food requests charged to themselves without searching. Staff ≠ cardholders
   // remains true — this is just a pointer, set in Settings → Staff.
   cardholderUserId BigInt?    @map("cardholder_user_id")
+  // Staff whose role is Vendor / Mess Incharge belong to a vendor (set in
+  // Settings → Staff). NULL for all other roles.
+  vendorId     BigInt?       @map("vendor_id")
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
@@ -230,6 +234,7 @@ model AppUser {
   role             Role               @relation(fields: [roleId], references: [id])
   branch           Branch?            @relation(fields: [branchId], references: [id])
   cardholder       User?              @relation("AppUserCardholder", fields: [cardholderUserId], references: [id])
+  vendor           Vendor?            @relation("VendorStaff", fields: [vendorId], references: [id])
   counterOperators CounterOperator[]
   cardEvents       CardEvent[]
   recharges        Recharge[]
@@ -237,7 +242,7 @@ model AppUser {
   reversalsMade    Reversal[]         @relation("ReversalRequestedBy")
   reversalsApprovd Reversal[]         @relation("ReversalApprovedBy")
   auditLogs        AuditLog[]
-  vendorAccount    Vendor?
+  vendorAccount    Vendor?            @relation("VendorPortalOperator")
   foodReqRequested FoodRequest[]      @relation("FoodRequestRequestedBy")
   foodReqApproved  FoodRequest[]      @relation("FoodRequestApprovedBy")
   foodReqEvents    FoodRequestEvent[]
@@ -688,14 +693,23 @@ model Reversal {
 // ---------- Vendor settlement ----------
 
 model Vendor {
-  id        BigInt       @id @default(autoincrement())
-  code      String       @unique @db.VarChar(30)
-  name      String       @db.VarChar(150)
-  gstin     String?      @db.VarChar(20)
-  appUserId BigInt?      @unique @map("app_user_id") // the staff login (Vendor role) that operates this vendor's portal
-  status    BranchStatus @default(active)
+  id                BigInt       @id @default(autoincrement())
+  code              String       @unique @db.VarChar(30)
+  name              String       @db.VarChar(150)
+  gstin             String?      @db.VarChar(20)
+  phone             String?      @db.VarChar(20)
+  email             String?      @db.VarChar(150)
+  address           String? // free-text postal address
+  bankName          String?      @map("bank_name") @db.VarChar(150)
+  bankAccountName   String?      @map("bank_account_name") @db.VarChar(150) // account holder
+  bankAccountNumber String?      @map("bank_account_number") @db.VarChar(40)
+  bankIfsc          String?      @map("bank_ifsc") @db.VarChar(20)
+  notes             String? // free-text vendor details / remarks
+  appUserId         BigInt?      @unique @map("app_user_id") // the staff login (Vendor role) that operates this vendor's portal
+  status            BranchStatus @default(active)
 
-  appUser      AppUser?           @relation(fields: [appUserId], references: [id])
+  appUser      AppUser?           @relation("VendorPortalOperator", fields: [appUserId], references: [id])
+  staff        AppUser[]          @relation("VendorStaff") // staff (Vendor / Mess Incharge) attached to this vendor
   settlements  VendorSettlement[]
   foodRequests FoodRequest[]
 
@@ -717,6 +731,21 @@ model VendorSettlement {
   branch Branch @relation(fields: [branchId], references: [id])
 
   @@map("vendor_settlements")
+}
+
+// Managed delivery locations for food requests (Settings → Delivery Locations).
+// The request stores the chosen location as text; this curates the searchable
+// suggestions shown on the raise-request form.
+model DeliveryLocation {
+  id        BigInt       @id @default(autoincrement())
+  name      String       @db.VarChar(150)
+  branchId  BigInt?      @map("branch_id") // NULL = all branches
+  status    BranchStatus @default(active)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  @@map("delivery_locations")
 }
 
 // ---------- Admin food requests (plan.md §15) ----------

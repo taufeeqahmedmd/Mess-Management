@@ -69,17 +69,16 @@ async function parseAndPrice(
     return { error: "Out of your branch scope." };
   }
 
-  // Vendor (optional) — must exist, be active, and be in the same branch scope.
-  let vendorId: bigint | null = null;
-  if (vendorIdStr) {
-    try {
-      vendorId = BigInt(vendorIdStr);
-    } catch {
-      return { error: "Invalid vendor." };
-    }
-    const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } });
-    if (!vendor || vendor.status !== "active") return { error: "Vendor not found or inactive." };
+  // Vendor (required) — must exist and be active.
+  if (!vendorIdStr) return { error: "Select a vendor." };
+  let vendorId: bigint;
+  try {
+    vendorId = BigInt(vendorIdStr);
+  } catch {
+    return { error: "Invalid vendor." };
   }
+  const vendor = await prisma.vendor.findUnique({ where: { id: vendorId } });
+  if (!vendor || vendor.status !== "active") return { error: "Vendor not found or inactive." };
 
   // Catalog snapshot — only active items visible to this user's branch.
   const ids = lineInputs.map((l) => l.foodItemId);

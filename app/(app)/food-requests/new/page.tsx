@@ -108,12 +108,17 @@ export default async function NewFoodRequestPage({
   }
 
   // --- Cardholder resolved → show the request form ---
-  const [catalog, vendors] = await Promise.all([
+  const [catalog, vendors, locations] = await Promise.all([
     prisma.foodItem.findMany({
       where: { active: true, OR: [{ branchId: null }, { branchId: user.branchId }] },
       orderBy: { name: "asc" },
     }),
     prisma.vendor.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }),
+    prisma.deliveryLocation.findMany({
+      where: { status: "active", OR: [{ branchId: null }, { branchId: user.branchId }] },
+      orderBy: { name: "asc" },
+      select: { name: true },
+    }),
   ]);
 
   if (catalog.length === 0) {
@@ -150,8 +155,9 @@ export default async function NewFoodRequestPage({
         action={createFoodRequestAction}
         userId={user.id.toString()}
         userName={user.fullName}
-        catalog={catalog.map((c) => ({ id: c.id.toString(), name: c.name, kind: c.kind, unitPrice: c.unitPrice.toFixed(2) }))}
+        catalog={catalog.map((c) => ({ id: c.id.toString(), name: c.name, kind: c.kind, unitPrice: c.unitPrice.toFixed(2), vendorPrice: c.unitVendorPrice.toFixed(2) }))}
         vendors={vendors.map((v) => ({ id: v.id.toString(), name: v.name }))}
+        locations={locations.map((l) => l.name)}
       />
     </div>
   );

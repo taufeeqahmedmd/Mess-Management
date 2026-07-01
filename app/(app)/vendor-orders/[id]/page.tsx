@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { landingFor } from "@/lib/landing";
+import { vendorForActor } from "@/lib/vendor";
 import { inr } from "@/lib/format";
 import { PANEL, TH, TD } from "@/components/ui/controls";
 import { FOOD_REQUEST_STATUS_META, vendorCanDecide, vendorAdvanceTarget, isAwaitingDelivery } from "@/services/food-request";
@@ -24,7 +25,7 @@ export default async function VendorOrderDetailPage({ params }: { params: Promis
   const actor = await requireActor();
   if (!can(actor, "foodRequests.vendor")) redirect(landingFor(actor));
 
-  const vendor = await prisma.vendor.findFirst({ where: { appUserId: BigInt(actor.id), status: "active" } });
+  const vendor = await vendorForActor(actor.id);
   if (!vendor) notFound();
 
   const { id: idStr } = await params;

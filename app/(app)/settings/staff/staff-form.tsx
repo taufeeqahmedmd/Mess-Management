@@ -5,6 +5,7 @@ import { useState } from "react";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { MultiSelect } from "@/components/ui/multi-select";
 import { BTN_PRIMARY, BTN_GHOST, FORM_LABEL, FORM_INPUT } from "@/components/ui/controls";
+import { roleNeedsVendor } from "./vendor-roles";
 import type { StaffFormState } from "./actions";
 
 export type StaffData = {
@@ -15,6 +16,7 @@ export type StaffData = {
   branchId: string; // "" = all branches
   status: "active" | "disabled" | "locked";
   cardholderCode?: string; // the staff member's own RFID/cardholder account code, "" if unlinked
+  vendorId?: string; // set when role is Vendor / Mess Incharge, "" otherwise
 };
 
 type Option = { id: string; name: string };
@@ -28,6 +30,7 @@ export function StaffForm({
   roles,
   branches,
   counters,
+  vendors,
   assignedCounterIds = [],
   canChooseBranch,
   onCancel,
@@ -37,6 +40,7 @@ export function StaffForm({
   roles: Option[];
   branches: Option[];
   counters: Option[];
+  vendors: Option[];
   assignedCounterIds?: string[];
   canChooseBranch: boolean;
   onCancel?: () => void;
@@ -50,6 +54,9 @@ export function StaffForm({
     },
   });
   const [counterSel, setCounterSel] = useState<string[]>(assignedCounterIds);
+  const [roleId, setRoleId] = useState(staff?.roleId ?? "");
+  const selectedRole = roles.find((r) => r.id === roleId);
+  const needVendor = roleNeedsVendor(selectedRole?.name);
 
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
@@ -72,7 +79,7 @@ export function StaffForm({
         </div>
         <div>
           <label htmlFor="roleId" className={FORM_LABEL}>Role</label>
-          <select id="roleId" name="roleId" required defaultValue={staff?.roleId ?? ""} className={inputClass}>
+          <select id="roleId" name="roleId" required value={roleId} onChange={(e) => setRoleId(e.target.value)} className={inputClass}>
             <option value="" disabled>Select a role</option>
             {roles.map((r) => <option key={r.id} value={r.id}>{r.name}</option>)}
           </select>
@@ -86,6 +93,16 @@ export function StaffForm({
             </select>
           </div>
         ) : null}
+        {needVendor ? (
+          <div>
+            <label htmlFor="vendorId" className={FORM_LABEL}>Vendor</label>
+            <select id="vendorId" name="vendorId" required defaultValue={staff?.vendorId ?? ""} className={inputClass}>
+              <option value="" disabled>Select a vendor</option>
+              {vendors.map((v) => <option key={v.id} value={v.id}>{v.name}</option>)}
+            </select>
+            <p className="mt-1.5 text-[11px] text-muted-2">Required for {selectedRole?.name} staff — the vendor they belong to. Manage vendors in Settings → Vendors.</p>
+          </div>
+        ) : null}
       </div>
 
       <div>
@@ -97,12 +114,12 @@ export function StaffForm({
           name="cardholderCode"
           maxLength={40}
           defaultValue={staff?.cardholderCode ?? ""}
-          placeholder="Cardholder code, e.g. EMP1001"
+          placeholder="Cardholder code or card UID, e.g. EMP1001"
           className={`${inputClass} font-mono`}
         />
         <p className="mt-1.5 text-[11px] text-muted-2">
-          This staff member&rsquo;s own cardholder account. When set, they can raise food requests charged to
-          themselves without searching. Leave blank to unlink.
+          This staff member&rsquo;s own cardholder account — enter the cardholder code or tap their registered
+          RFID card. When set, they can raise food requests charged to themselves without searching. Leave blank to unlink.
         </p>
       </div>
 

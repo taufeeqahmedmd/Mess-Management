@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { landingFor } from "@/lib/landing";
+import { vendorForActor } from "@/lib/vendor";
 import { inr } from "@/lib/format";
 import { PANEL, TH, TD, LINK_ACT_GOLD } from "@/components/ui/controls";
 import { FOOD_REQUEST_STATUS_META, VENDOR_ACTIONABLE, VENDOR_IN_PROGRESS } from "@/services/food-request";
@@ -84,7 +85,7 @@ export default async function VendorOrdersPage() {
   const actor = await requireActor();
   if (!can(actor, "foodRequests.vendor")) redirect(landingFor(actor));
 
-  const vendor = await prisma.vendor.findFirst({ where: { appUserId: BigInt(actor.id), status: "active" } });
+  const vendor = await vendorForActor(actor.id);
   if (!vendor) {
     return (
       <div className="mx-auto flex w-full max-w-2xl flex-col gap-4 px-5 py-10 sm:px-7">

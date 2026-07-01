@@ -293,11 +293,28 @@ async function main() {
   // --- Vendor (caterer) + its portal login (Vendor role). The food-request
   //     workflow routes requests to a vendor; the vendor signs in as this staff
   //     account and only sees its own requests. ---
-  await prisma.vendor.upsert({
+  const vendor = await prisma.vendor.upsert({
     where: { code: "V1" },
     update: { appUserId: staffId["9000000005"] },
     create: { code: "V1", name: "Campus Caterers", appUserId: staffId["9000000005"] },
   });
+  // Staff with the Vendor / Mess Incharge role belong to a vendor (Settings → Staff).
+  await prisma.appUser.updateMany({
+    where: { id: { in: [staffId["9000000005"], messInchargeId] } },
+    data: { vendorId: vendor.id },
+  });
+
+  // --- Delivery locations (searchable suggestions on the raise-request form) ---
+  if ((await prisma.deliveryLocation.count()) === 0) {
+    await prisma.deliveryLocation.createMany({
+      data: [
+        { name: "Main Block — Reception", branchId: branch.id },
+        { name: "Admin Block — Conference Room", branchId: branch.id },
+        { name: "Hostel Mess Hall", branchId: branch.id },
+        { name: "Sports Complex", branchId: branch.id },
+      ],
+    });
+  }
 
   // --- Default settings (global). Per-category consumption config (model /
   //     duplicate-window / session-restriction) becomes CategorySetting in Phase 2. ---

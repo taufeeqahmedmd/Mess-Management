@@ -4,9 +4,10 @@ import { useMemo, useState } from "react";
 import Link from "next/link";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { BTN_PRIMARY, BTN_GHOST, FORM_LABEL, FORM_INPUT, FORM_OPT } from "@/components/ui/controls";
+import { SearchSelect } from "@/components/ui/search-select";
 import type { FoodRequestFormState } from "./actions";
 
-export type CatalogOption = { id: string; name: string; kind: string; unitPrice: string };
+export type CatalogOption = { id: string; name: string; kind: string; unitPrice: string; vendorPrice: string };
 export type VendorOption = { id: string; name: string };
 type Action = (prev: FoodRequestFormState, formData: FormData) => Promise<FoodRequestFormState>;
 
@@ -45,6 +46,7 @@ export function FoodRequestForm({
   userName,
   catalog,
   vendors,
+  locations,
   requestId,
   initial,
   onCancel,
@@ -54,12 +56,13 @@ export function FoodRequestForm({
   userName: string;
   catalog: CatalogOption[];
   vendors: VendorOption[];
+  locations: string[];
   requestId?: string;
   initial?: FoodRequestInitial;
   onCancel?: () => void;
 }) {
   const isEdit = Boolean(requestId);
-  const priceById = useMemo(() => new Map(catalog.map((c) => [c.id, Number.parseFloat(c.unitPrice)])), [catalog]);
+  const costById = useMemo(() => new Map(catalog.map((c) => [c.id, Number.parseFloat(c.vendorPrice)])), [catalog]);
   const kindById = useMemo(() => new Map(catalog.map((c) => [c.id, c.kind])), [catalog]);
 
   const [rows, setRows] = useState<Row[]>(() =>
@@ -82,7 +85,7 @@ export function FoodRequestForm({
   const addRow = () => setRows((rs) => [...rs, newRow()]);
   const removeRow = (key: string) => setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.key !== key) : rs));
 
-  const lineTotal = (r: Row) => (priceById.get(r.foodItemId) ?? 0) * (r.qty || 0);
+  const lineTotal = (r: Row) => (costById.get(r.foodItemId) ?? 0) * (r.qty || 0);
   const total = rows.reduce((s, r) => s + lineTotal(r), 0);
 
   // Serialised payload the server re-validates + re-prices.
@@ -125,7 +128,7 @@ export function FoodRequestForm({
                       <option value="" disabled>Select an item…</option>
                       {catalog.map((c) => (
                         <option key={c.id} value={c.id}>
-                          {c.name} — {inr(Number.parseFloat(c.unitPrice))}
+                          {c.name} — {inr(Number.parseFloat(c.vendorPrice))}
                         </option>
                       ))}
                     </select>
@@ -179,23 +182,32 @@ export function FoodRequestForm({
       </div>
 
       <div className="flex items-center justify-between rounded-[12px] border border-gold-soft-2 bg-gold-soft px-4 py-3">
-        <span className="text-[12.5px] font-medium text-gold-deep">Estimated charge (catalog price)</span>
+        <span className="text-[12.5px] font-medium text-gold-deep">Estimated vendor cost</span>
         <span className="font-display text-xl font-bold tabular-nums text-gold-deep">{inr(total)}</span>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
         <div>
           <label htmlFor="deliveryLocation" className={FORM_LABEL}>Delivery location</label>
-          <input id="deliveryLocation" name="deliveryLocation" required maxLength={150} defaultValue={initial?.deliveryLocation ?? ""} placeholder="e.g. Block A — Conference Room" className={FORM_INPUT} />
+          <SearchSelect
+            name="deliveryLocation"
+            options={locations}
+            defaultValue={initial?.deliveryLocation ?? ""}
+            required
+            maxLength={150}
+            ariaLabel="Delivery location"
+            placeholder="Search or select a location…"
+            inputClassName={FORM_INPUT}
+          />
         </div>
         <div>
           <label htmlFor="requestedFor" className={FORM_LABEL}>Delivery date &amp; time</label>
           <input id="requestedFor" name="requestedFor" type="datetime-local" required defaultValue={initial?.requestedFor ?? ""} className={FORM_INPUT} />
         </div>
         <div>
-          <label htmlFor="vendorId" className={FORM_LABEL}>Vendor <span className={FORM_OPT}>(optional)</span></label>
-          <select id="vendorId" name="vendorId" defaultValue={initial?.vendorId ?? ""} className={FORM_INPUT}>
-            <option value="">Unassigned</option>
+          <label htmlFor="vendorId" className={FORM_LABEL}>Vendor</label>
+          <select id="vendorId" name="vendorId" required defaultValue={initial?.vendorId ?? ""} className={FORM_INPUT}>
+            <option value="" disabled>Select a vendor…</option>
             {vendors.map((v) => (
               <option key={v.id} value={v.id}>{v.name}</option>
             ))}

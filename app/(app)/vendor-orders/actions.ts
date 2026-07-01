@@ -5,14 +5,10 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
+import { vendorForActor } from "@/lib/vendor";
 import { vendorCanDecide, vendorAdvanceTarget } from "@/services/food-request";
 
 export type VendorActionState = { error?: string; success?: boolean };
-
-/** Resolve the active vendor operated by this staff login, or null. */
-async function vendorForActor(actorId: string) {
-  return prisma.vendor.findFirst({ where: { appUserId: BigInt(actorId), status: "active" } });
-}
 
 /** Load a request and confirm it belongs to the actor's vendor. */
 async function ownedRequest(actorId: string, id: bigint) {

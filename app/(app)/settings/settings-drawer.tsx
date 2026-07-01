@@ -128,6 +128,7 @@ export function SettingsDrawer() {
       roles: { id: string; name: string }[];
       branches: { id: string; name: string }[];
       counters: { id: string; name: string }[];
+      vendors: { id: string; name: string }[];
       canChooseBranch: boolean;
       staff?: StaffData;
       assignedCounterIds?: string[];
@@ -140,6 +141,7 @@ export function SettingsDrawer() {
         roles={d.roles}
         branches={d.branches}
         counters={d.counters}
+        vendors={d.vendors}
         assignedCounterIds={d.assignedCounterIds ?? []}
         canChooseBranch={d.canChooseBranch}
         onCancel={close}

@@ -10,19 +10,21 @@ export default async function NewStaffPage() {
   const actor = await requireActor();
   if (!can(actor, "staff.manage")) redirect("/dashboard");
 
-  const [roles, branches, counters] = await Promise.all([
+  const [roles, branches, counters, vendors] = await Promise.all([
     prisma.role.findMany({ orderBy: { name: "asc" } }),
     prisma.branch.findMany({ orderBy: { name: "asc" } }),
     prisma.counter.findMany({
       where: { deletedAt: null, status: "active", ...(actor.branchId ? { branchId: BigInt(actor.branchId) } : {}) },
       orderBy: { name: "asc" },
     }),
+    prisma.vendor.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }),
   ]);
   const roleOptions = roles
     .filter((r) => actor.isSuperAdmin || r.name !== "Super Admin")
     .map((r) => ({ id: r.id.toString(), name: r.name }));
   const branchOptions = branches.map((b) => ({ id: b.id.toString(), name: b.name }));
   const counterOptions = counters.map((c) => ({ id: c.id.toString(), name: c.name }));
+  const vendorOptions = vendors.map((v) => ({ id: v.id.toString(), name: v.name }));
 
   return (
     <div className="flex max-w-3xl flex-col gap-6">
@@ -37,6 +39,7 @@ export default async function NewStaffPage() {
         roles={roleOptions}
         branches={branchOptions}
         counters={counterOptions}
+        vendors={vendorOptions}
         canChooseBranch={!actor.branchId}
       />
     </div>

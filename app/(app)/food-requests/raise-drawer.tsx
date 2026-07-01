@@ -22,6 +22,7 @@ export function RaiseDrawer({
   category,
   catalog,
   vendors,
+  locations,
 }: {
   userId: string;
   userName: string;
@@ -29,6 +30,7 @@ export function RaiseDrawer({
   category: string;
   catalog: CatalogOption[];
   vendors: VendorOption[];
+  locations: string[];
 }) {
   const [open, setOpen] = useState(false);
   const pathname = usePathname();
@@ -97,6 +99,7 @@ export function RaiseDrawer({
               userName={userName}
               catalog={catalog}
               vendors={vendors}
+              locations={locations}
               onCancel={() => setOpen(false)}
             />
           ) : null}

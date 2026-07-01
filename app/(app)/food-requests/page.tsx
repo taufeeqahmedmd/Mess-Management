@@ -53,8 +53,9 @@ export default async function FoodRequestsPage({
   // The logged-in staff's linked cardholder (if any) → the "Raise request" button
   // opens the drawer defaulted to their own account; otherwise it routes to the picker.
   let self: { id: string; name: string; code: string; category: string } | null = null;
-  let catalog: { id: string; name: string; kind: string; unitPrice: string }[] = [];
+  let catalog: { id: string; name: string; kind: string; unitPrice: string; vendorPrice: string }[] = [];
   let vendors: { id: string; name: string }[] = [];
+  let locations: string[] = [];
   if (canCreate) {
     const me = await prisma.appUser.findUnique({
       where: { id: BigInt(actor.id) },
@@ -63,12 +64,14 @@ export default async function FoodRequestsPage({
     const cc = me?.cardholder;
     if (cc && !cc.deletedAt && cc.status === "active" && (!actor.branchId || cc.branchId.toString() === actor.branchId)) {
       self = { id: cc.id.toString(), name: cc.fullName, code: cc.code, category: cc.category.name };
-      const [cat, ven] = await Promise.all([
+      const [cat, ven, loc] = await Promise.all([
         prisma.foodItem.findMany({ where: { active: true, OR: [{ branchId: null }, { branchId: cc.branchId }] }, orderBy: { name: "asc" } }),
         prisma.vendor.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }),
+        prisma.deliveryLocation.findMany({ where: { status: "active", OR: [{ branchId: null }, { branchId: cc.branchId }] }, orderBy: { name: "asc" }, select: { name: true } }),
       ]);
-      catalog = cat.map((c) => ({ id: c.id.toString(), name: c.name, kind: c.kind, unitPrice: c.unitPrice.toFixed(2) }));
+      catalog = cat.map((c) => ({ id: c.id.toString(), name: c.name, kind: c.kind, unitPrice: c.unitPrice.toFixed(2), vendorPrice: c.unitVendorPrice.toFixed(2) }));
       vendors = ven.map((v) => ({ id: v.id.toString(), name: v.name }));
+      locations = loc.map((l) => l.name);
     }
   }
 
@@ -88,7 +91,7 @@ export default async function FoodRequestsPage({
         </div>
         {canCreate ? (
           self ? (
-            <RaiseDrawer userId={self.id} userName={self.name} userCode={self.code} category={self.category} catalog={catalog} vendors={vendors} />
+            <RaiseDrawer userId={self.id} userName={self.name} userCode={self.code} category={self.category} catalog={catalog} vendors={vendors} locations={locations} />
           ) : (
             <Link href="/food-requests/new" className={BTN_PRIMARY}>
               <PlusGlyph />

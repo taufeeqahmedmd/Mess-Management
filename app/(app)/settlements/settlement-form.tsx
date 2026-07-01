@@ -51,7 +51,7 @@ export function SettlementForm({
       {vendors.length === 0 ? (
         <p className="rounded-sm bg-gold-soft px-3 py-2.5 text-sm text-ink-2">
           No active vendors yet.{" "}
-          <Link href="/settlements/vendors/new" className="font-semibold text-gold-deep hover:underline">
+          <Link href="/settings/vendors/new" className="font-semibold text-gold-deep hover:underline">
             Add a vendor
           </Link>{" "}
           first.

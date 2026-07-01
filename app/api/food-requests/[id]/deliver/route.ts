@@ -3,6 +3,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { vendorForActor } from "@/lib/vendor";
 import { runFulfillment } from "@/lib/run-fulfillment";
 
 const schema = z.object({
@@ -33,8 +34,8 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
   const parsed = schema.safeParse(body);
   if (!parsed.success) return NextResponse.json({ error: "Invalid request." }, { status: 400 });
 
-  // The request must belong to the active vendor this staff member operates.
-  const vendor = await prisma.vendor.findFirst({ where: { appUserId: BigInt(actor.id), status: "active" } });
+  // The request must belong to the active vendor this staff member is attached to.
+  const vendor = await vendorForActor(actor.id);
   if (!vendor) return NextResponse.json({ error: "No vendor is linked to your account." }, { status: 403 });
   const request = await prisma.foodRequest.findUnique({ where: { id: requestId }, select: { vendorId: true } });
   if (!request || request.vendorId !== vendor.id) {
