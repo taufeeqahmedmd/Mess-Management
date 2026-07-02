@@ -37,6 +37,16 @@ export async function saveAccessControlAction(
     return { error: "Could not read the submitted changes." };
   }
 
+  // Self-heal: make sure every catalog permission has a row before we map codes
+  // to ids. A DB seeded before a permission was added to the catalog (e.g.
+  // foodRequests.vendor, vendorDashboard.view) would otherwise be missing that
+  // row — the code would map to `undefined` and the grant would silently never
+  // save. Idempotent (skipDuplicates), so it's a no-op once the table is in sync.
+  await prisma.permission.createMany({
+    data: PERMISSIONS.map((code) => ({ code, module: code.split(".")[0] })),
+    skipDuplicates: true,
+  });
+
   const [roles, allPerms] = await Promise.all([
     prisma.role.findMany({
       orderBy: { id: "asc" },
