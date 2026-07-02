@@ -105,7 +105,7 @@ export function AppSidebar({
               Mess Management
             </div>
             <div className="text-[10.5px] font-medium uppercase tracking-[0.04em] text-muted-2">
-              Bhojan · <span className="font-devanagari normal-case">भोजन</span>
+              K-innovative Hub
             </div>
           </div>
         </Link>

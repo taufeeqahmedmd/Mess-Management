@@ -32,7 +32,7 @@ export default function LoginPage() {
           <div>
             <div className="font-display text-[16.5px] font-bold tracking-[-0.2px] text-ink">Mess Management</div>
             <div className="text-[10.5px] font-medium uppercase tracking-[0.04em] text-muted-2">
-              Bhojan · <span className="font-devanagari normal-case">भोजन</span>
+              K-innovative Hub
             </div>
           </div>
         </div>
