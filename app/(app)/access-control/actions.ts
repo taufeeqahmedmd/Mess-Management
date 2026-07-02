@@ -18,8 +18,8 @@ export type SaveRoleState = { error?: string; success?: boolean; savedRoles?: st
  *
  * Payload shape (hidden `payload` field): { [roleId]: permissionCode[] }.
  *
- * Note: permissions ride on the JWT, so affected staff see changes after their
- * next sign-in.
+ * Note: authorization is re-read from the DB on every request (lib/session), so
+ * grant changes take effect on the affected staff's next action — no re-login.
  */
 export async function saveAccessControlAction(
   _prev: SaveRoleState,

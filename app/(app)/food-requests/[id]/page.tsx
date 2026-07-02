@@ -118,13 +118,14 @@ export default async function FoodRequestDetailPage({ params }: { params: Promis
       {/* Items */}
       <div className={PANEL}>
         <div className="overflow-x-auto">
-          <table className="w-full min-w-[560px]">
+          <table className="w-full min-w-[680px]">
             <thead>
               <tr className="border-b border-line bg-surface-2 text-left">
                 <th className={TH}>Item</th>
                 <th className={`${TH} text-right`}>Qty</th>
                 <th className={`${TH} text-right`}>Unit</th>
                 <th className={`${TH} text-right`}>Line total</th>
+                <th className={`${TH} text-right`}>Vendor cost</th>
               </tr>
             </thead>
             <tbody>
@@ -137,13 +138,15 @@ export default async function FoodRequestDetailPage({ params }: { params: Promis
                   <td className={`${TD} text-right font-mono text-ink-2`}>{it.qty}</td>
                   <td className={`${TD} text-right font-mono text-ink-2`}>{inr(it.unitPrice)}</td>
                   <td className={`${TD} text-right font-mono font-semibold text-ink`}>{inr(it.unitPrice.mul(it.qty))}</td>
+                  <td className={`${TD} text-right font-mono text-muted-2`}>{inr(it.unitVendorPrice.mul(it.qty))}</td>
                 </tr>
               ))}
             </tbody>
             <tfoot>
               <tr className="border-t border-line bg-surface-2">
-                <td className={`${TD} font-semibold text-ink`} colSpan={3}>Total charge</td>
+                <td className={`${TD} font-semibold text-ink`} colSpan={3}>Total</td>
                 <td className={`${TD} text-right font-mono text-base font-bold text-gold-deep`}>{inr(req.amount)}</td>
+                <td className={`${TD} text-right font-mono text-base font-bold text-ink-2`}>{inr(req.vendorAmount)}</td>
               </tr>
             </tfoot>
           </table>

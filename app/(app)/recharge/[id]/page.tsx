@@ -69,7 +69,8 @@ export default async function RechargeReceiptPage({
           <Field label="Category" value={r.user.category.name} />
           <Field label="Branch" value={r.user.branch.name} />
           <Field label="Payment mode" value={r.paymentMode.name} />
-          <Field label="Operator" value={r.appUser.name} />
+          <Field label="Operator" value={r.appUser?.name ?? "Self Recharge"} />
+          {r.transactionId ? <Field label="Transaction ID" value={r.transactionId} mono /> : null}
         </div>
 
         <div className="grid grid-cols-2 gap-4 border-t border-line py-4 sm:grid-cols-3">

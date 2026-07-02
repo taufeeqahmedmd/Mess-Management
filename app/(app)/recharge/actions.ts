@@ -19,6 +19,18 @@ function todayUtc(): Date {
   return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
 }
 
+/**
+ * Where to land after a recharge — the page it was started from (e.g. a
+ * cardholder profile) so the updated coupons are visible. Only internal app
+ * paths are allowed (guards against open redirects); falls back to /recharge.
+ */
+function returnTarget(formData: FormData, flash: string): string {
+  const raw = String(formData.get("returnTo") ?? "").trim();
+  // Must be a relative internal path (optionally with a query) — guards open redirects.
+  const safe = raw.startsWith("/") && !raw.startsWith("//") && !raw.includes("://") ? raw : "/reports?tab=recharges";
+  return `${safe}${safe.includes("?") ? "&" : "?"}flash=${flash}`;
+}
+
 /** Price coupon grants at the cardholder's category rates (branch default).
  *  Returns the value as a Prisma.Decimal, or an error string when a meal is unpriced. */
 async function priceCoupons(
@@ -120,7 +132,7 @@ export async function createRechargeAction(
 
   revalidatePath("/recharge");
   revalidatePath(`/users/${userId}`);
-  redirect("/recharge?flash=created");
+  redirect(returnTarget(formData, "created"));
 }
 
 /**
@@ -161,6 +173,7 @@ export async function editRechargeAction(
   const old = await prisma.recharge.findUnique({ where: { id: oldId }, include: { user: true } });
   if (!old) return { error: "Recharge not found." };
   if (old.status !== "posted") return { error: "Only posted recharges can be edited." };
+  if (old.transactionId) return { error: "Online (Jodo) payments can't be edited." };
   if (old.userId !== userId) return { error: "Cardholder mismatch." };
   if (actor.branchId && old.user.branchId.toString() !== actor.branchId) {
     return { error: "Out of your branch scope." };
@@ -212,7 +225,7 @@ export async function editRechargeAction(
 
   revalidatePath("/recharge");
   revalidatePath(`/users/${userId}`);
-  redirect("/recharge?flash=updated");
+  redirect(returnTarget(formData, "updated"));
 }
 
 /** Reverse (claw back the unspent remaining of) a posted recharge. */
@@ -228,6 +241,8 @@ export async function reverseRechargeAction(formData: FormData): Promise<void> {
   const recharge = await prisma.recharge.findUnique({ where: { id }, include: { user: true } });
   if (!recharge) return;
   if (actor.branchId && recharge.user.branchId.toString() !== actor.branchId) return;
+  // Online (Jodo) payments can't be reversed in-app — refunds go through the gateway.
+  if (recharge.transactionId) return;
 
   await prisma.$transaction(async (tx) => {
     const ok = await reverseRechargeRemaining(tx, id, "reversal", BigInt(actor.id));

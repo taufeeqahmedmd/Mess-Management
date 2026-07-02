@@ -24,7 +24,6 @@ const SECTIONS: NavSection[] = [
     title: "Operations",
     items: [
       { label: "Counter", href: "/counter", icon: "counter", permission: "counter.operate" },
-      { label: "Recharge", href: "/recharge", icon: "recharge", permission: "recharge.view" },
       { label: "Food Requests", href: "/food-requests", icon: "cart", permission: "foodRequests.view" },
       { label: "Vendor Orders", href: "/vendor-orders", icon: "bag", permission: "foodRequests.vendor" },
     ],

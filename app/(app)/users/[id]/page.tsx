@@ -7,7 +7,7 @@ import { can } from "@/lib/rbac";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { inr } from "@/lib/format";
 import { formatDateInZone, formatDateTimeInZone } from "@/lib/time";
-import { BTN_GHOST, BTN_PRIMARY, TH, TD, LINK_ACT_DANGER, LINK_ACT_SAGE } from "@/components/ui/controls";
+import { BTN_GHOST, BTN_PRIMARY, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, LINK_ACT_SAGE } from "@/components/ui/controls";
 import { mealColorMap } from "@/services/reporting";
 import { mealTint } from "@/lib/meal-colors";
 import { IssueCardForm, ReplaceCardForm } from "./card-forms";
@@ -15,6 +15,7 @@ import { setCardStatusAction } from "./card-actions";
 import { RfidCardPanel } from "./rfid-card-panel";
 import { ActivityTabs } from "./activity-tabs";
 import { RechargeDrawer } from "../../recharge/edit-drawer";
+import { reverseRechargeAction } from "../../recharge/actions";
 
 const cap = (s: string) => s[0].toUpperCase() + s.slice(1);
 const fmtDate = (d: Date | null) => (d ? formatDateInZone(d) : "—");
@@ -81,6 +82,8 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
   const mealColors = await mealColorMap(prisma);
   const activeCard = u.cards.find((c) => c.status === "active") ?? null;
   const canEdit = can(actor, "users.edit");
+  const canEditRecharge = can(actor, "recharge.edit");
+  const canReverseRecharge = can(actor, "recharge.delete");
   const canReplace = can(actor, "cards.replace");
   const canActivate = can(actor, "cards.activate");
   const canDeactivate = can(actor, "cards.deactivate");
@@ -94,15 +97,17 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
       <p className="px-5 py-10 text-center text-sm text-muted">No recharges yet.</p>
     ) : (
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[760px]">
+        <table className="w-full min-w-[900px]">
           <thead>
             <tr className="border-b border-line bg-surface-2 text-left">
               <th className={TH}>Date</th>
               <th className={`${TH} text-right`}>Value</th>
               <th className={TH}>Coupons</th>
               <th className={TH}>Mode</th>
+              <th className={TH}>Txn ID</th>
               <th className={TH}>Status</th>
               <th className={TH}>By</th>
+              {canEditRecharge || canReverseRecharge ? <th className={`${TH} text-right`}>Action</th> : null}
             </tr>
           </thead>
           <tbody>
@@ -125,12 +130,40 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                     ) : "—"}
                   </td>
                   <td className={`${TD} text-ink-2`}>{r.paymentMode.name}</td>
+                  <td className={`${TD} whitespace-nowrap font-mono text-[11.5px] text-muted-2`}>{r.transactionId ?? "—"}</td>
                   <td className={TD}>
                     <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-medium ${st.text}`}>
                       <span className={`size-[7px] rounded-full ${st.dot}`} />{cap(r.status)}
                     </span>
                   </td>
-                  <td className={`${TD} text-muted`}>{r.appUser?.name ?? "—"}</td>
+                  <td className={`${TD} text-muted`}>{r.appUser?.name ?? "Self Recharge"}</td>
+                  {canEditRecharge || canReverseRecharge ? (
+                    <td className={TD}>
+                      <div className="flex items-center justify-end gap-1.5">
+                        {r.status === "posted" && !r.transactionId && canEditRecharge ? (
+                          <button type="button" data-edit-recharge={r.id.toString()} className={LINK_ACT_GOLD}>Edit</button>
+                        ) : null}
+                        {r.status === "posted" && !r.transactionId && canReverseRecharge ? (
+                          <ConfirmActionForm
+                            action={reverseRechargeAction}
+                            className="inline"
+                            fields={{ id: r.id.toString() }}
+                            confirm={{
+                              title: "Reverse recharge",
+                              message: `Reverse the unspent remainder of this recharge for ${u.fullName}?`,
+                              confirmLabel: "Yes, reverse",
+                              tone: "danger",
+                            }}
+                            successMessage="Recharge reversed."
+                            buttonClassName={LINK_ACT_DANGER}
+                          >
+                            Reverse
+                          </ConfirmActionForm>
+                        ) : null}
+                        {r.status !== "posted" || r.transactionId ? <span className="text-[12.5px] text-muted-2">—</span> : null}
+                      </div>
+                    </td>
+                  ) : null}
                 </tr>
               );
             })}
@@ -366,7 +399,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         cards={cardsPane}
       />
 
-      {can(actor, "recharge.create") ? <RechargeDrawer /> : null}
+      {can(actor, "recharge.create") || canEditRecharge ? <RechargeDrawer /> : null}
     </div>
   );
 }

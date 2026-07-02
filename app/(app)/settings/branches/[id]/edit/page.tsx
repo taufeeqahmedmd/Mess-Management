@@ -30,6 +30,7 @@ export default async function EditBranchPage({
     code: branch.code,
     name: branch.name,
     address: branch.address ?? "",
+    collectorCode: branch.collectorCode ?? "",
     status: branch.status === "inactive" ? "inactive" : "active",
   };
 

@@ -17,10 +17,11 @@ export type ApplyRechargeParams = {
   validTill: Date | null;
   paymentModeId: bigint;
   counterId: bigint | null;
-  appUserId: bigint;
+  appUserId: bigint | null; // NULL = self-service / online top-up (no operator)
   remarks: string | null;
   cardId?: bigint | null;
   clientUuid: string;
+  transactionId?: string | null; // gateway transaction id (online top-ups)
   // When false, `amount` is recorded on the recharge (collection value) but the
   // wallet money balance is NOT credited and remainingAmount is 0 — used for
   // coupon recharges where the per-meal coupons are the spendable balance.
@@ -54,6 +55,7 @@ export async function applyRecharge(
       counterId: p.counterId,
       appUserId: p.appUserId,
       remarks: p.remarks,
+      transactionId: p.transactionId ?? null,
       status: "posted",
     },
   });

@@ -33,6 +33,11 @@ export function RechargeDrawer() {
   const pathname = usePathname();
   const searchParams = useSearchParams();
 
+  // Where to land after saving — the current page incl. its query (e.g. the
+  // Reports "?tab=recharges" tab), minus any transient flash param.
+  const returnQs = new URLSearchParams(Array.from(searchParams.entries()).filter(([k]) => k !== "flash")).toString();
+  const returnTo = returnQs ? `${pathname}?${returnQs}` : pathname;
+
   function close() {
     setOpen(false);
   }
@@ -144,6 +149,7 @@ export function RechargeDrawer() {
               meals={data.meals}
               rates={data.rates}
               paymentModes={data.paymentModes}
+              returnTo={returnTo}
               onCancel={close}
             />
           ) : null}

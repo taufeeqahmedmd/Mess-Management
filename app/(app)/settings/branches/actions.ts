@@ -14,6 +14,7 @@ const branchSchema = z.object({
   code: z.string().trim().min(1, "Code is required.").max(30),
   name: z.string().trim().min(1, "Name is required.").max(150),
   address: z.string().trim().max(255),
+  collectorCode: z.string().trim().max(60),
   status: z.enum(["active", "inactive"]),
 });
 
@@ -22,6 +23,7 @@ function parse(formData: FormData) {
     code: String(formData.get("code") ?? "").trim(),
     name: String(formData.get("name") ?? "").trim(),
     address: String(formData.get("address") ?? "").trim(),
+    collectorCode: String(formData.get("collectorCode") ?? "").trim(),
     status: String(formData.get("status") ?? "active"),
   };
 }
@@ -42,6 +44,7 @@ export async function createBranchAction(
           code: data.code,
           name: data.name,
           address: data.address || null,
+          collectorCode: data.collectorCode || null,
           status: data.status as BranchStatus,
           createdBy: BigInt(actor.id),
         },
@@ -83,6 +86,7 @@ export async function updateBranchAction(
           code: data.code,
           name: data.name,
           address: data.address || null,
+          collectorCode: data.collectorCode || null,
           status: data.status as BranchStatus,
           updatedBy: BigInt(actor.id),
         },
