@@ -15,6 +15,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx prisma/seed.ts",
+    "db:sync-permissions": "tsx prisma/sync-permissions.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {
