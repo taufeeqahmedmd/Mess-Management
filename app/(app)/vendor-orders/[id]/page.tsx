@@ -133,12 +133,14 @@ export default async function VendorOrderDetailPage({ params }: { params: Promis
         <ol className="flex flex-col gap-3">
           {req.events.map((e) => {
             const em = FOOD_REQUEST_STATUS_META[e.toStatus];
+            const cancelledFrom = e.toStatus === "cancelled" && e.fromStatus ? FOOD_REQUEST_STATUS_META[e.fromStatus].label : null;
             return (
               <li key={e.id.toString()} className="flex items-start gap-3">
                 <span className={`mt-1.5 size-[8px] shrink-0 rounded-full ${em.dot}`} />
                 <div className="min-w-0">
                   <p className="text-[13px] text-ink">
                     <span className="font-medium">{em.label}</span>
+                    {cancelledFrom ? <span className="text-muted-2"> · at {cancelledFrom}</span> : null}
                     {e.note ? <span className="text-muted-2"> · {e.note}</span> : null}
                   </p>
                   <p className="text-[11.5px] text-muted-2">{e.createdAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })}</p>
