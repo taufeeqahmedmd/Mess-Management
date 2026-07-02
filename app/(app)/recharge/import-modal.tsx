@@ -86,7 +86,7 @@ export function RechargeImportModal() {
     if (!file) return;
     const ok = await confirm({
       title: "Import recharges",
-      message: "Apply recharges from the selected CSV file? This moves money into cardholder wallets and coupons.",
+      message: "Apply recharges from the selected CSV file? This grants meal coupons to cardholders.",
       confirmLabel: "Yes, import",
       tone: "danger",
     });

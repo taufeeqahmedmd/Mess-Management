@@ -1,8 +1,11 @@
-# Mess Management — RFID Coupon / Wallet System
+# Mess Management — RFID Coupon System
 
-Production rebuild of a cafeteria **RFID coupon + wallet** system: multi-user, role-based,
+Production rebuild of a cafeteria **RFID coupon** system: multi-user, role-based,
 server-enforced business rules, and an offline-capable PWA counter. Target scale ~2,000
 cardholders — **correctness > throughput**.
+
+> The wallet (money-balance) model was retired — meals are **coupon-only**. The `wallets` /
+> `wallet_transactions` tables remain in the schema but are no longer read or written.
 
 > Planning docs are the source of truth: [plan.md](plan.md) (product),
 > [db-schema.md](db-schema.md) (schema), [theme.md](theme.md) (design system).

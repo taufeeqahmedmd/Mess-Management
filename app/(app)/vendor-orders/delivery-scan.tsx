@@ -5,14 +5,14 @@ import { useRouter } from "next/navigation";
 import { useToast } from "@/components/ui/toast";
 import { BTN_PRIMARY, FORM_INPUT } from "@/components/ui/controls";
 
-type Result = { status: "DELIVERED" | "REJECTED"; reason: string; charged?: string; cardholder?: { name: string; code: string; walletBalance: string } };
+type Result = { status: "DELIVERED" | "REJECTED"; reason: string; charged?: string; cardholder?: { name: string; code: string } };
 
 /**
  * Delivery confirmation by RFID. The USB/Bluetooth reader is a keyboard wedge —
  * it types the card UID + Enter into the focused input (same capture model as the
- * counter). The charge is applied server-side only after the tap verifies the
+ * counter). The delivery is recorded server-side only after the tap verifies the
  * card belongs to the request's cardholder. One idempotency token per mount, so a
- * network retry can't double-charge.
+ * network retry can't double-post. Coupon-only: the cardholder is not charged.
  */
 export function DeliveryScan({ requestId }: { requestId: string }) {
   const router = useRouter();
@@ -46,7 +46,7 @@ export function DeliveryScan({ requestId }: { requestId: string }) {
       }
       setResult(data);
       if (data.status === "DELIVERED") {
-        toast.success(`Delivered — ₹${data.charged} charged.`);
+        toast.success("Delivered — RFID verified.");
         router.refresh();
       } else {
         toast.error(data.reason);
@@ -63,10 +63,9 @@ export function DeliveryScan({ requestId }: { requestId: string }) {
   if (result?.status === "DELIVERED") {
     return (
       <div className="rounded-[12px] border border-sage/40 bg-sage-soft p-[16px_18px]">
-        <p className="text-[15px] font-bold text-sage-deep">✓ Delivered &amp; charged</p>
+        <p className="text-[15px] font-bold text-sage-deep">✓ Delivered</p>
         <p className="mt-1 text-[13px] text-ink-2">
-          ₹{result.charged} debited from {result.cardholder?.name}&rsquo;s wallet
-          {result.cardholder ? ` (balance ₹${result.cardholder.walletBalance})` : ""}.
+          Delivery to {result.cardholder?.name ?? "the cardholder"} confirmed by RFID.
         </p>
       </div>
     );
@@ -76,8 +75,8 @@ export function DeliveryScan({ requestId }: { requestId: string }) {
     <div className="rounded-[12px] border border-gold-soft-2 bg-gold-soft/60 p-[16px_18px]">
       <p className="mb-1 text-[13px] font-semibold text-gold-deep">Confirm delivery</p>
       <p className="mb-3 text-[12px] text-muted-2">
-        Scan the cardholder&rsquo;s RFID card (or type the UID) to complete delivery. The wallet is charged
-        only after the card is verified.
+        Scan the cardholder&rsquo;s RFID card (or type the UID) to complete delivery. The delivery is
+        recorded only after the card is verified.
       </p>
       <div className="flex flex-col gap-2.5 sm:flex-row">
         <input

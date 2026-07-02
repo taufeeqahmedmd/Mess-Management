@@ -17,31 +17,15 @@ function todayUtc(): Date {
 }
 
 /**
- * Validity claw-back for one cardholder: zero the wallet + all coupon balances
- * via append-only DR `expiry` ledger rows, mark posted recharges expired, and
- * set validityExpired. `sourceId` on the expiry rows is the user id.
+ * Validity claw-back for one cardholder: zero all coupon balances via append-only
+ * DR `expiry` ledger rows, mark posted recharges expired, and set validityExpired.
+ * `sourceId` on the expiry rows is the user id. (The retired wallet balance is no
+ * longer touched.)
  */
 export async function expireUserValidityInTx(
   tx: Prisma.TransactionClient,
   userId: bigint,
 ): Promise<void> {
-  const wallet = await tx.wallet.findUnique({ where: { userId } });
-  if (wallet && wallet.balanceAmount.gt(0)) {
-    await tx.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        userId,
-        txnType: "DR",
-        sourceTable: "expiry",
-        sourceId: userId,
-        amount: wallet.balanceAmount,
-        balanceAfter: ZERO,
-        reference: "validity-expiry",
-      },
-    });
-    await tx.wallet.update({ where: { id: wallet.id }, data: { balanceAmount: ZERO, version: { increment: 1 } } });
-  }
-
   const coupons = await tx.couponBalance.findMany({ where: { userId, count: { gt: 0 } } });
   for (const cb of coupons) {
     await tx.couponTransaction.create({
@@ -94,7 +78,7 @@ export async function expireRecharges(client: PrismaClient, branchId: bigint | n
 }
 
 /**
- * Zero wallet + coupons for every cardholder past their cardExpiryDate.
+ * Zero coupons for every cardholder past their cardExpiryDate.
  * `branchId` scopes the sweep to one branch; pass null for an all-branch sweep.
  */
 export async function expireUserValidities(client: PrismaClient, branchId: bigint | null = null): Promise<number> {

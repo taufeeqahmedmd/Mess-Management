@@ -2,7 +2,6 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
-import { inr } from "@/lib/format";
 
 /**
  * GET /api/recharges/search?q= — live cardholder lookup for the recharge search
@@ -30,7 +29,7 @@ export async function GET(req: Request) {
         { cards: { some: { cardUid: { contains: q } } } },
       ],
     },
-    include: { category: true, wallet: true },
+    include: { category: true },
     orderBy: { fullName: "asc" },
     take: 10,
   });
@@ -41,7 +40,6 @@ export async function GET(req: Request) {
       code: u.code,
       fullName: u.fullName,
       category: u.category.name,
-      wallet: inr(u.wallet?.balanceAmount ?? 0),
     })),
   );
 }

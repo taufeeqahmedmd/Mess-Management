@@ -121,8 +121,8 @@ export async function importRechargesAction(
       if (coupons.length === 0) throw new Error("at least one meal coupon count is required");
 
       // Price the coupons at the cardholder's category rates (branch default) —
-      // same model as the recharge form. The wallet money balance is NOT credited;
-      // any 'amount' column in the CSV is ignored (never trust a client amount).
+      // same model as the recharge form. The recharge grants coupons only; any
+      // 'amount' column in the CSV is ignored (never trust a client amount).
       const cacheKey = `${user.branchId}:${user.categoryId}`;
       let rates = ratesCache.get(cacheKey);
       if (!rates) {
@@ -169,7 +169,6 @@ export async function importRechargesAction(
           appUserId: BigInt(actor.id),
           remarks: at(idx.remarks) || null,
           clientUuid,
-          creditWallet: false,
         });
         // Per-row audit, atomic with the money move (no partial-import audit gap).
         await writeAudit(

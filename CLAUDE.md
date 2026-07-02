@@ -7,9 +7,14 @@ detailed rule files under `.claude/rules/`.
 
 ## What this project is
 
-A production rebuild of a cafeteria **RFID coupon + wallet** system: multi-user, role-based,
+A production rebuild of a cafeteria **RFID coupon** system: multi-user, role-based,
 server-enforced business rules, and an **offline-capable PWA counter**. Replaces a single-file
 PWA mock (`rfid-coupon.html`). Target scale ~2,000 cardholders — **correctness > throughput**.
+
+> **Wallet retired (coupon-only).** The money-balance "wallet" model was removed — every meal is
+> paid by **coupon**. Recharges grant coupons; taps and food-request deliveries consume/record
+> coupons only. The `wallets` / `wallet_transactions` tables and `Recharge.remaining_amount` remain
+> in the schema but are **dormant** (never read or written) — don't reintroduce wallet logic.
 
 Source-of-truth planning docs (read before non-trivial work):
 - [plan.md](plan.md) — product plan, roles, modules, phased roadmap, open decisions.
@@ -53,11 +58,10 @@ RFID hardware = a **USB reader acting as a keyboard** (types card number + Enter
 
 ## Non-negotiable rules (the spine of this app)
 
-1. **The client never decides money or balances.** All wallet/coupon mutations run server-side
+1. **The client never decides money or balances.** All coupon mutations run server-side
    inside a single Prisma `$transaction`. The mock's client engine is the *spec*, not the impl.
-2. **Money is `Decimal(12,2)`, never float.** Ledgers (`wallet_transactions`,
-   `coupon_transactions`) are **append-only** — corrections are new reversal/adjustment rows,
-   never updates to posted rows.
+2. **Money is `Decimal(12,2)`, never float.** The coupon ledger (`coupon_transactions`) is
+   **append-only** — corrections are new reversal/adjustment rows, never updates to posted rows.
 3. **Idempotency:** every offline-originating write (taps, recharges) carries a `client_uuid` /
    `clientTxId` with a UNIQUE constraint. Sync replay must never double-charge.
 4. **Permission check on every server action / route** — deny by default. Super Admin bypasses.
@@ -96,6 +100,6 @@ Detailed guidance lives in the rule files — **read the relevant one before edi
 
 ## When unsure
 
-Open decisions are tracked in [plan.md](plan.md) §13 and [db-schema.md](db-schema.md) §13
-(e.g. coupon = count vs earmarked money). If your task touches a deferred decision, surface it
-rather than silently picking — the schema is built to support both paths.
+Open decisions are tracked in [plan.md](plan.md) §13 and [db-schema.md](db-schema.md) §13. The
+"coupon = count vs earmarked money" decision is now **resolved: coupon = count** (wallet retired).
+If your task touches another deferred decision, surface it rather than silently picking.

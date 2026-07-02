@@ -47,7 +47,7 @@ export async function RechargeReport({ actor, sp }: { actor: Actor; sp: { page?:
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-muted">Top up a cardholder&rsquo;s wallet or grant meal coupons.</p>
+        <p className="text-[13px] text-muted">Grant meal coupons to a cardholder.</p>
         <div className="flex flex-wrap items-center gap-2.5">
           {canImport ? <RechargeImportModal /> : null}
           {canEdit ? <ExpirySweepButton /> : null}

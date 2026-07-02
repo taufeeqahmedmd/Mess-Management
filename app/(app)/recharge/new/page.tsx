@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
@@ -30,7 +29,7 @@ export default async function NewRechargePage({
   }
 
   const user = uid
-    ? await prisma.user.findUnique({ where: { id: uid }, include: { category: true, wallet: true } })
+    ? await prisma.user.findUnique({ where: { id: uid }, include: { category: true } })
     : null;
 
   if (!user || user.deletedAt || (actor.branchId && user.branchId.toString() !== actor.branchId)) {
@@ -59,10 +58,7 @@ export default async function NewRechargePage({
         </p>
         <h1 className="mt-1 font-display text-[27px] font-bold tracking-[-0.6px] text-ink">Recharge {user.fullName}</h1>
         <p className="mt-1 text-sm text-ink-2">
-          <span className="font-mono">{user.code}</span> · {user.category.name} · wallet{" "}
-          <span className="font-mono text-ink">
-            ₹{(user.wallet?.balanceAmount ?? new Prisma.Decimal(0)).toFixed(2)}
-          </span>
+          <span className="font-mono">{user.code}</span> · {user.category.name}
         </p>
       </div>
 

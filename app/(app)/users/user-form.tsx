@@ -128,7 +128,7 @@ export function UserForm({
           <div>
             <label htmlFor="cardExpiryDate" className={DLABEL}>Validity <span className={OPT}>(expiry date)</span></label>
             <input id="cardExpiryDate" name="cardExpiryDate" type="date" defaultValue={user?.cardExpiryDate} className={DINPUT} />
-            <p className="mt-1.5 text-[11px] text-muted-2">Past this date the wallet and coupons are zeroed. Leave blank for no expiry.</p>
+            <p className="mt-1.5 text-[11px] text-muted-2">Past this date the coupons are zeroed. Leave blank for no expiry.</p>
           </div>
         ) : null}
 

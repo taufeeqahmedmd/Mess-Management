@@ -156,7 +156,7 @@ export function RechargeForm({
       </div>
 
       <div className="flex items-center justify-between rounded-[12px] border border-gold-soft-2 bg-gold-soft px-4 py-3">
-        <span className="text-[12.5px] font-medium text-gold-deep">Wallet amount (coupons × rate)</span>
+        <span className="text-[12.5px] font-medium text-gold-deep">Recharge value (coupons × rate)</span>
         <span className="font-display text-xl font-bold tabular-nums text-gold-deep">{inr(total)}</span>
       </div>
 

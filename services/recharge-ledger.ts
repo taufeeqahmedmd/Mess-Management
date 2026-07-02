@@ -2,11 +2,14 @@ import { Prisma, type LedgerSource } from "@prisma/client";
 
 /**
  * Transactional recharge executors. These run INSIDE a `prisma.$transaction`
- * (pass the tx client). They write append-only ledger rows
- * (wallet_transactions / coupon_transactions), update the cached balances
- * (wallets / coupon_balances) with a `version` bump, and keep `recharges`
- * remaining* in sync. Posted ledger rows are never mutated — reversals/expiry
- * post offsetting DR rows for the remaining (unspent) portion only.
+ * (pass the tx client). They write append-only coupon_transactions rows, update
+ * the cached coupon_balances with a `version` bump, and keep `recharges` in sync.
+ * Posted ledger rows are never mutated — reversals/expiry post offsetting DR rows
+ * for the remaining (unspent) coupons only.
+ *
+ * Coupon-only: `amount` is recorded on the recharge as the collection value; the
+ * spendable balance is the per-meal coupons. (The wallet money balance was
+ * retired — its schema tables are retained but no longer read or written.)
  */
 
 export type ApplyRechargeParams = {
@@ -22,22 +25,15 @@ export type ApplyRechargeParams = {
   cardId?: bigint | null;
   clientUuid: string;
   transactionId?: string | null; // gateway transaction id (online top-ups)
-  // When false, `amount` is recorded on the recharge (collection value) but the
-  // wallet money balance is NOT credited and remainingAmount is 0 — used for
-  // coupon recharges where the per-meal coupons are the spendable balance.
-  creditWallet?: boolean;
 };
 
 const ZERO = new Prisma.Decimal(0);
 
-/** Post a recharge: credit wallet + coupons, write CR ledger rows, extend validity. */
+/** Post a recharge: grant coupons, write CR ledger rows, extend validity. */
 export async function applyRecharge(
   tx: Prisma.TransactionClient,
   p: ApplyRechargeParams,
 ): Promise<{ id: bigint }> {
-  const creditWallet = p.creditWallet ?? true;
-  const hasAmount = p.amount.gt(0);
-  const walletCredit = creditWallet && hasAmount;
   const grants = p.coupons.filter((c) => c.count > 0);
 
   const recharge = await tx.recharge.create({
@@ -46,9 +42,9 @@ export async function applyRecharge(
       userId: p.userId,
       cardId: p.cardId ?? null,
       amount: p.amount,
-      // remaining (reversible) wallet money only exists when the wallet is credited;
-      // coupon recharges track their unspent portion via the coupons' `remaining`.
-      remainingAmount: walletCredit ? p.amount : ZERO,
+      // Coupon recharges track their unspent portion via the coupons' `remaining`;
+      // the retired wallet money balance is never credited (remainingAmount = 0).
+      remainingAmount: ZERO,
       validFrom: p.validFrom,
       validTill: p.validTill,
       paymentModeId: p.paymentModeId,
@@ -59,26 +55,6 @@ export async function applyRecharge(
       status: "posted",
     },
   });
-
-  if (walletCredit) {
-    const wallet = await tx.wallet.upsert({
-      where: { userId: p.userId },
-      update: { balanceAmount: { increment: p.amount }, version: { increment: 1 } },
-      create: { userId: p.userId, balanceAmount: p.amount, version: 1 },
-    });
-    await tx.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        userId: p.userId,
-        txnType: "CR",
-        sourceTable: "recharge",
-        sourceId: recharge.id,
-        amount: p.amount,
-        balanceAfter: wallet.balanceAmount,
-        reference: "recharge",
-      },
-    });
-  }
 
   for (const g of grants) {
     await tx.rechargeCoupon.create({
@@ -134,25 +110,6 @@ export async function reverseRechargeRemaining(
     include: { coupons: true },
   });
   if (!recharge || recharge.status !== "posted") return false;
-
-  if (recharge.remainingAmount.gt(0)) {
-    const wallet = await tx.wallet.update({
-      where: { userId: recharge.userId },
-      data: { balanceAmount: { decrement: recharge.remainingAmount }, version: { increment: 1 } },
-    });
-    await tx.walletTransaction.create({
-      data: {
-        walletId: wallet.id,
-        userId: recharge.userId,
-        txnType: "DR",
-        sourceTable: source,
-        sourceId: rechargeId,
-        amount: recharge.remainingAmount,
-        balanceAfter: wallet.balanceAmount,
-        reference: source,
-      },
-    });
-  }
 
   for (const c of recharge.coupons) {
     if (c.remaining > 0) {

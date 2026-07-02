@@ -16,13 +16,9 @@ export default async function ConsumptionPage() {
 
   const rows: ConsumptionRow[] = categories.map((c) => {
     const s = c.settings[0];
-    const models = (s?.models ?? []).filter(
-      (m): m is "wallet" | "coupon" => m === "wallet" || m === "coupon",
-    );
     return {
       id: c.id.toString(),
       name: c.name,
-      models: models.length ? models : ["wallet"],
       duplicateWindow: s?.duplicateWindow ?? 0,
       restrictMealSession: s?.restrictMealSession ?? false,
     };
@@ -31,9 +27,8 @@ export default async function ConsumptionPage() {
   return (
     <div className="flex flex-col gap-4">
       <p className="max-w-[680px] text-[13px] text-muted">
-        How each category&rsquo;s taps resolve: <b className="text-ink">Wallet</b> deducts money,{" "}
-        <b className="text-ink">Coupon</b> deducts a per-meal count. Set the duplicate-tap window and
-        once-per-meal-session rule per category.
+        How each category&rsquo;s taps resolve: a tap deducts one <b className="text-ink">coupon</b> (a
+        per-meal count). Set the duplicate-tap window and once-per-meal-session rule per category.
       </p>
 
       <ConsumptionForm rows={rows} />

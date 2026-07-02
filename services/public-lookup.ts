@@ -20,7 +20,6 @@ export type PublicBalance = {
   phone: string | null;
   email: string | null;
   validity: { expiresOn: string | null; expired: boolean };
-  wallet: string; // "0.00"
   coupons: Array<{ meal: string; count: number }>;
 };
 
@@ -43,7 +42,7 @@ function userWhere(code: string): Prisma.UserWhereInput {
 export async function getPublicBalance(db: Db, code: string): Promise<PublicBalance | null> {
   const user = await db.user.findFirst({
     where: userWhere(code),
-    include: { category: true, wallet: true, couponBalances: { include: { mealType: true } } },
+    include: { category: true, couponBalances: { include: { mealType: true } } },
   });
   if (!user) return null;
 
@@ -58,7 +57,6 @@ export async function getPublicBalance(db: Db, code: string): Promise<PublicBala
       expiresOn: user.cardExpiryDate ? user.cardExpiryDate.toISOString().slice(0, 10) : null,
       expired: user.validityExpired,
     },
-    wallet: (user.wallet?.balanceAmount ?? new Prisma.Decimal(0)).toFixed(2),
     coupons: user.couponBalances
       .filter((c) => c.count > 0)
       .map((c) => ({ meal: c.mealType.name, count: c.count }))

@@ -32,7 +32,7 @@ export function RechargeImportForm() {
     const form = e.currentTarget;
     const ok = await confirm({
       title: "Import recharges",
-      message: "Apply recharges from the selected CSV file? This moves money into cardholder wallets and coupons.",
+      message: "Apply recharges from the selected CSV file? This grants meal coupons to cardholders.",
       confirmLabel: "Yes, import",
       tone: "danger",
     });
@@ -56,7 +56,7 @@ export function RechargeImportForm() {
           <p className="text-xs text-muted">
             Columns: RFID, one column per meal (e.g. &ldquo;BKF Coupons&rdquo;), paymentMode,
             validTill, remarks. Only <span className="font-medium">RFID</span> plus at least one
-            coupon count is required; the wallet value is computed from coupons × rate. Dates accept
+            coupon count is required; the recharge value is computed from coupons × rate. Dates accept
             YYYY-MM-DD or DD-MM-YYYY.
           </p>
         </div>

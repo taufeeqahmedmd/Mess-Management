@@ -39,7 +39,7 @@ export async function GET(req: Request) {
   const range = resolveDateRange(g("from") ?? undefined, g("to") ?? undefined, new Date());
   const branchId = actor.branchId ? BigInt(actor.branchId) : null;
   const paidByRaw = g("paidBy");
-  const paidBy = paidByRaw === "wallet" || paidByRaw === "coupon" ? paidByRaw : undefined;
+  const paidBy = paidByRaw === "coupon" ? paidByRaw : undefined;
 
   const f: ConsumptionFilter = {
     branchId,

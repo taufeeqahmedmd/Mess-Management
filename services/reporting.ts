@@ -84,7 +84,7 @@ export type ConsumptionFilter = {
   counterId?: bigint;
   counterIds?: bigint[]; // restrict to a set of counters (vendor dashboard)
   categoryId?: bigint;
-  paidBy?: "wallet" | "coupon";
+  paidBy?: "coupon";
 };
 
 export function redemptionWhere(f: ConsumptionFilter): Prisma.RedemptionWhereInput {

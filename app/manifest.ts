@@ -8,7 +8,7 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "Mess Management",
     short_name: "Mess Management",
-    description: "RFID coupon & wallet management system",
+    description: "RFID coupon management system",
     start_url: "/",
     display: "standalone",
     background_color: "#fdfbf6",

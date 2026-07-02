@@ -10,14 +10,15 @@ import { localDateValue, localDayRange, minutesOfDayInZone } from "@/lib/time";
  * Idempotent on `clientUuid`: a replayed tap returns the original APPROVED result
  * and never charges twice. Rejected/blocked taps persist nothing (no charge).
  *
- * Resolution per the category's `models`: coupon first, then wallet. When the
- * cardholder has any ACTIVE recharge, consumption is earmarked to what those
- * recharges cover ("MEAL NOT RECHARGED"). On approve: a redemptions row + an
- * append-only DR ledger row + FIFO-decrement of recharge `remaining`.
+ * Coupon-only: a tap consumes one coupon for the active meal. When the cardholder
+ * has any ACTIVE recharge, consumption is earmarked to what those recharges cover
+ * ("MEAL NOT RECHARGED"). On approve: a redemptions row + an append-only DR
+ * coupon-ledger row + FIFO-decrement of recharge `remaining`. (The wallet money
+ * balance was retired — the schema tables are retained but unused.)
  *
- * Concurrency (database.md "optimistic locking"): the cached balance row
- * (wallet / coupon_balance) is debited with a version-guarded `updateMany`. If a
- * concurrent tap bumped the version first, the guard matches 0 rows and the
+ * Concurrency (database.md "optimistic locking"): the cached coupon_balance row
+ * is debited with a version-guarded `updateMany`. If a concurrent tap bumped the
+ * version first, the guard matches 0 rows and the
  * engine throws `TapConflictError`; the caller (`lib/run-tap`) retries the whole
  * transaction. The retry re-reads fresh state, so it also re-evaluates the
  * duplicate-window / once-per-session guards against the now-committed redemption
@@ -57,15 +58,14 @@ export type Cardholder = {
   category: string;
   photoUrl: string | null;
   status: string;
-  walletBalance: string;
-  /** Total coupons remaining across all meals — shown on the counter in place of the wallet balance. */
+  /** Total coupons remaining across all meals — shown on the counter. */
   couponsRemaining: number;
 };
 
 export type TapResult = {
   status: TapStatus;
   reason: string;
-  paidBy?: "wallet" | "coupon";
+  paidBy?: "coupon";
   charged?: string;
   meal?: { id: string; name: string };
   cardholder?: Cardholder;
@@ -85,7 +85,7 @@ export type TapParams = {
 
 const ZERO = new Prisma.Decimal(0);
 
-type LoadedUser = Prisma.UserGetPayload<{ include: { category: true; wallet: true; couponBalances: true } }>;
+type LoadedUser = Prisma.UserGetPayload<{ include: { category: true; couponBalances: true } }>;
 
 function cardholderInfo(user: LoadedUser): Cardholder {
   return {
@@ -95,7 +95,6 @@ function cardholderInfo(user: LoadedUser): Cardholder {
     category: user.category.name,
     photoUrl: user.photoUrl,
     status: user.status,
-    walletBalance: (user.wallet?.balanceAmount ?? ZERO).toFixed(2),
     couponsRemaining: user.couponBalances.reduce((s, cb) => s + cb.count, 0),
   };
 }
@@ -114,13 +113,13 @@ export async function tapEngine(
   // 1. Idempotency — replay returns the original APPROVED result.
   const existing = await tx.redemption.findUnique({
     where: { clientUuid: p.clientUuid },
-    include: { user: { include: { category: true, wallet: true, couponBalances: true } }, mealType: true },
+    include: { user: { include: { category: true, couponBalances: true } }, mealType: true },
   });
   if (existing) {
     return {
       status: "APPROVED",
       reason: "Already recorded",
-      paidBy: existing.paidBy ?? undefined,
+      paidBy: existing.paidBy === "coupon" ? "coupon" : undefined,
       charged: existing.amount.toFixed(2),
       meal: { id: existing.mealTypeId.toString(), name: existing.mealType.name },
       cardholder: cardholderInfo(existing.user),
@@ -131,13 +130,13 @@ export async function tapEngine(
   // 2. Resolve cardholder by card UID, else by code (manual/id entry).
   let card = await tx.rfidCard.findUnique({
     where: { cardUid: p.cardUid },
-    include: { user: { include: { category: true, wallet: true, couponBalances: true } } },
+    include: { user: { include: { category: true, couponBalances: true } } },
   });
   let user: LoadedUser | null = card?.user ?? null;
   if (!user) {
     const byCode = await tx.user.findUnique({
       where: { code: p.cardUid },
-      include: { category: true, wallet: true, couponBalances: true, cards: { where: { status: "active" }, take: 1 } },
+      include: { category: true, couponBalances: true, cards: { where: { status: "active" }, take: 1 } },
     });
     if (byCode) {
       user = byCode;
@@ -182,7 +181,6 @@ export async function tapEngine(
   const setting = await tx.categorySetting.findFirst({
     where: { categoryId: user.categoryId, status: "active" },
   });
-  const models: ("wallet" | "coupon")[] = (setting?.models as ("wallet" | "coupon")[]) ?? ["wallet"];
   const dupWindow = setting?.duplicateWindow ?? 0;
   const restrictSession = setting?.restrictMealSession ?? false;
 
@@ -225,68 +223,39 @@ export async function tapEngine(
   });
   const hasActiveRecharge = activeRecharges.length > 0;
 
-  // 12. Decide payment — coupon first, then wallet. The cached-balance row's
-  // `version` read here is carried into the commit's version-guarded update so a
-  // concurrent tap can't debit the same balance twice (database.md).
-  let decision:
-    | { paidBy: "coupon"; charged: Prisma.Decimal; version: number }
-    | { paidBy: "wallet"; charged: Prisma.Decimal; version: number }
-    | null = null;
-  let lastReason = "INSUFFICIENT BALANCE";
+  // 12. Decide — a coupon must be available for this meal. The coupon_balance
+  // row's `version` read here is carried into the commit's version-guarded update
+  // so a concurrent tap can't debit the same balance twice (database.md). When the
+  // cardholder has an active recharge, the meal must be one those recharges cover.
+  let decision: { charged: Prisma.Decimal; version: number } | null = null;
+  let lastReason = "INSUFFICIENT COUPON";
 
-  if (models.includes("coupon")) {
-    const availableCoupons = activeRecharges.reduce(
-      (s, r) => s + r.coupons.filter((c) => c.mealTypeId === mealId).reduce((ss, c) => ss + c.remaining, 0),
-      0,
-    );
-    const cb = await tx.couponBalance.findUnique({
-      where: { userId_mealTypeId: { userId: user.id, mealTypeId: mealId } },
-    });
-    if (hasActiveRecharge && availableCoupons < 1) lastReason = "MEAL NOT RECHARGED";
-    else if (!cb || cb.count < 1) lastReason = "INSUFFICIENT COUPON";
-    else decision = { paidBy: "coupon", charged: ZERO, version: cb.version };
-  }
-
-  if (!decision && models.includes("wallet")) {
-    // Earmark applies only to recharges that actually carry unspent WALLET money
-    // (remainingAmount > 0). Coupon recharges have remainingAmount 0, so they must
-    // never gate wallet spend — otherwise any coupon grant would falsely block
-    // every wallet meal ("MEAL NOT RECHARGED") despite a funded wallet.
-    const walletEarmarks = activeRecharges.filter((r) => r.remainingAmount.gt(0));
-    const availableAmount = walletEarmarks.reduce<Prisma.Decimal>((s, r) => s.plus(r.remainingAmount), ZERO);
-    const balance = user.wallet?.balanceAmount ?? ZERO;
-    if (walletEarmarks.length > 0 && availableAmount.lt(price)) lastReason = "MEAL NOT RECHARGED";
-    else if (!user.wallet || balance.lt(price)) lastReason = "INSUFFICIENT BALANCE";
-    else decision = { paidBy: "wallet", charged: price, version: user.wallet.version };
-  }
+  const availableCoupons = activeRecharges.reduce(
+    (s, r) => s + r.coupons.filter((c) => c.mealTypeId === mealId).reduce((ss, c) => ss + c.remaining, 0),
+    0,
+  );
+  const cb = await tx.couponBalance.findUnique({
+    where: { userId_mealTypeId: { userId: user.id, mealTypeId: mealId } },
+  });
+  if (hasActiveRecharge && availableCoupons < 1) lastReason = "MEAL NOT RECHARGED";
+  else if (!cb || cb.count < 1) lastReason = "INSUFFICIENT COUPON";
+  else decision = { charged: ZERO, version: cb.version };
 
   if (!decision) return result("REJECTED", lastReason, meal);
 
-  // 13. Commit: debit the cached balance under an optimistic-lock guard FIRST, so
-  // a lost race aborts before any ledger/redemption row is written, then post the
-  // redemption + append-only DR ledger row + FIFO decrement of recharge remainders.
-  let walletAfter = user.wallet?.balanceAmount ?? ZERO;
-  let couponAfter = 0;
-
-  if (decision.paidBy === "coupon") {
-    const upd = await tx.couponBalance.updateMany({
-      where: { userId: user.id, mealTypeId: mealId, version: decision.version, count: { gte: 1 } },
-      data: { count: { decrement: 1 }, version: { increment: 1 } },
-    });
-    if (upd.count !== 1) throw new TapConflictError();
-    const cb = await tx.couponBalance.findUnique({
-      where: { userId_mealTypeId: { userId: user.id, mealTypeId: mealId } },
-    });
-    couponAfter = cb?.count ?? 0;
-  } else {
-    const upd = await tx.wallet.updateMany({
-      where: { userId: user.id, version: decision.version, balanceAmount: { gte: price } },
-      data: { balanceAmount: { decrement: price }, version: { increment: 1 } },
-    });
-    if (upd.count !== 1) throw new TapConflictError();
-    const wallet = await tx.wallet.findUnique({ where: { userId: user.id } });
-    walletAfter = wallet?.balanceAmount ?? ZERO;
-  }
+  // 13. Commit: debit the cached coupon balance under an optimistic-lock guard
+  // FIRST, so a lost race aborts before any ledger/redemption row is written, then
+  // post the redemption + append-only DR coupon-ledger row + FIFO decrement of the
+  // recharge's remaining coupons.
+  const upd = await tx.couponBalance.updateMany({
+    where: { userId: user.id, mealTypeId: mealId, version: decision.version, count: { gte: 1 } },
+    data: { count: { decrement: 1 }, version: { increment: 1 } },
+  });
+  if (upd.count !== 1) throw new TapConflictError();
+  const cbAfter = await tx.couponBalance.findUnique({
+    where: { userId_mealTypeId: { userId: user.id, mealTypeId: mealId } },
+  });
+  const couponAfter = cbAfter?.count ?? 0;
 
   const redemption = await tx.redemption.create({
     data: {
@@ -296,7 +265,7 @@ export async function tapEngine(
       mealTypeId: mealId,
       counterId: p.counterId,
       categoryId: user.categoryId,
-      paidBy: decision.paidBy,
+      paidBy: "coupon",
       rateApplied: price,
       amount: decision.charged,
       vendorAmount: vendor,
@@ -307,60 +276,35 @@ export async function tapEngine(
     },
   });
 
-  if (decision.paidBy === "coupon") {
-    await tx.couponTransaction.create({
-      data: {
-        userId: user.id,
-        mealTypeId: mealId,
-        txnType: "DR",
-        sourceTable: "redemption",
-        sourceId: redemption.id,
-        count: 1,
-        balanceAfter: couponAfter,
-      },
-    });
-    // FIFO: decrement one active recharge's remaining coupon for this meal.
-    for (const r of activeRecharges) {
-      const rc = r.coupons.find((c) => c.mealTypeId === mealId && c.remaining > 0);
-      if (rc) {
-        await tx.rechargeCoupon.update({ where: { id: rc.id }, data: { remaining: { decrement: 1 } } });
-        break;
-      }
-    }
-  } else {
-    await tx.walletTransaction.create({
-      data: {
-        walletId: user.wallet!.id,
-        userId: user.id,
-        txnType: "DR",
-        sourceTable: "redemption",
-        sourceId: redemption.id,
-        amount: price,
-        balanceAfter: walletAfter,
-        reference: p.syncedAt ? "tap (synced)" : "tap",
-      },
-    });
-    // FIFO: consume `price` across active recharges' remainingAmount.
-    let remaining = price;
-    for (const r of activeRecharges) {
-      if (remaining.lte(0)) break;
-      if (r.remainingAmount.lte(0)) continue;
-      const take = r.remainingAmount.lt(remaining) ? r.remainingAmount : remaining;
-      await tx.recharge.update({ where: { id: r.id }, data: { remainingAmount: { decrement: take } } });
-      remaining = remaining.minus(take);
+  await tx.couponTransaction.create({
+    data: {
+      userId: user.id,
+      mealTypeId: mealId,
+      txnType: "DR",
+      sourceTable: "redemption",
+      sourceId: redemption.id,
+      count: 1,
+      balanceAfter: couponAfter,
+    },
+  });
+  // FIFO: decrement one active recharge's remaining coupon for this meal.
+  for (const r of activeRecharges) {
+    const rc = r.coupons.find((c) => c.mealTypeId === mealId && c.remaining > 0);
+    if (rc) {
+      await tx.rechargeCoupon.update({ where: { id: rc.id }, data: { remaining: { decrement: 1 } } });
+      break;
     }
   }
 
   return {
     status: "APPROVED",
     reason: "Approved",
-    paidBy: decision.paidBy,
+    paidBy: "coupon",
     charged: decision.charged.toFixed(2),
     meal,
     cardholder: {
       ...ch,
-      walletBalance: walletAfter.toFixed(2),
-      couponsRemaining: decision.paidBy === "coupon" ? Math.max(0, ch.couponsRemaining - 1) : ch.couponsRemaining,
+      couponsRemaining: Math.max(0, ch.couponsRemaining - 1),
     },
     redemptionId: redemption.id.toString(),
   };

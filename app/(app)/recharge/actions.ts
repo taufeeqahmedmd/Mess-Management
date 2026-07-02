@@ -109,7 +109,6 @@ export async function createRechargeAction(
         appUserId: BigInt(actor.id),
         remarks,
         clientUuid,
-        creditWallet: false,
       });
       await writeAudit(
         {
@@ -202,7 +201,6 @@ export async function editRechargeAction(
         appUserId: BigInt(actor.id),
         remarks,
         clientUuid,
-        creditWallet: false,
       });
       await writeAudit(
         {
