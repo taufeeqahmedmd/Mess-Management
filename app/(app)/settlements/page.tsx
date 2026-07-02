@@ -65,7 +65,7 @@ export default async function SettlementsPage({
           <p className="mt-1 text-sm text-ink-2">Period settlements — meal counts × vendor rate.</p>
         </div>
         <div className="flex flex-wrap items-center gap-2">
-          <Link href="/settlements/vendors" className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
+          <Link href="/settings/vendors" className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2.5 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
             Vendors
           </Link>
           {canManage ? (

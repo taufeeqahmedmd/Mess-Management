@@ -72,6 +72,7 @@ async function main() {
     { name: "Mess Incharge", mobile: "9000000002", role: "Mess Incharge", branchId: branch.id },
     { name: "Accountant", mobile: "9000000003", role: "Accountant", branchId: branch.id },
     { name: "Management", mobile: "9000000004", role: "Management", branchId: branch.id },
+    { name: "Vendor Portal", mobile: "9000000005", role: "Vendor", branchId: branch.id },
   ];
 
   const staffId: Record<string, bigint> = {};
@@ -127,6 +128,24 @@ async function main() {
       where: { code: m.code },
       update: {},
       create: m,
+    });
+    mealId[m.code] = meal.id;
+  }
+
+  // Item-only meal types for the food-request catalog (plan.md §15). Marked
+  // `active: false` so they never become an "active meal now" at a real counter
+  // (the tap engine ignores them); they exist purely as a representative meal so
+  // a fulfilled request's redemption rows group sensibly in reports.
+  const itemMeals = [
+    { code: "COF", name: "Coffee", active: false },
+    { code: "TEA", name: "Tea", active: false },
+    { code: "OTH", name: "Other / Custom", active: false },
+  ];
+  for (const m of itemMeals) {
+    const meal = await prisma.mealType.upsert({
+      where: { code: m.code },
+      update: {},
+      create: { code: m.code, name: m.name, active: m.active },
     });
     mealId[m.code] = meal.id;
   }
@@ -232,9 +251,85 @@ async function main() {
     }
   }
 
+  // --- Food-request virtual counter (plan.md §15). One per branch, with NO
+  //     operators and NO meal windows, so it is never selectable at /counter and
+  //     never resolves an "active meal". Fulfilled food requests post their
+  //     redemption rows here, giving them a real branch so settlement/reports
+  //     include them automatically (no changes to reporting.ts / settlement.ts). ---
+  await prisma.counter.upsert({
+    where: { branchId_code: { branchId: branch.id, code: "FR" } },
+    update: {},
+    create: { branchId: branch.id, code: "FR", name: "Food Requests" },
+  });
+
+  // --- Food-item catalog (CATALOG-ONLY pricing). All-branch (branchId null).
+  //     Each item maps to a representative meal for redemption grouping. Custom
+  //     Items resolve to a catalog row too (super admin adds more as needed). ---
+  const foodItems = [
+    { code: "FI-COFFEE", name: "Coffee", kind: "beverage" as const, meal: "COF", price: 15, vendor: 10 },
+    { code: "FI-TEA", name: "Tea", kind: "beverage" as const, meal: "TEA", price: 10, vendor: 7 },
+    { code: "FI-SNACK", name: "Snacks", kind: "snack" as const, meal: "SNK", price: 20, vendor: 14 },
+    { code: "FI-BRK", name: "Breakfast", kind: "meal" as const, meal: "BRK", price: 35, vendor: 28 },
+    { code: "FI-LUN", name: "Lunch", kind: "meal" as const, meal: "LUN", price: 60, vendor: 48 },
+    { code: "FI-DIN", name: "Dinner", kind: "meal" as const, meal: "DIN", price: 60, vendor: 48 },
+    { code: "FI-CUSTOM", name: "Custom Item", kind: "custom" as const, meal: "OTH", price: 50, vendor: 40 },
+  ];
+  for (const fi of foodItems) {
+    await prisma.foodItem.upsert({
+      where: { code: fi.code },
+      update: {},
+      create: {
+        code: fi.code,
+        name: fi.name,
+        kind: fi.kind,
+        unitPrice: new Prisma.Decimal(fi.price),
+        unitVendorPrice: new Prisma.Decimal(fi.vendor),
+        mealTypeId: mealId[fi.meal],
+        branchId: null,
+      },
+    });
+  }
+
+  // --- Vendor (caterer) + its portal login (Vendor role). The food-request
+  //     workflow routes requests to a vendor; the vendor signs in as this staff
+  //     account and only sees its own requests. ---
+  const vendor = await prisma.vendor.upsert({
+    where: { code: "V1" },
+    update: { appUserId: staffId["9000000005"] },
+    create: { code: "V1", name: "Campus Caterers", appUserId: staffId["9000000005"] },
+  });
+  // Staff with the Vendor / Mess Incharge role belong to a vendor (Settings → Staff).
+  await prisma.appUser.updateMany({
+    where: { id: { in: [staffId["9000000005"], messInchargeId] } },
+    data: { vendorId: vendor.id },
+  });
+
+  // --- Delivery locations (searchable suggestions on the raise-request form) ---
+  if ((await prisma.deliveryLocation.count()) === 0) {
+    await prisma.deliveryLocation.createMany({
+      data: [
+        { name: "Main Block — Reception", branchId: branch.id },
+        { name: "Admin Block — Conference Room", branchId: branch.id },
+        { name: "Hostel Mess Hall", branchId: branch.id },
+        { name: "Sports Complex", branchId: branch.id },
+      ],
+    });
+  }
+
   // --- Default settings (global). Per-category consumption config (model /
   //     duplicate-window / session-restriction) becomes CategorySetting in Phase 2. ---
-  const settings: Record<string, Prisma.InputJsonValue> = { currency: "INR" };
+  const settings: Record<string, Prisma.InputJsonValue> = {
+    currency: "INR",
+    // Configurable single-step approval for food requests (plan.md §15). Disabled
+    // by default: requests go straight to the vendor. When enabled, requests at or
+    // above `autoApproveBelow` (null = always require) wait for an approver holding
+    // `approverPermission` before the vendor sees them.
+    food_request_approval: {
+      enabled: false,
+      autoApproveBelow: null,
+      approverPermission: "foodRequests.approve",
+    },
+  };
   for (const [settingKey, value] of Object.entries(settings)) {
     await prisma.setting.upsert({
       where: { settingKey },
@@ -269,8 +364,10 @@ async function main() {
     roles: ROLES,
     staff: staff.length,
     categories: categories.length,
-    meals: meals.length,
-    counters: counterDefs.length,
+    meals: meals.length + itemMeals.length,
+    counters: counterDefs.length + 1, // + Food Requests virtual counter
+    foodItems: foodItems.length,
+    vendor: "Campus Caterers (login 9000000005, role Vendor)",
   });
 }
 

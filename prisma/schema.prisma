@@ -123,6 +123,28 @@ enum OfflineQueueStatus {
   duplicate
 }
 
+// Admin food-request workflow (plan.md §15). A request moves through an optional
+// approval step, then vendor fulfilment, and is only charged at delivery once an
+// RFID tap verifies the cardholder. `rejected`/`cancelled` are terminal.
+enum FoodRequestStatus {
+  raised
+  pending_approval
+  approved
+  vendor_accepted
+  preparing
+  out_for_delivery
+  delivered
+  rejected
+  cancelled
+}
+
+enum FoodItemKind {
+  beverage
+  snack
+  meal
+  custom
+}
+
 // ---------- Identity, access & org ----------
 
 model Branch {
@@ -140,10 +162,13 @@ model Branch {
   appUsers    AppUser[]
   departments Department[]
   counters    Counter[]
-  users       User[]
-  mealRates   MealRate[]
-  settlements VendorSettlement[]
-  settings    Setting[]
+  users        User[]
+  mealRates    MealRate[]
+  settlements  VendorSettlement[]
+  settings     Setting[]
+  foodItems    FoodItem[]
+  foodRequests FoodRequest[]
+  deliveryLocations DeliveryLocation[]
 
   @@map("branches")
 }
@@ -195,19 +220,32 @@ model AppUser {
   lastLoginAt  DateTime?     @map("last_login_at") @db.Timestamptz(6)
   failedLogins Int           @default(0) @map("failed_logins")
   lockedUntil  DateTime?     @map("locked_until") @db.Timestamptz(6) // time-windowed login lockout (auto-clears); NULL = not locked
+  // Optional link to this staff member's OWN RFID/cardholder account, so they can
+  // raise food requests charged to themselves without searching. Staff ≠ cardholders
+  // remains true — this is just a pointer, set in Settings → Staff.
+  cardholderUserId BigInt?    @map("cardholder_user_id")
+  // Staff whose role is Vendor / Mess Incharge belong to a vendor (set in
+  // Settings → Staff). NULL for all other roles.
+  vendorId     BigInt?       @map("vendor_id")
   createdAt    DateTime      @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime      @updatedAt @map("updated_at") @db.Timestamptz(6)
   deletedAt    DateTime?     @map("deleted_at") @db.Timestamptz(6)
 
-  role             Role              @relation(fields: [roleId], references: [id])
-  branch           Branch?           @relation(fields: [branchId], references: [id])
+  role             Role               @relation(fields: [roleId], references: [id])
+  branch           Branch?            @relation(fields: [branchId], references: [id])
+  cardholder       User?              @relation("AppUserCardholder", fields: [cardholderUserId], references: [id])
+  vendor           Vendor?            @relation("VendorStaff", fields: [vendorId], references: [id])
   counterOperators CounterOperator[]
   cardEvents       CardEvent[]
   recharges        Recharge[]
   redemptions      Redemption[]
-  reversalsMade    Reversal[]        @relation("ReversalRequestedBy")
-  reversalsApprovd Reversal[]        @relation("ReversalApprovedBy")
+  reversalsMade    Reversal[]         @relation("ReversalRequestedBy")
+  reversalsApprovd Reversal[]         @relation("ReversalApprovedBy")
   auditLogs        AuditLog[]
+  vendorAccount    Vendor?            @relation("VendorPortalOperator")
+  foodReqRequested FoodRequest[]      @relation("FoodRequestRequestedBy")
+  foodReqApproved  FoodRequest[]      @relation("FoodRequestApprovedBy")
+  foodReqEvents    FoodRequestEvent[]
 
   @@map("app_users")
 }
@@ -360,6 +398,8 @@ model User {
   redemptions    Redemption[]
   walletTxns     WalletTransaction[]
   couponTxns     CouponTransaction[]
+  foodRequests   FoodRequest[]
+  linkedStaff    AppUser[]           @relation("AppUserCardholder")
 
   @@index([branchId])
   @@index([categoryId])
@@ -378,10 +418,11 @@ model RfidCard {
   createdAt DateTime   @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt DateTime   @updatedAt @map("updated_at") @db.Timestamptz(6)
 
-  user        User         @relation(fields: [userId], references: [id])
-  cardEvents  CardEvent[]
-  recharges   Recharge[]
-  redemptions Redemption[]
+  user         User          @relation(fields: [userId], references: [id])
+  cardEvents   CardEvent[]
+  recharges    Recharge[]
+  redemptions  Redemption[]
+  foodRequests FoodRequest[]
 
   // One ACTIVE card per user → partial unique index added in migration SQL.
   @@index([userId])
@@ -449,13 +490,15 @@ model MealType {
   endTime   String  @default("00:00") @map("end_time") @db.VarChar(5)
   active    Boolean @default(true)
 
-  rates           MealRate[]
-  couponBalances  CouponBalance[]
-  rechargePlans   RechargePlan[]
-  rechargeCoupons RechargeCoupon[]
-  redemptions     Redemption[]
-  couponTxns      CouponTransaction[]
-  counterMeals    CounterMeal[]
+  rates            MealRate[]
+  couponBalances   CouponBalance[]
+  rechargePlans    RechargePlan[]
+  rechargeCoupons  RechargeCoupon[]
+  redemptions      Redemption[]
+  couponTxns       CouponTransaction[]
+  counterMeals     CounterMeal[]
+  foodItems        FoodItem[]
+  foodRequestItems FoodRequestItem[]
 
   @@map("meal_types")
 }
@@ -571,20 +614,23 @@ model Redemption {
   rateApplied  Decimal          @map("rate_applied") @db.Decimal(12, 2) // meal value (revenue); reports use Σ rateApplied as Sale
   amount       Decimal          @db.Decimal(12, 2) // cash debited at the tap; 0 when paid_by = coupon (prepaid at recharge)
   vendorAmount Decimal          @default(0) @map("vendor_amount") @db.Decimal(12, 2) // cost snapshot → P/L = rateApplied - vendorAmount
-  appUserId    BigInt           @map("app_user_id") // operator
-  status       RedemptionStatus @default(posted)
-  redeemedAt   DateTime         @default(now()) @map("redeemed_at") @db.Timestamptz(6)
-  syncedAt     DateTime?        @map("synced_at") @db.Timestamptz(6) // set when an offline tap is synced
+  appUserId     BigInt           @map("app_user_id") // operator
+  foodRequestId BigInt?          @map("food_request_id") // set when this row came from a fulfilled food request
+  status        RedemptionStatus @default(posted)
+  redeemedAt    DateTime         @default(now()) @map("redeemed_at") @db.Timestamptz(6)
+  syncedAt      DateTime?        @map("synced_at") @db.Timestamptz(6) // set when an offline tap is synced
 
-  user     User     @relation(fields: [userId], references: [id])
-  card     RfidCard @relation(fields: [cardId], references: [id])
-  mealType MealType @relation(fields: [mealTypeId], references: [id])
-  counter  Counter  @relation(fields: [counterId], references: [id])
-  appUser  AppUser  @relation(fields: [appUserId], references: [id])
+  user        User         @relation(fields: [userId], references: [id])
+  card        RfidCard     @relation(fields: [cardId], references: [id])
+  mealType    MealType     @relation(fields: [mealTypeId], references: [id])
+  counter     Counter      @relation(fields: [counterId], references: [id])
+  appUser     AppUser      @relation(fields: [appUserId], references: [id])
+  foodRequest FoodRequest? @relation(fields: [foodRequestId], references: [id])
 
   @@index([userId, redeemedAt])
   @@index([counterId, redeemedAt])
   @@index([mealTypeId, redeemedAt])
+  @@index([foodRequestId])
   @@map("redemptions")
 }
 
@@ -647,13 +693,25 @@ model Reversal {
 // ---------- Vendor settlement ----------
 
 model Vendor {
-  id     BigInt       @id @default(autoincrement())
-  code   String       @unique @db.VarChar(30)
-  name   String       @db.VarChar(150)
-  gstin  String?      @db.VarChar(20)
-  status BranchStatus @default(active)
+  id                BigInt       @id @default(autoincrement())
+  code              String       @unique @db.VarChar(30)
+  name              String       @db.VarChar(150)
+  gstin             String?      @db.VarChar(20)
+  phone             String?      @db.VarChar(20)
+  email             String?      @db.VarChar(150)
+  address           String? // free-text postal address
+  bankName          String?      @map("bank_name") @db.VarChar(150)
+  bankAccountName   String?      @map("bank_account_name") @db.VarChar(150) // account holder
+  bankAccountNumber String?      @map("bank_account_number") @db.VarChar(40)
+  bankIfsc          String?      @map("bank_ifsc") @db.VarChar(20)
+  notes             String? // free-text vendor details / remarks
+  appUserId         BigInt?      @unique @map("app_user_id") // the staff login (Vendor role) that operates this vendor's portal
+  status            BranchStatus @default(active)
 
-  settlements VendorSettlement[]
+  appUser      AppUser?           @relation("VendorPortalOperator", fields: [appUserId], references: [id])
+  staff        AppUser[]          @relation("VendorStaff") // staff (Vendor / Mess Incharge) attached to this vendor
+  settlements  VendorSettlement[]
+  foodRequests FoodRequest[]
 
   @@map("vendors")
 }
@@ -673,6 +731,130 @@ model VendorSettlement {
   branch Branch @relation(fields: [branchId], references: [id])
 
   @@map("vendor_settlements")
+}
+
+// Managed delivery locations for food requests (Settings → Delivery Locations).
+// The request stores the chosen location as text; this curates the searchable
+// suggestions shown on the raise-request form.
+model DeliveryLocation {
+  id        BigInt       @id @default(autoincrement())
+  name      String       @db.VarChar(150)
+  branchId  BigInt?      @map("branch_id") // NULL = all branches
+  status    BranchStatus @default(active)
+  createdAt DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  branch Branch? @relation(fields: [branchId], references: [id])
+
+  @@map("delivery_locations")
+}
+
+// ---------- Admin food requests (plan.md §15) ----------
+
+// Catalog of orderable items. CATALOG-ONLY pricing: the charged amount and the
+// vendor cost (for P/L) always come from here — even "Custom Items" resolve to a
+// catalog row. `mealTypeId` is the representative meal used to group a fulfilled
+// request's redemption rows in reports (beverages/custom map to inactive meal
+// types so they never become tappable at a real counter).
+model FoodItem {
+  id              BigInt       @id @default(autoincrement())
+  code            String       @unique @db.VarChar(30)
+  name            String       @db.VarChar(120)
+  kind            FoodItemKind @default(meal)
+  unitPrice       Decimal      @map("unit_price") @db.Decimal(12, 2) // charged to the RFID account (sale)
+  unitVendorPrice Decimal      @map("unit_vendor_price") @db.Decimal(12, 2) // paid to the vendor (cost)
+  mealTypeId      BigInt       @map("meal_type_id") // representative meal for redemption grouping
+  branchId        BigInt?      @map("branch_id") // NULL = all-branch
+  active          Boolean      @default(true)
+  createdAt       DateTime     @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt       DateTime     @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  mealType     MealType          @relation(fields: [mealTypeId], references: [id])
+  branch       Branch?           @relation(fields: [branchId], references: [id])
+  requestItems FoodRequestItem[]
+
+  @@index([branchId])
+  @@map("food_items")
+}
+
+// A food request raised by an admin against a cardholder's RFID account. Money is
+// only moved at delivery, server-side, gated by an RFID tap (see services in
+// Phase E). `amount`/`vendorAmount` are snapshots of the catalog totals at the
+// time the request was raised; the wallet is debited for `amount` on fulfilment.
+model FoodRequest {
+  id                   BigInt            @id @default(autoincrement())
+  code                 String            @unique @db.VarChar(30) // human ref e.g. FR-000123
+  branchId             BigInt            @map("branch_id")
+  userId               BigInt            @map("user_id") // the RFID account charged
+  requestedByAppUserId BigInt            @map("requested_by_app_user_id")
+  vendorId             BigInt?           @map("vendor_id")
+  deliveryLocation     String            @map("delivery_location") @db.VarChar(150)
+  requestedFor         DateTime          @map("requested_for") @db.Timestamptz(6) // requested delivery date & time
+  purpose              String?           @db.VarChar(255) // remarks / purpose
+  status               FoodRequestStatus @default(raised)
+  amount               Decimal           @default(0) @db.Decimal(12, 2) // snapshot sale total (Σ qty × unitPrice)
+  vendorAmount         Decimal           @default(0) @map("vendor_amount") @db.Decimal(12, 2) // snapshot cost total
+  approvalRequired     Boolean           @default(false) @map("approval_required") // snapshot of the setting at creation
+  approvedByAppUserId  BigInt?           @map("approved_by_app_user_id")
+  approvedAt           DateTime?         @map("approved_at") @db.Timestamptz(6)
+  rejectReason         String?           @map("reject_reason") @db.VarChar(255)
+  fulfilledClientUuid  String?           @unique @map("fulfilled_client_uuid") @db.Uuid // idempotency for the delivery charge
+  cardIdUsed           BigInt?           @map("card_id_used") // card tapped at delivery (RFID verification)
+  deliveredAt          DateTime?         @map("delivered_at") @db.Timestamptz(6)
+  createdAt            DateTime          @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt            DateTime          @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  branch      Branch             @relation(fields: [branchId], references: [id])
+  user        User               @relation(fields: [userId], references: [id])
+  requestedBy AppUser            @relation("FoodRequestRequestedBy", fields: [requestedByAppUserId], references: [id])
+  approvedBy  AppUser?           @relation("FoodRequestApprovedBy", fields: [approvedByAppUserId], references: [id])
+  vendor      Vendor?            @relation(fields: [vendorId], references: [id])
+  cardUsed    RfidCard?          @relation(fields: [cardIdUsed], references: [id])
+  items       FoodRequestItem[]
+  events      FoodRequestEvent[]
+  redemptions Redemption[]
+
+  @@index([branchId, status])
+  @@index([userId])
+  @@index([vendorId, status])
+  @@index([requestedByAppUserId])
+  @@map("food_requests")
+}
+
+// One line on a request. Prices are snapshotted from the catalog at creation so
+// later catalog edits never change a historical request's charge.
+model FoodRequestItem {
+  id              BigInt  @id @default(autoincrement())
+  requestId       BigInt  @map("request_id")
+  foodItemId      BigInt  @map("food_item_id")
+  mealTypeId      BigInt  @map("meal_type_id") // snapshot from the item (redemption grouping)
+  description     String? @db.VarChar(255) // free text, e.g. the specifics of a Custom Item
+  qty             Int     @default(1)
+  unitPrice       Decimal @map("unit_price") @db.Decimal(12, 2) // snapshot
+  unitVendorPrice Decimal @map("unit_vendor_price") @db.Decimal(12, 2) // snapshot
+
+  request  FoodRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  foodItem FoodItem    @relation(fields: [foodItemId], references: [id])
+  mealType MealType    @relation(fields: [mealTypeId], references: [id])
+
+  @@index([requestId])
+  @@map("food_request_items")
+}
+
+// Append-only status history → drives the request timeline and the audit trail.
+model FoodRequestEvent {
+  id         BigInt             @id @default(autoincrement())
+  requestId  BigInt             @map("request_id")
+  fromStatus FoodRequestStatus? @map("from_status")
+  toStatus   FoodRequestStatus  @map("to_status")
+  note       String?            @db.VarChar(255)
+  appUserId  BigInt?            @map("app_user_id")
+  createdAt  DateTime           @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  request FoodRequest @relation(fields: [requestId], references: [id], onDelete: Cascade)
+  appUser AppUser?    @relation(fields: [appUserId], references: [id])
+
+  @@index([requestId])
+  @@map("food_request_events")
 }
 
 // ---------- Ops: offline, audit, notifications, settings ----------

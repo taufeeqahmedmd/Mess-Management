@@ -87,6 +87,7 @@ spec for these services.
 | **Accountant** | Recharge; card replace/activate/deactivate; scoped reports + balance report. |
 | **Management** | Dashboard, cards, recharge, reports (read-heavy). |
 | **Admin** | Granular RBAC — grants permissions per module × action. |
+| **Vendor** | Caterer portal login (food-request workflow, §15). Acts only on its own assigned requests (accept/reject/prepare/out-for-delivery/deliver). Branch-scoped via the linked `Vendor`. No money admin or cardholder data. |
 | **Super Admin** | Everything incl. categories/meals/rates/vendor-rates/counters, roles & permissions, settings. |
 
 **RBAC model (production generalization of the mock's matrix):** permissions are strings
@@ -106,6 +107,7 @@ users.view|create|edit|delete|import
 cards.view|replace|activate|deactivate
 recharge.view|create|edit|delete|import
 counter.operate
+foodRequests.view|create|edit|cancel|approve|vendor   foodItems.manage
 categories.manage  meals.manage  rates.manage  vendorRates.manage  counters.manage
 reports.view
 settings.manage  roles.manage  staff.manage  accessControl.manage
@@ -382,6 +384,7 @@ balance looks sufficient. This makes recharges behave as earmarked grants, not j
 | 12 | **Self-service** | (new) | Public page: balance + filtered history download |
 | 13 | **Branches & org** | (new) | Multi-branch: branches, departments, branch-scoped staff/users/counters/rates |
 | 14 | **Vendor settlement** | (new) | Vendors + period settlements (meal counts × vendor rate → payable amount) — distinct from the Vendor Dashboard view above |
+| 15 | **Admin food requests** | (new) | Admin raises item requests against an RFID account → optional approval → vendor fulfilment → **RFID-tap-gated delivery** that charges the wallet via the **same redemption ledger** (auto-included in payouts). Vendor portal + admin/finance dashboards. See §15. |
 
 ---
 
@@ -457,6 +460,7 @@ public endpoints are **Route Handlers** (need explicit POST/idempotency/CSV).
 | **7. Dashboards & reports** | Dashboard (incl. vendor cost + P/L), **Vendor Dashboard**, consumption/balance reports, date range, CSV, audit log | Dashboard + Vendor Dashboard + Reports | ✅ Done |
 | **8. Self-service** | Public balance + filtered history download | (new) | ✅ Done |
 | **9. Vendor settlement** | Vendors + period settlements (meal counts × vendor rate → payable) | (new) | ✅ Done |
+| **11. Admin food requests** | Catalog + request creation, configurable approval, vendor portal, RFID-gated delivery + ledger integration, dashboards/reports done (phases A–F); **notifications (G) pending discussion** | (new) | ◧ A–F done |
 | **10. Hardening & deploy** | Validation, rate limits, tests, audit completeness, deployment | — | ◻ Next |
 
 > Multi-branch (branches, departments, branch scoping) is folded into Phase 2 (master data) and
@@ -515,3 +519,96 @@ Proposed folder layout:
 > Note: **multi-branch IS in v1** (branches within one institution — not multi-tenant SaaS).
 > **Vendor settlement IS in v1.**
 ```
+
+---
+
+## 15. Admin Food Request Workflow (new module)
+
+Authorized staff raise **food requests** (Coffee, Tea, Snacks, Breakfast, Lunch, Dinner, Custom
+Items) against a cardholder's **RFID account**, route them through an optional approval step and a
+**vendor** for fulfilment, and the charge is applied **only at delivery, gated by an RFID tap**.
+This is an admin-initiated consumption event; the money mechanics are the counter tap's, wrapped in
+an approval + fulfilment lifecycle.
+
+### 15.1 Locked decisions
+
+- **Pricing — catalog only.** A managed **`FoodItem`** catalog is the single source of the charged
+  price (sale) and the vendor price (cost, for P/L). Even "Custom Items" resolve to a catalog row;
+  Super Admin adds catalog rows as needed. Line prices are **snapshotted** onto the request at
+  creation so later catalog edits never change a historical charge.
+- **Payment — wallet only.** A delivered request debits the cardholder's **wallet** for the request
+  total. (Coupon-first could be added later; food items aren't meal coupons.)
+- **Vendor access — staff login + new `Vendor` role.** The vendor signs in as an `app_user`
+  (role `Vendor`) linked to a `Vendor` record, branch-scoped, sees only its own requests.
+- **Self-service raise (optional).** A staff login can be linked to its own cardholder via
+  `app_users.cardholder_user_id` (set in Settings → Staff). When linked, the Food Requests page
+  offers a **"Raise for myself"** action that charges the requester's own RFID account with no
+  search; otherwise the cardholder search is the fallback. Staff ≠ cardholders still holds — this
+  is only a pointer, branch-validated when set.
+- **Approval — single configurable step.** Setting `food_request_approval`
+  `{ enabled, autoApproveBelow, approverPermission }`: toggle on/off, optional amount threshold
+  for auto-approve, and which permission approves. (Multi-level chain is a later extension.)
+
+### 15.2 Financial integration (the spine — no separate payout mechanism)
+
+Settlement and every report aggregate **`redemption`** rows (`Sale = Σ rateApplied`,
+`Cost = Σ vendorAmount`, branch-scoped by the **serving counter's** branch — see
+`services/reporting.ts`, `services/settlement.ts`). So "existing payouts auto-include these" has an
+exact meaning: **a fulfilled request posts `wallet_transactions` (DR) + `redemption` rows just like
+a counter tap.** To give those redemptions a real branch (how reporting scopes) and a meal (how
+`usageByMeal` groups) **without touching the verified reporting code**:
+
+- A seeded **per-branch "Food Requests" virtual counter** (`code "FR"`, **no operators**, no meal
+  windows → never selectable at `/counter`, never an "active meal"). Fulfilment posts redemptions
+  on it.
+- Each catalog item maps to a **representative `mealType`** (Breakfast/Lunch/Dinner/Snacks reuse
+  existing; Coffee/Tea/Custom use **inactive** meal types — valid as a snapshot/grouping key but
+  never tappable).
+
+One `redemption` is posted **per request line** (`rateApplied`/`amount` = qty × unitPrice,
+`vendorAmount` = qty × unitVendorPrice, `paidBy = wallet`, `counterId` = FR counter,
+`mealTypeId` = item's meal, `categoryId` = user's category snapshot, `foodRequestId` = back-ref).
+Trade-off: a request's "meal count" in reports reflects **line items**, not units — flagged in the
+report copy. (Alternative considered and rejected for v1: add `foodRequestId`/`source` to
+`Redemption` with nullable counter/meal and edit the reporting branch-scope filter — more invasive
+to money-critical code.)
+
+Fulfilment runs in **one `prisma.$transaction`**: RFID verify (tapped card must resolve to the
+request's charged user's **active** card — else delivery is blocked) → funds precheck → **claim the
+delivery via a compare-and-swap on status** (`out_for_delivery → delivered`; only one caller wins,
+even for free/₹0 requests the wallet version guard wouldn't cover) → wallet debit under the
+optimistic-lock version guard → `wallet_transactions` DR (per line) → `redemption` rows → a
+ledger-drift reconciliation assert → audit. The status CAS + version guard make a double-submitted
+or concurrent delivery a safe idempotent no-op — it never double-charges. (Edits to a request that's
+already `pending_approval` can't drop it back below approval — no approval bypass.) The reader is a USB/Bluetooth keyboard-wedge — the
+same keydown-burst capture as `/counter`, so the vendor can confirm delivery from a mobile browser.
+
+### 15.3 Data model (added — see `db-schema.md`)
+
+- **`FoodItem`** — catalog (name, kind, `unitPrice`, `unitVendorPrice`, representative `mealTypeId`,
+  branch/all-branch, active).
+- **`FoodRequest`** — header (charged `userId`, `requestedByAppUserId`, `vendorId`, `branchId`,
+  `deliveryLocation`, `requestedFor`, `purpose`, `status`, snapshot `amount`/`vendorAmount`,
+  approval fields, `fulfilledClientUuid`, `cardIdUsed`, `deliveredAt`).
+- **`FoodRequestItem`** — lines (item, snapshot prices, `qty`, `mealTypeId`, free-text description).
+- **`FoodRequestEvent`** — append-only status history (timeline + audit trail).
+- **`Vendor.appUserId`** — links a vendor to its portal login. **`Redemption.foodRequestId`** —
+  back-reference from a fulfilled request to its ledger rows.
+- **Status lifecycle:** `raised → pending_approval → approved → vendor_accepted → preparing →
+  out_for_delivery → delivered`, plus `rejected` / `cancelled`. Approval states are skipped when
+  approval is disabled.
+
+### 15.4 Build phases (notifications last, pending design changes)
+
+| Phase | Deliverable |
+|---|---|
+| **A. Foundations** ✅ | Prisma models/enums + migration; `foodRequests.*` / `foodItems.manage` permissions; `Vendor` role; seed (FR counter, item meal types, catalog, vendor login, approval setting); doc updates. |
+| **B. Request creation** ✅ | `/food-requests` — list/status-filter + cardholder search, create (multi-item, pick RFID account + delivery + datetime + remarks), detail w/ timeline, edit/cancel. Zod, server actions, confirm + toast, audit, nav entry. (Catalog management UI under Settings → Food Items still TODO — catalog is seeded.) |
+| **C. Approval (configurable)** ✅ | Settings → Food Requests (`food_request_approval`: enable/disable + auto-approve threshold); Food Items catalog tab (CRUD + activate); approve/reject (reason) actions + transitions on the request detail. |
+| **D. Vendor portal** ✅ | `/vendor-orders` (Vendor role): summary (needs-response / in-progress / today / upcoming), accept / reject (reason) / mark preparing / out-for-delivery; per-order detail + timeline. Permission-aware landing (`lib/landing.ts`) so the Vendor role lands here. |
+| **E. RFID delivery + ledger** ✅ | `fulfillFoodRequest` service + `runFulfillment` wrapper + `POST /api/food-requests/[id]/deliver` + keyboard-wedge `DeliveryScan` UI. RFID verify, optimistic-lock wallet debit, per-line redemptions on the FR counter, request-level idempotency, audit. **11 Vitest unit tests + a DB e2e check (happy / idempotent / wrong-card / reporting-inclusion).** |
+| **F. Dashboards & reports** ✅ | Reports → "Food requests" tab: KPIs (pending / delivered / charged / vendor cost), cost by department / requestor / vendor, request-wise table + CSV export. Vendor dashboard = the `/vendor-orders` summary. Settlement auto-includes food-request redemptions (no change to settlement.ts). |
+| **G. Notifications** | request created / approval required / accepted / delivered / rejected → `notifications` + email/SMS/WhatsApp adapters. **Last — pending discussion.** |
+
+> Approval depth, multi-level hierarchy, and coupon-based payment for requests are intentionally
+> deferred (single-step approval + wallet-only in v1); the schema leaves room for all three.

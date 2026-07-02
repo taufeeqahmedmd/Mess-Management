@@ -9,6 +9,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
 import type { Actor, Permission } from "@/lib/rbac";
+import { roleNeedsVendor } from "./vendor-roles";
 
 export type StaffFormState = { error?: string };
 
@@ -35,7 +36,7 @@ async function resolve(
   actor: Actor,
   roleId: string,
   branchIdRaw: string,
-): Promise<{ branchId: bigint | null; roleId: bigint } | { error: string }> {
+): Promise<{ branchId: bigint | null; roleId: bigint; roleName: string } | { error: string }> {
   const role = await prisma.role.findUnique({
     where: { id: BigInt(roleId) },
     include: { permissions: { include: { permission: { select: { code: true } } } } },
@@ -56,7 +57,56 @@ async function resolve(
     : branchIdRaw
       ? BigInt(branchIdRaw)
       : null;
-  return { branchId, roleId: role.id };
+  return { branchId, roleId: role.id, roleName: role.name };
+}
+
+/**
+ * Resolve the vendor a staff member belongs to. Mandatory for Vendor / Mess
+ * Incharge roles (server enforces even if the client field is bypassed); NULL
+ * for every other role.
+ */
+async function resolveVendor(
+  roleName: string,
+  vendorIdRaw: string,
+): Promise<{ vendorId: bigint | null } | { error: string }> {
+  if (!roleNeedsVendor(roleName)) return { vendorId: null };
+  const raw = vendorIdRaw.trim();
+  if (!raw) return { error: `Select a vendor for the ${roleName} role.` };
+  let id: bigint;
+  try {
+    id = BigInt(raw);
+  } catch {
+    return { error: "Invalid vendor." };
+  }
+  const vendor = await prisma.vendor.findUnique({ where: { id }, select: { id: true } });
+  if (!vendor) return { error: "Invalid vendor." };
+  return { vendorId: vendor.id };
+}
+
+/**
+ * Resolve the optional "linked RFID account" code to a cardholder id. Empty →
+ * unlink (null). The cardholder must exist, not be deleted, and be in the staff
+ * member's branch (any branch when the staff is all-branch). The cardholder≠staff
+ * split is preserved — this only points a login at a cardholder record.
+ */
+async function resolveCardholder(
+  staffBranchId: bigint | null,
+  codeOrUid: string,
+): Promise<{ userId: bigint | null } | { error: string }> {
+  const trimmed = codeOrUid.trim();
+  if (!trimmed) return { userId: null };
+  // The field is labelled "RFID account", so accept either the cardholder's code
+  // or one of their registered card UIDs (tapping a card yields the UID).
+  let user = await prisma.user.findUnique({ where: { code: trimmed } });
+  if (!user) {
+    const card = await prisma.rfidCard.findUnique({ where: { cardUid: trimmed }, include: { user: true } });
+    user = card?.user ?? null;
+  }
+  if (!user || user.deletedAt) return { error: `No cardholder found with code or card UID “${trimmed}”.` };
+  if (staffBranchId && user.branchId !== staffBranchId) {
+    return { error: "That cardholder is in a different branch than this staff member." };
+  }
+  return { userId: user.id };
 }
 
 function parseCounterIds(formData: FormData): bigint[] {
@@ -120,12 +170,18 @@ export async function createStaffAction(
   const r = await resolve(actor, input.roleId, input.branchId);
   if ("error" in r) return r;
 
+  const linked = await resolveCardholder(r.branchId, String(formData.get("cardholderCode") ?? ""));
+  if ("error" in linked) return linked;
+
+  const vend = await resolveVendor(r.roleName, String(formData.get("vendorId") ?? ""));
+  if ("error" in vend) return vend;
+
   const counterIds = parseCounterIds(formData);
   const passwordHash = await bcrypt.hash(password, 10);
   try {
     await prisma.$transaction(async (tx) => {
       const created = await tx.appUser.create({
-        data: { name: input.name, mobile: input.mobile, roleId: r.roleId, branchId: r.branchId, status: "active", passwordHash },
+        data: { name: input.name, mobile: input.mobile, roleId: r.roleId, branchId: r.branchId, status: "active", passwordHash, cardholderUserId: linked.userId, vendorId: vend.vendorId },
       });
       const assignedCounters = await syncStaffCounters(tx, {
         appUserId: created.id,
@@ -175,12 +231,20 @@ export async function updateStaffAction(
   const r = await resolve(actor, input.roleId, input.branchId);
   if ("error" in r) return r;
 
+  const linked = await resolveCardholder(r.branchId, String(formData.get("cardholderCode") ?? ""));
+  if ("error" in linked) return linked;
+
+  const vend = await resolveVendor(r.roleName, String(formData.get("vendorId") ?? ""));
+  if ("error" in vend) return vend;
+
   const data: Prisma.AppUserUpdateInput = {
     name: input.name,
     mobile: input.mobile,
     role: { connect: { id: r.roleId } },
     branch: r.branchId ? { connect: { id: r.branchId } } : { disconnect: true },
     status: input.status as AppUserStatus,
+    cardholder: linked.userId ? { connect: { id: linked.userId } } : { disconnect: true },
+    vendor: vend.vendorId ? { connect: { id: vend.vendorId } } : { disconnect: true },
   };
 
   const password = String(formData.get("password") ?? "");

@@ -127,6 +127,7 @@ CREATE TABLE app_users (
   password_hash VARCHAR(255) NOT NULL,
   role_id BIGINT UNSIGNED NOT NULL,
   branch_id BIGINT UNSIGNED NULL,                 -- NULL = all branches (Super Admin)
+  cardholder_user_id BIGINT UNSIGNED NULL,        -- 🆕 optional link to this login's OWN cardholder (self-service food requests §9.5); staff≠cardholders still holds
   status ENUM('active','disabled','locked') NOT NULL DEFAULT 'active',
   last_login_at TIMESTAMP NULL,
   failed_logins TINYINT UNSIGNED NOT NULL DEFAULT 0,
@@ -136,7 +137,8 @@ CREATE TABLE app_users (
   UNIQUE KEY uq_appuser_username (username),
   UNIQUE KEY uq_appuser_email (email),
   CONSTRAINT fk_appuser_role   FOREIGN KEY (role_id)   REFERENCES roles(id),
-  CONSTRAINT fk_appuser_branch FOREIGN KEY (branch_id) REFERENCES branches(id)
+  CONSTRAINT fk_appuser_branch FOREIGN KEY (branch_id) REFERENCES branches(id),
+  CONSTRAINT fk_appuser_cardholder FOREIGN KEY (cardholder_user_id) REFERENCES users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
 
@@ -498,8 +500,11 @@ CREATE TABLE reversals (
 CREATE TABLE vendors (
   id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
   code VARCHAR(30) NOT NULL, name VARCHAR(150) NOT NULL, gstin VARCHAR(20) NULL,
+  app_user_id BIGINT UNSIGNED NULL,            -- 🆕 portal login (Vendor role) — food requests §9.5
   status ENUM('active','inactive') NOT NULL DEFAULT 'active',
-  UNIQUE KEY uq_vendor_code (code)
+  UNIQUE KEY uq_vendor_code (code),
+  UNIQUE KEY uq_vendor_app_user (app_user_id),
+  CONSTRAINT fk_vendor_app_user FOREIGN KEY (app_user_id) REFERENCES app_users(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
 CREATE TABLE vendor_settlements (
@@ -515,6 +520,120 @@ CREATE TABLE vendor_settlements (
   CONSTRAINT fk_vs_branch FOREIGN KEY (branch_id) REFERENCES branches(id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 ```
+
+---
+
+## 9.5 Admin food requests 🆕 (plan.md §15)
+
+Admin raises item requests against a cardholder's RFID account → optional single-step approval →
+vendor fulfilment → **RFID-tap-gated delivery** that debits the wallet via the **same `redemptions`
+ledger** (so settlement/reports in §9 include them with no query changes). Catalog-only pricing;
+wallet-only payment; vendor signs in via `vendors.app_user_id` (role `Vendor`).
+
+**Ledger integration:** a fulfilled request posts one `redemption` **per line** on a seeded
+per-branch **"Food Requests" virtual counter** (no operators / no `counter_meals` → never tappable),
+with the item's representative `meal_type_id`. This gives each row a serving-counter branch (how
+reporting scopes) and a meal (how usage groups) without altering `services/reporting.ts` /
+`services/settlement.ts`. `redemptions.food_request_id` (🆕, NULLable) back-references the request.
+
+```sql
+-- Catalog: single source of charged price (sale) + vendor price (cost). Prices are
+-- snapshotted onto each request line at creation, so catalog edits never restate history.
+CREATE TABLE food_items (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(30) NOT NULL,
+  name VARCHAR(120) NOT NULL,
+  kind ENUM('beverage','snack','meal','custom') NOT NULL DEFAULT 'meal',
+  unit_price DECIMAL(12,2) NOT NULL,           -- charged to the RFID account
+  unit_vendor_price DECIMAL(12,2) NOT NULL,    -- paid to the vendor → P/L
+  meal_type_id BIGINT UNSIGNED NOT NULL,       -- representative meal (redemption grouping)
+  branch_id BIGINT UNSIGNED NULL,              -- NULL = all-branch
+  active TINYINT(1) NOT NULL DEFAULT 1,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_food_item_code (code),
+  KEY idx_food_item_branch (branch_id),
+  CONSTRAINT fk_fi_meal FOREIGN KEY (meal_type_id) REFERENCES meal_types(id),
+  CONSTRAINT fk_fi_branch FOREIGN KEY (branch_id) REFERENCES branches(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Request header. Charged user (users) ≠ requesting staff (app_users). Money moves
+-- only at delivery; amount/vendor_amount are catalog snapshots taken at creation.
+CREATE TABLE food_requests (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  code VARCHAR(30) NOT NULL,                   -- human ref e.g. FR-000123
+  branch_id BIGINT UNSIGNED NOT NULL,
+  user_id BIGINT UNSIGNED NOT NULL,            -- RFID account charged
+  requested_by_app_user_id BIGINT UNSIGNED NOT NULL,
+  vendor_id BIGINT UNSIGNED NULL,
+  delivery_location VARCHAR(150) NOT NULL,
+  requested_for DATETIME NOT NULL,             -- requested delivery date & time
+  purpose VARCHAR(255) NULL,                   -- remarks / purpose
+  status ENUM('raised','pending_approval','approved','vendor_accepted',
+              'preparing','out_for_delivery','delivered','rejected','cancelled')
+         NOT NULL DEFAULT 'raised',
+  amount DECIMAL(12,2) NOT NULL DEFAULT 0,         -- Σ qty × unit_price (sale)
+  vendor_amount DECIMAL(12,2) NOT NULL DEFAULT 0,  -- Σ qty × unit_vendor_price (cost)
+  approval_required TINYINT(1) NOT NULL DEFAULT 0, -- snapshot of setting at creation
+  approved_by_app_user_id BIGINT UNSIGNED NULL,
+  approved_at TIMESTAMP NULL,
+  reject_reason VARCHAR(255) NULL,
+  fulfilled_client_uuid CHAR(36) NULL,         -- idempotency for the delivery charge
+  card_id_used BIGINT UNSIGNED NULL,           -- card tapped at delivery (RFID verification)
+  delivered_at TIMESTAMP NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE KEY uq_fr_code (code),
+  UNIQUE KEY uq_fr_fulfilled_uuid (fulfilled_client_uuid),
+  KEY idx_fr_branch_status (branch_id, status),
+  KEY idx_fr_user (user_id),
+  KEY idx_fr_vendor_status (vendor_id, status),
+  CONSTRAINT fk_fr_branch FOREIGN KEY (branch_id) REFERENCES branches(id),
+  CONSTRAINT fk_fr_user FOREIGN KEY (user_id) REFERENCES users(id),
+  CONSTRAINT fk_fr_reqby FOREIGN KEY (requested_by_app_user_id) REFERENCES app_users(id),
+  CONSTRAINT fk_fr_approver FOREIGN KEY (approved_by_app_user_id) REFERENCES app_users(id),
+  CONSTRAINT fk_fr_vendor FOREIGN KEY (vendor_id) REFERENCES vendors(id),
+  CONSTRAINT fk_fr_card FOREIGN KEY (card_id_used) REFERENCES rfid_cards(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- One line per request. Prices snapshotted from the catalog.
+CREATE TABLE food_request_items (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  request_id BIGINT UNSIGNED NOT NULL,
+  food_item_id BIGINT UNSIGNED NOT NULL,
+  meal_type_id BIGINT UNSIGNED NOT NULL,       -- snapshot from item (redemption grouping)
+  description VARCHAR(255) NULL,                -- free text, e.g. a Custom Item's specifics
+  qty INT NOT NULL DEFAULT 1,
+  unit_price DECIMAL(12,2) NOT NULL,
+  unit_vendor_price DECIMAL(12,2) NOT NULL,
+  KEY idx_fri_request (request_id),
+  CONSTRAINT fk_fri_request FOREIGN KEY (request_id) REFERENCES food_requests(id) ON DELETE CASCADE,
+  CONSTRAINT fk_fri_item FOREIGN KEY (food_item_id) REFERENCES food_items(id),
+  CONSTRAINT fk_fri_meal FOREIGN KEY (meal_type_id) REFERENCES meal_types(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- Append-only status history → request timeline + audit trail.
+CREATE TABLE food_request_events (
+  id BIGINT UNSIGNED AUTO_INCREMENT PRIMARY KEY,
+  request_id BIGINT UNSIGNED NOT NULL,
+  from_status VARCHAR(20) NULL,
+  to_status VARCHAR(20) NOT NULL,
+  note VARCHAR(255) NULL,
+  app_user_id BIGINT UNSIGNED NULL,
+  created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+  KEY idx_fre_request (request_id),
+  CONSTRAINT fk_fre_request FOREIGN KEY (request_id) REFERENCES food_requests(id) ON DELETE CASCADE,
+  CONSTRAINT fk_fre_user FOREIGN KEY (app_user_id) REFERENCES app_users(id)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+
+-- 🆕 redemptions gains: food_request_id BIGINT UNSIGNED NULL  (FK → food_requests.id, ON DELETE SET NULL)
+--    set when a row originates from a fulfilled food request; NULL for normal counter taps.
+```
+
+> **PG/Prisma deltas:** `from_status`/`to_status` are the native `FoodRequestStatus` enum (not
+> VARCHAR); `fulfilled_client_uuid` is `UUID`; booleans are `BOOLEAN`; timestamps `timestamptz`.
+> Approval config lives in `settings` under `food_request_approval`
+> `{ enabled, autoApproveBelow, approverPermission }` — no dedicated table (single-step in v1).
 
 ---
 
@@ -608,6 +727,11 @@ CREATE TABLE settings (                 -- 🆕 system config (mock's Configurat
 ## 13. Open / deferred (sync with plan.md §13)
 
 Resolved 2026-06-08: **DB = PostgreSQL** · **multi-branch = IN** · **vendor settlement = IN v1**.
+
+Resolved 2026-06-18 (food requests, §9.5): **pricing = catalog-only** · **payment = wallet-only** ·
+**vendor = staff login + `Vendor` role** · **approval = single configurable step** (in `settings`).
+Deferred for that module: multi-level approval hierarchy; coupon-based payment for requests;
+notifications (email/SMS/WhatsApp) — pending design changes.
 
 Still open:
 - **Coupon = count vs earmarked money** → decides whether `coupon_balances`/`coupon_transactions`

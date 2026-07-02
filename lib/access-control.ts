@@ -12,6 +12,7 @@ export const ROLES = [
   "Mess Incharge",
   "Accountant",
   "Management",
+  "Vendor",
 ] as const;
 
 export type RoleName = (typeof ROLES)[number];
@@ -31,6 +32,7 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleName, readonly Permission[]> =
     "recharge.create",
     "recharge.edit",
     "recharge.import",
+    "foodRequests.view",
     "reports.view",
     "settlements.view",
     "settlements.manage",
@@ -40,9 +42,14 @@ export const DEFAULT_ROLE_PERMISSIONS: Record<RoleName, readonly Permission[]> =
     "users.view",
     "cards.view",
     "recharge.view",
+    "foodRequests.view",
     "reports.view",
     "settlements.view",
   ],
+  // Vendor portal: a caterer login that only acts on its own assigned requests
+  // (accept/reject/preparing/out-for-delivery/deliver). Branch-scoped via the
+  // linked Vendor's app_user. No access to money admin or cardholder data.
+  Vendor: ["foodRequests.vendor"],
 };
 
 /** Roles that should always hold every permission (UI renders their grid read-only). */
@@ -106,6 +113,18 @@ export const ACCESS_SCREENS: readonly AccessScreen[] = [
     ],
   },
   {
+    key: "foodRequests",
+    label: "Food Requests",
+    actions: [
+      { action: "view", label: "View", permission: "foodRequests.view" },
+      { action: "create", label: "Add", permission: "foodRequests.create" },
+      { action: "edit", label: "Edit", permission: "foodRequests.edit" },
+      { action: "cancel", label: "Cancel", permission: "foodRequests.cancel" },
+      { action: "approve", label: "Approve", permission: "foodRequests.approve" },
+      { action: "vendor", label: "Vendor", permission: "foodRequests.vendor" },
+    ],
+  },
+  {
     key: "reports",
     label: "Reports",
     actions: [{ action: "view", label: "View", permission: "reports.view" }],
@@ -127,6 +146,7 @@ export const ACCESS_SCREENS: readonly AccessScreen[] = [
       { action: "rates", label: "Rates", permission: "rates.manage" },
       { action: "vendorRates", label: "Vendor Rates", permission: "vendorRates.manage" },
       { action: "counters", label: "Counters", permission: "counters.manage" },
+      { action: "foodItems", label: "Food Items", permission: "foodItems.manage" },
       { action: "settings", label: "Settings", permission: "settings.manage" },
     ],
   },

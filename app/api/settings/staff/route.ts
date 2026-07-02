@@ -16,16 +16,18 @@ export async function GET(req: Request) {
   const idParam = new URL(req.url).searchParams.get("id");
   const branchScope = actor.branchId ? { branchId: BigInt(actor.branchId) } : {};
 
-  const [roles, branches, counters] = await Promise.all([
+  const [roles, branches, counters, vendors] = await Promise.all([
     prisma.role.findMany({ orderBy: { name: "asc" } }),
     prisma.branch.findMany({ orderBy: { name: "asc" } }),
     prisma.counter.findMany({ where: { deletedAt: null, status: "active", ...branchScope }, orderBy: { name: "asc" } }),
+    prisma.vendor.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }),
   ]);
 
   const payload: Record<string, unknown> = {
     roles: roles.filter((r) => actor.isSuperAdmin || r.name !== "Super Admin").map((r) => ({ id: r.id.toString(), name: r.name })),
     branches: branches.map((b) => ({ id: b.id.toString(), name: b.name })),
     counters: counters.map((c) => ({ id: c.id.toString(), name: c.name })),
+    vendors: vendors.map((v) => ({ id: v.id.toString(), name: v.name })),
     canChooseBranch: !actor.branchId,
   };
 
@@ -36,7 +38,11 @@ export async function GET(req: Request) {
     } catch {
       return NextResponse.json({ error: "Not found" }, { status: 404 });
     }
-    const s = await prisma.appUser.findUnique({ where: { id: staffId } });
+    const s = await prisma.appUser.findUnique({
+      where: { id: staffId },
+      include: { cardholder: { select: { code: true } } },
+    });
+    // (vendorId is read from the same record below)
     if (!s || s.deletedAt) return NextResponse.json({ error: "Not found" }, { status: 404 });
     if (actor.branchId && s.branchId?.toString() !== actor.branchId)
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -48,6 +54,8 @@ export async function GET(req: Request) {
       roleId: s.roleId.toString(),
       branchId: s.branchId?.toString() ?? "",
       status: s.status,
+      cardholderCode: s.cardholder?.code ?? "",
+      vendorId: s.vendorId?.toString() ?? "",
     };
     payload.assignedCounterIds = assigned.map((a) => a.counterId.toString());
   }

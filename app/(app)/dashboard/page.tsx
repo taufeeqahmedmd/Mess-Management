@@ -2,6 +2,7 @@ import { redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { landingFor } from "@/lib/landing";
 import { StatCard } from "@/components/ui/stat-card";
 import { CountUp } from "@/components/ui/count-up";
 import { DateRangeForm } from "@/components/reports/date-range-form";
@@ -29,7 +30,7 @@ export default async function DashboardPage({
   searchParams: Promise<{ from?: string; to?: string }>;
 }) {
   const actor = await requireActor();
-  if (!can(actor, "dashboard.view")) redirect("/counter");
+  if (!can(actor, "dashboard.view")) redirect(landingFor(actor));
 
   const sp = await searchParams;
   // Dashboard defaults to "this month" (first of month → today); once the user
@@ -66,7 +67,7 @@ export default async function DashboardPage({
             {range.fromStr} → {range.toStr} · consumption, collections, and profit.
           </p>
         </div>
-        <DateRangeForm action="/dashboard" fromStr={range.fromStr} toStr={range.toStr} />
+        <DateRangeForm action="/dashboard" fromStr={range.fromStr} toStr={range.toStr} active={Boolean(sp.from || sp.to)} />
       </div>
 
       {/* One grid drives both layouts via `order`:

@@ -22,19 +22,23 @@ export default async function EditStaffPage({
     notFound();
   }
 
-  const s = await prisma.appUser.findUnique({ where: { id: staffId } });
+  const s = await prisma.appUser.findUnique({
+    where: { id: staffId },
+    include: { cardholder: { select: { code: true } } },
+  });
   if (!s || s.deletedAt) notFound();
 
   // A scoped admin can't edit staff outside their branch.
   if (actor.branchId && s.branchId?.toString() !== actor.branchId) redirect("/settings/staff");
 
-  const [roles, branches, counters, assigned] = await Promise.all([
+  const [roles, branches, counters, vendors, assigned] = await Promise.all([
     prisma.role.findMany({ orderBy: { name: "asc" } }),
     prisma.branch.findMany({ orderBy: { name: "asc" } }),
     prisma.counter.findMany({
       where: { deletedAt: null, status: "active", ...(actor.branchId ? { branchId: BigInt(actor.branchId) } : {}) },
       orderBy: { name: "asc" },
     }),
+    prisma.vendor.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }),
     prisma.counterOperator.findMany({ where: { appUserId: staffId }, select: { counterId: true } }),
   ]);
   const roleOptions = roles
@@ -42,6 +46,7 @@ export default async function EditStaffPage({
     .map((r) => ({ id: r.id.toString(), name: r.name }));
   const branchOptions = branches.map((b) => ({ id: b.id.toString(), name: b.name }));
   const counterOptions = counters.map((c) => ({ id: c.id.toString(), name: c.name }));
+  const vendorOptions = vendors.map((v) => ({ id: v.id.toString(), name: v.name }));
   const assignedCounterIds = assigned.map((a) => a.counterId.toString());
 
   const staff: StaffData = {
@@ -51,6 +56,8 @@ export default async function EditStaffPage({
     roleId: s.roleId.toString(),
     branchId: s.branchId?.toString() ?? "",
     status: s.status,
+    cardholderCode: s.cardholder?.code ?? "",
+    vendorId: s.vendorId?.toString() ?? "",
   };
 
   return (
@@ -67,6 +74,7 @@ export default async function EditStaffPage({
         roles={roleOptions}
         branches={branchOptions}
         counters={counterOptions}
+        vendors={vendorOptions}
         assignedCounterIds={assignedCounterIds}
         canChooseBranch={!actor.branchId}
       />

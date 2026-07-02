@@ -86,32 +86,31 @@ export async function ConsumptionReport({ actor, sp }: { actor: Actor; sp: Consu
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
         <p className="text-[13px] text-muted">{total.toLocaleString("en-IN")} taps · {range.fromStr} → {range.toStr}</p>
-        <a href={`/api/reports/consumption?${csvQuery.toString()}`} className={BTN_GHOST}>
-          <DownloadGlyph />
-          Export CSV
-        </a>
-      </div>
-
-      <div className={`${PANEL} p-[16px_20px]`}>
-        <DateRangeForm action="/reports" fromStr={range.fromStr} toStr={range.toStr} hidden={{ tab: "consumption" }}>
-          <select name="meal" defaultValue={sp.meal ?? ""} aria-label="Meal" className={SELECT}>
-            <option value="">All meals</option>
-            {meals.map((m) => <option key={m.id.toString()} value={m.id.toString()}>{m.name}</option>)}
-          </select>
-          <select name="counter" defaultValue={sp.counter ?? ""} aria-label="Counter" className={SELECT}>
-            <option value="">All counters</option>
-            {counters.map((c) => <option key={c.id.toString()} value={c.id.toString()}>{c.name}</option>)}
-          </select>
-          <select name="category" defaultValue={sp.category ?? ""} aria-label="Category" className={SELECT}>
-            <option value="">All categories</option>
-            {categories.map((c) => <option key={c.id.toString()} value={c.id.toString()}>{c.name}</option>)}
-          </select>
-          <select name="paidBy" defaultValue={paidBy ?? ""} aria-label="Paid by" className={SELECT}>
-            <option value="">Any payment</option>
-            <option value="wallet">Wallet</option>
-            <option value="coupon">Coupon</option>
-          </select>
-        </DateRangeForm>
+        <div className="flex items-center gap-2">
+          <DateRangeForm action="/reports" fromStr={range.fromStr} toStr={range.toStr} hidden={{ tab: "consumption" }} active={Boolean(sp.from || sp.to || sp.meal || sp.counter || sp.category || paidBy)}>
+            <select name="meal" defaultValue={sp.meal ?? ""} aria-label="Meal" className={SELECT}>
+              <option value="">All meals</option>
+              {meals.map((m) => <option key={m.id.toString()} value={m.id.toString()}>{m.name}</option>)}
+            </select>
+            <select name="counter" defaultValue={sp.counter ?? ""} aria-label="Counter" className={SELECT}>
+              <option value="">All counters</option>
+              {counters.map((c) => <option key={c.id.toString()} value={c.id.toString()}>{c.name}</option>)}
+            </select>
+            <select name="category" defaultValue={sp.category ?? ""} aria-label="Category" className={SELECT}>
+              <option value="">All categories</option>
+              {categories.map((c) => <option key={c.id.toString()} value={c.id.toString()}>{c.name}</option>)}
+            </select>
+            <select name="paidBy" defaultValue={paidBy ?? ""} aria-label="Paid by" className={SELECT}>
+              <option value="">Any payment</option>
+              <option value="wallet">Wallet</option>
+              <option value="coupon">Coupon</option>
+            </select>
+          </DateRangeForm>
+          <a href={`/api/reports/consumption?${csvQuery.toString()}`} className={BTN_GHOST}>
+            <DownloadGlyph />
+            Export CSV
+          </a>
+        </div>
       </div>
 
       <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
