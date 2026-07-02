@@ -1,18 +1,24 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
 import { requireActor } from "@/lib/session";
-import { can } from "@/lib/rbac";
+import { can, type Permission } from "@/lib/rbac";
 import { ConsumptionReport } from "./consumption-report";
 import { BalanceReport } from "./balance-report";
 import { AuditReport } from "./audit-report";
 import { FoodRequestReport } from "./food-request-report";
+import { RechargeReport } from "./recharge-report";
 
-const TABS = [
-  { key: "consumption", label: "Consumption report" },
-  { key: "foodRequests", label: "Food requests" },
-  { key: "balances", label: "Balance report" },
-  { key: "audit", label: "Audit log" },
-] as const;
+// Each tab is gated by its own permission — recharge management lives here now,
+// so a recharge-only user reaches it via this shell too.
+const ALL_TABS = [
+  { key: "consumption", label: "Consumption report", perm: "reports.view" },
+  { key: "foodRequests", label: "Food requests", perm: "reports.view" },
+  { key: "recharges", label: "Recharges", perm: "recharge.view" },
+  { key: "balances", label: "Balance report", perm: "reports.view" },
+  { key: "audit", label: "Audit log", perm: "reports.view" },
+] as const satisfies readonly { key: string; label: string; perm: Permission }[];
+
+type TabKey = (typeof ALL_TABS)[number]["key"];
 
 type ReportSearchParams = {
   tab?: string;
@@ -35,20 +41,21 @@ export default async function ReportsPage({
   searchParams: Promise<ReportSearchParams>;
 }) {
   const actor = await requireActor();
-  if (!can(actor, "reports.view")) redirect("/dashboard");
+  const tabs = ALL_TABS.filter((t) => can(actor, t.perm));
+  if (tabs.length === 0) redirect("/dashboard");
 
   const sp = await searchParams;
-  const tab = TABS.some((t) => t.key === sp.tab) ? (sp.tab as (typeof TABS)[number]["key"]) : "consumption";
+  const tab: TabKey = tabs.find((t) => t.key === sp.tab)?.key ?? tabs[0].key;
 
   return (
     <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-5 py-6 sm:px-7">
       <div>
         <h1 className="font-display text-[27px] font-bold tracking-[-0.6px] text-ink">Reports</h1>
-        <p className="mt-1 text-[13px] text-muted">Consumption, balances, and the audit trail.</p>
+        <p className="mt-1 text-[13px] text-muted">Consumption, recharges, balances, and the audit trail.</p>
       </div>
 
       <div className="flex flex-wrap items-center gap-1.5 border-b border-line pb-px">
-        {TABS.map((t) => {
+        {tabs.map((t) => {
           const active = t.key === tab;
           return (
             <Link
@@ -69,6 +76,8 @@ export default async function ReportsPage({
         <ConsumptionReport actor={actor} sp={sp} />
       ) : tab === "foodRequests" ? (
         <FoodRequestReport actor={actor} sp={sp} />
+      ) : tab === "recharges" ? (
+        <RechargeReport actor={actor} sp={sp} />
       ) : tab === "balances" ? (
         <BalanceReport actor={actor} sp={sp} />
       ) : (

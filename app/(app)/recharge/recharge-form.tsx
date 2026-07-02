@@ -42,6 +42,7 @@ export function RechargeForm({
   paymentModes,
   rechargeId,
   initial,
+  returnTo,
   onCancel,
 }: {
   action: Action;
@@ -52,12 +53,17 @@ export function RechargeForm({
   paymentModes: PaymentMode[];
   rechargeId?: string;
   initial?: RechargeInitial;
+  returnTo?: string; // where to land after save (defaults to /recharge)
   onCancel?: () => void;
 }) {
   const isEdit = Boolean(rechargeId);
   const [clientTxId] = useState(() => crypto.randomUUID());
+  // Only meals with a rate set for this category are offered. A rate row carries
+  // both the sale (charge) and vendor (cost); no row = neither set, so the meal
+  // can't be recharged and is hidden.
+  const pricedMeals = meals.filter((m) => rates[m.id] != null);
   const [counts, setCounts] = useState<Record<string, number>>(() =>
-    Object.fromEntries(meals.map((m) => [m.id, initial?.coupons[m.id] ?? 0])),
+    Object.fromEntries(pricedMeals.map((m) => [m.id, initial?.coupons[m.id] ?? 0])),
   );
 
   const { state, onSubmit, pending } = useConfirmedAction(action, initialState, {
@@ -78,13 +84,14 @@ export function RechargeForm({
     if (!rate || n <= 0) return 0;
     return Number.parseFloat(rate) * n;
   };
-  const total = meals.reduce((s, m) => s + lineValue(m.id), 0);
+  const total = pricedMeals.reduce((s, m) => s + lineValue(m.id), 0);
 
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
       <input type="hidden" name="userId" value={userId} />
       <input type="hidden" name="clientTxId" value={clientTxId} />
       {rechargeId ? <input type="hidden" name="rechargeId" value={rechargeId} /> : null}
+      {returnTo ? <input type="hidden" name="returnTo" value={returnTo} /> : null}
 
       {state.error ? (
         <p role="alert" className="rounded-sm border border-tomato/30 bg-tomato-soft px-3 py-2.5 text-[12.5px] font-medium text-tomato">
@@ -95,7 +102,10 @@ export function RechargeForm({
       <div>
         <span className={DLABEL}>Coupons per meal</span>
         <div className="grid grid-cols-1 gap-2.5 sm:grid-cols-2">
-          {meals.map((m) => {
+          {pricedMeals.length === 0 ? (
+            <p className="text-[12.5px] text-muted-2">No meals have a rate set for this category. Set one under Settings → Rates.</p>
+          ) : null}
+          {pricedMeals.map((m) => {
             const rate = rates[m.id];
             const priced = Boolean(rate);
             const n = counts[m.id] ?? 0;

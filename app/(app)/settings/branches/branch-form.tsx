@@ -10,6 +10,7 @@ export type BranchData = {
   code: string;
   name: string;
   address: string;
+  collectorCode: string;
   status: "active" | "inactive";
 };
 
@@ -48,9 +49,16 @@ export function BranchForm({ action, branch, onCancel }: { action: Action; branc
         </div>
       </div>
 
-      <div>
-        <label htmlFor="address" className={FORM_LABEL}>Address <span className={FORM_OPT}>(optional)</span></label>
-        <input id="address" name="address" maxLength={255} defaultValue={branch?.address} placeholder="HQ" className={inputClass} />
+      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="address" className={FORM_LABEL}>Address <span className={FORM_OPT}>(optional)</span></label>
+          <input id="address" name="address" maxLength={255} defaultValue={branch?.address} placeholder="HQ" className={inputClass} />
+        </div>
+        <div>
+          <label htmlFor="collectorCode" className={FORM_LABEL}>Collector code <span className={FORM_OPT}>(payments)</span></label>
+          <input id="collectorCode" name="collectorCode" maxLength={60} defaultValue={branch?.collectorCode} placeholder="e.g. NACHARAM" className={`${inputClass} font-mono`} />
+          <p className="mt-1.5 text-[11px] text-muted-2">Jodo collector code used for this branch&rsquo;s online payments.</p>
+        </div>
       </div>
 
       <div>

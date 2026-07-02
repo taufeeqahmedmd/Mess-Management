@@ -24,8 +24,8 @@ export default async function AccessControlPage() {
       <div>
         <h1 className="font-display text-[27px] font-bold tracking-[-0.6px] text-ink">Access Control</h1>
         <p className="mt-1 max-w-[560px] text-[13px] leading-relaxed text-muted">
-          Grant each role access to screens and actions. Changes take effect the next time an
-          affected staff member signs in.
+          Grant each role access to screens and actions. Changes take effect immediately — on the
+          affected staff member&rsquo;s next action.
         </p>
       </div>
 

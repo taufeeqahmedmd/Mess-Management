@@ -152,6 +152,7 @@ model Branch {
   code      String       @unique @db.VarChar(30)
   name      String       @db.VarChar(150)
   address   String?      @db.VarChar(255)
+  collectorCode String?  @map("collector_code") @db.VarChar(60) // Jodo payment collector code for this branch
   status    BranchStatus @default(active)
   createdBy BigInt?      @map("created_by")
   updatedBy BigInt?      @map("updated_by")
@@ -568,9 +569,10 @@ model Recharge {
   remainingAmount Decimal        @default(0) @map("remaining_amount") @db.Decimal(12, 2) // unspent wallet money from THIS recharge
   paymentModeId   BigInt         @map("payment_mode_id")
   counterId       BigInt?        @map("counter_id")
-  appUserId       BigInt         @map("app_user_id") // operator
+  appUserId       BigInt?        @map("app_user_id") // operator; NULL = self-service / online top-up
   status          RechargeStatus @default(posted)
   remarks         String?        @db.VarChar(255)
+  transactionId   String?        @map("transaction_id") @db.VarChar(120) // gateway transaction id (online top-ups)
   rechargedAt     DateTime       @default(now()) @map("recharged_at") @db.Timestamptz(6)
   editedAt        DateTime?      @map("edited_at") @db.Timestamptz(6)
 
@@ -579,7 +581,7 @@ model Recharge {
   plan        RechargePlan?    @relation(fields: [planId], references: [id])
   paymentMode PaymentMode      @relation(fields: [paymentModeId], references: [id])
   counter     Counter?         @relation(fields: [counterId], references: [id])
-  appUser     AppUser          @relation(fields: [appUserId], references: [id])
+  appUser     AppUser?         @relation(fields: [appUserId], references: [id])
   coupons     RechargeCoupon[]
 
   @@index([userId, rechargedAt])
@@ -746,6 +748,26 @@ model DeliveryLocation {
   branch Branch? @relation(fields: [branchId], references: [id])
 
   @@map("delivery_locations")
+}
+
+// A self-service online top-up (Jodo). Created when the pay order is placed;
+// the coupons are only credited once Jodo confirms `paid` (get-order), keyed by
+// `clientUuid` for idempotency. `items` = [{ mealTypeId, qty }].
+model PaymentOrder {
+  id          BigInt    @id @default(autoincrement())
+  jodoOrderId String    @unique @map("jodo_order_id") @db.VarChar(512)
+  clientUuid  String    @unique @map("client_uuid") @db.Uuid // reused as the credited recharge's idempotency key
+  userId      BigInt    @map("user_id")
+  branchId    BigInt    @map("branch_id")
+  amount      Decimal   @db.Decimal(12, 2)
+  items       Json
+  status      String    @default("pending") @db.VarChar(20) // pending | credited | failed
+  rechargeId  BigInt?   @map("recharge_id")
+  createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
+  creditedAt  DateTime? @map("credited_at") @db.Timestamptz(6)
+
+  @@index([userId])
+  @@map("payment_orders")
 }
 
 // ---------- Admin food requests (plan.md §15) ----------

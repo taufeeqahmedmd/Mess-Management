@@ -7,7 +7,7 @@ import type { Permission } from "./rbac";
  * added in lib/auth.ts (Node). Callbacks here only move already-resolved data
  * between the JWT and the session.
  */
-const PUBLIC_PREFIXES = ["/login", "/lookup", "/api/auth", "/api/public", "/api/health"];
+const PUBLIC_PREFIXES = ["/login", "/top-up", "/api/auth", "/api/public", "/api/health"];
 
 export const authConfig = {
   pages: { signIn: "/login" },

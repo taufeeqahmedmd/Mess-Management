@@ -99,7 +99,6 @@ export function AccessControlGrid({ roles }: { roles: RoleData[] }) {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    const form = e.currentTarget;
     const ok = await confirm({
       title: "Save permission changes",
       message: dirtyRoles.length
@@ -108,7 +107,10 @@ export function AccessControlGrid({ roles }: { roles: RoleData[] }) {
       confirmLabel: "Yes, save",
     });
     if (!ok) return;
-    const formData = new FormData(form);
+    // Build the payload from state directly — don't re-read the form element after
+    // the await (a controlled hidden input can be out of sync at that point).
+    const formData = new FormData();
+    formData.set("payload", payload);
     startTransition(() => dispatch(formData));
   }
 
