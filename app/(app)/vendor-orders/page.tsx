@@ -24,13 +24,19 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
   );
 }
 
-function OrderTable({
-  rows,
-  empty,
-}: {
-  rows: { id: string; code: string; items: number; vendorAmount: string; requestedFor: string; status: FoodRequestStatus; location: string }[];
-  empty: string;
-}) {
+type OrderRow = {
+  id: string;
+  code: string;
+  items: number;
+  vendorAmount: string;
+  requestedFor: string;
+  status: FoodRequestStatus;
+  location: string;
+  /** For cancelled rows: the stage the request was in when it was cancelled. */
+  cancelledFrom?: FoodRequestStatus | null;
+};
+
+function OrderTable({ rows, empty }: { rows: OrderRow[]; empty: string }) {
   return (
     <div className={PANEL}>
       <div className="overflow-x-auto">
@@ -66,6 +72,11 @@ function OrderTable({
                         <span className={`size-[7px] rounded-full ${meta.dot}`} />
                         {meta.label}
                       </span>
+                      {r.status === "cancelled" && r.cancelledFrom ? (
+                        <div className="mt-0.5 text-[11px] text-muted-2">
+                          cancelled at <span className="font-medium text-ink-2">{FOOD_REQUEST_STATUS_META[r.cancelledFrom].label}</span>
+                        </div>
+                      ) : null}
                     </td>
                     <td className={`${TD} text-right`}>
                       <Link href={`/vendor-orders/${r.id}`} className={LINK_ACT_GOLD}>Open</Link>
@@ -98,7 +109,7 @@ export default async function VendorOrdersPage() {
   const today = startOfToday();
   const tomorrow = new Date(today.getFullYear(), today.getMonth(), today.getDate() + 1);
 
-  const [actionable, inProgress, recent, todaysCount, upcomingCount] = await Promise.all([
+  const [actionable, inProgress, recent, cancelled, todaysCount, upcomingCount] = await Promise.all([
     prisma.foodRequest.findMany({
       where: { vendorId: vendor.id, status: { in: [...VENDOR_ACTIONABLE] } },
       include: { _count: { select: { items: true } } },
@@ -115,6 +126,22 @@ export default async function VendorOrdersPage() {
       orderBy: { id: "desc" },
       take: 10,
     }),
+    // Cancelled orders — with the cancellation event so we can show the stage the
+    // request was in when it was cancelled.
+    prisma.foodRequest.findMany({
+      where: { vendorId: vendor.id, status: "cancelled" },
+      include: {
+        _count: { select: { items: true } },
+        events: {
+          where: { toStatus: "cancelled" },
+          orderBy: { id: "desc" },
+          take: 1,
+          select: { fromStatus: true },
+        },
+      },
+      orderBy: { id: "desc" },
+      take: 10,
+    }),
     prisma.foodRequest.count({
       where: { vendorId: vendor.id, requestedFor: { gte: today, lt: tomorrow }, status: { notIn: ["cancelled", "rejected"] } },
     }),
@@ -123,7 +150,7 @@ export default async function VendorOrdersPage() {
     }),
   ]);
 
-  const toRow = (r: (typeof actionable)[number]) => ({
+  const toRow = (r: (typeof actionable)[number]): OrderRow => ({
     id: r.id.toString(),
     code: r.code,
     items: r._count.items,
@@ -132,6 +159,11 @@ export default async function VendorOrdersPage() {
     status: r.status,
     location: r.deliveryLocation,
   });
+
+  const cancelledRows: OrderRow[] = cancelled.map((r) => ({
+    ...toRow(r),
+    cancelledFrom: r.events[0]?.fromStatus ?? null,
+  }));
 
   return (
     <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-5 px-5 py-6 sm:px-7">
@@ -161,6 +193,13 @@ export default async function VendorOrdersPage() {
         <section className="flex flex-col gap-2.5">
           <h2 className="text-[13px] font-bold uppercase tracking-[0.06em] text-muted-2">Recent</h2>
           <OrderTable rows={recent.map(toRow)} empty="Nothing yet." />
+        </section>
+      ) : null}
+
+      {cancelledRows.length > 0 ? (
+        <section className="flex flex-col gap-2.5">
+          <h2 className="text-[13px] font-bold uppercase tracking-[0.06em] text-muted-2">Cancelled</h2>
+          <OrderTable rows={cancelledRows} empty="No cancelled orders." />
         </section>
       ) : null}
     </div>
