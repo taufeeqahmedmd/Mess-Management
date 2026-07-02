@@ -1,6 +1,17 @@
+import Link from "next/link";
 import { Logo } from "@/components/shell/icons";
 import { ThemeToggleButton } from "@/components/shell/theme-control";
 import { LoginForm } from "./login-form";
+
+function WalletGlyph({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
+      <path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v2" />
+      <path d="M3 7v10a2 2 0 0 0 2 2h14a1 1 0 0 0 1-1v-3" />
+      <path d="M20 9v6h-4a3 3 0 0 1 0-6z" />
+    </svg>
+  );
+}
 
 /**
  * Staff login (plan.md §4 — mobile + password). Full-page Bhojan Tricolour auth:
@@ -48,6 +59,23 @@ export default function LoginPage() {
 
           <p className="mt-5 text-center text-[11.5px] text-muted-2">
             Staff access only — accounts are provisioned by your administrator.
+          </p>
+
+          {/* Cardholder self-service — no login required */}
+          <div className="mt-6 flex items-center gap-3" aria-hidden="true">
+            <span className="h-px flex-1 bg-line" />
+            <span className="text-[10.5px] font-medium uppercase tracking-[0.06em] text-muted-2">For cardholders</span>
+            <span className="h-px flex-1 bg-line" />
+          </div>
+          <Link
+            href="/top-up"
+            className="mt-4 flex items-center justify-center gap-2 rounded-sm border border-line-strong bg-surface px-4 py-3 text-[13.5px] font-semibold text-ink transition-colors hover:border-gold-soft-2 hover:bg-gold-soft hover:text-gold-deep focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
+          >
+            <WalletGlyph className="size-[18px]" />
+            Top Up
+          </Link>
+          <p className="mt-2 text-center text-[11.5px] text-muted-2">
+            Check your balance and recharge coupons — no sign in needed.
           </p>
         </div>
       </section>

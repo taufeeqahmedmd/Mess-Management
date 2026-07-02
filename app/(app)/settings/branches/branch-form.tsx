@@ -16,6 +16,15 @@ export type BranchData = {
 
 type Action = (prev: BranchFormState, formData: FormData) => Promise<BranchFormState>;
 
+/** Fixed Jodo collector codes, mapped to their school/branch. The `code` is sent
+ *  to the payment gateway; the `label` is what the operator picks. */
+const COLLECTOR_CODES = [
+  { code: "NACHARAM", label: "DPS Nacharam" },
+  { code: "MAHENDRAHILLS", label: "DPS Mahendrahills" },
+  { code: "NADERGUL", label: "DPS Nadergul" },
+  { code: "GANDIPET", label: "PIS Gandipet" },
+] as const;
+
 const inputClass = FORM_INPUT;
 
 export function BranchForm({ action, branch, onCancel }: { action: Action; branch?: BranchData; onCancel?: () => void }) {
@@ -56,7 +65,12 @@ export function BranchForm({ action, branch, onCancel }: { action: Action; branc
         </div>
         <div>
           <label htmlFor="collectorCode" className={FORM_LABEL}>Collector code <span className={FORM_OPT}>(payments)</span></label>
-          <input id="collectorCode" name="collectorCode" maxLength={60} defaultValue={branch?.collectorCode} placeholder="e.g. NACHARAM" className={`${inputClass} font-mono`} />
+          <select id="collectorCode" name="collectorCode" defaultValue={branch?.collectorCode ?? ""} className={inputClass}>
+            <option value="">— None —</option>
+            {COLLECTOR_CODES.map((c) => (
+              <option key={c.code} value={c.code}>{c.label} ({c.code})</option>
+            ))}
+          </select>
           <p className="mt-1.5 text-[11px] text-muted-2">Jodo collector code used for this branch&rsquo;s online payments.</p>
         </div>
       </div>
