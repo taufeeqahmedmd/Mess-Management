@@ -10,8 +10,9 @@ import {
 /**
  * Fulfilment engine over a hand-rolled in-memory transaction client (same model
  * as consumption.test.ts) — covers RFID verification, idempotency, the status
- * guard, balance checks, and the per-line ledger writes without a live DB.
- * "Tests follow the money" (CLAUDE.md).
+ * guard, and the per-line redemption writes without a live DB. Coupon-only: a
+ * delivery records consumption for settlement/reports but does NOT charge the
+ * cardholder. "Tests follow the money" (CLAUDE.md).
  */
 
 const D = (n: string | number) => new Prisma.Decimal(n);
@@ -20,26 +21,20 @@ type Scenario = {
   requestMissing?: boolean;
   status?: string;
   items?: { mealTypeId: bigint; unitPrice: Prisma.Decimal; unitVendorPrice: Prisma.Decimal; qty: number }[];
-  walletBalance?: string | null; // null = no wallet
   userStatus?: "active" | "suspended" | "inactive";
   cardMissing?: boolean;
   cardStatus?: "active" | "blocked" | "lost";
   cardUserId?: bigint;
-  forceConflict?: boolean;
   claimLost?: boolean; // a concurrent delivery won the status compare-and-swap
 };
 
 function buildTx(s: Scenario) {
   const calls = {
     redemptions: [] as Record<string, unknown>[],
-    walletTxns: [] as Record<string, unknown>[],
     updatedRequest: null as Record<string, unknown> | null,
     event: null as Record<string, unknown> | null,
-    walletUpdated: false,
   };
 
-  const hasWallet = s.walletBalance !== null;
-  const wallet = hasWallet ? { id: BigInt(5), balanceAmount: D(s.walletBalance ?? "1000"), version: 0 } : null;
   const items = s.items ?? [
     { mealTypeId: BigInt(5), unitPrice: D("15"), unitVendorPrice: D("10"), qty: 2 },
     { mealTypeId: BigInt(6), unitPrice: D("20"), unitVendorPrice: D("14"), qty: 1 },
@@ -50,7 +45,6 @@ function buildTx(s: Scenario) {
     code: "EMP1",
     categoryId: BigInt(10),
     status: s.userStatus ?? "active",
-    wallet,
     category: { name: "Staff" },
   };
   const req = s.requestMissing
@@ -66,8 +60,6 @@ function buildTx(s: Scenario) {
         user,
       };
   const card = s.cardMissing ? null : { id: BigInt(2), status: s.cardStatus ?? "active", userId: s.cardUserId ?? BigInt(1) };
-
-  const total = items.reduce((sum, i) => sum.plus(i.unitPrice.mul(i.qty)), D(0));
 
   let findCount = 0;
   const tx = {
@@ -90,23 +82,10 @@ function buildTx(s: Scenario) {
       findFirst: async () => ({ id: BigInt(7), branchId: BigInt(100), code: "FR" }),
       create: async () => ({ id: BigInt(7) }),
     },
-    wallet: {
-      updateMany: async () => {
-        calls.walletUpdated = true;
-        return { count: s.forceConflict ? 0 : 1 };
-      },
-      findUnique: async () => ({ balanceAmount: wallet ? wallet.balanceAmount.minus(total) : D(0) }),
-    },
     redemption: {
       create: async ({ data }: { data: Record<string, unknown> }) => {
         calls.redemptions.push(data);
         return { id: BigInt(calls.redemptions.length) };
-      },
-    },
-    walletTransaction: {
-      create: async ({ data }: { data: Record<string, unknown> }) => {
-        calls.walletTxns.push(data);
-        return {};
       },
     },
     foodRequestEvent: {
@@ -129,50 +108,52 @@ const params: FulfillParams = {
 };
 
 describe("fulfillFoodRequest — happy path", () => {
-  it("delivers, charges the recomputed total, posts a redemption per line + DR ledger", async () => {
-    const { tx, calls } = buildTx({ walletBalance: "1000" });
+  it("delivers, records the recomputed value, posts a redemption per line (no charge)", async () => {
+    const { tx, calls } = buildTx({});
     const r = await fulfillFoodRequest(tx, params);
 
     expect(r.status).toBe("DELIVERED");
     expect(r.charged).toBe("50.00"); // 15×2 + 20×1
-    expect(calls.walletUpdated).toBe(true);
     expect(calls.redemptions).toHaveLength(2);
-    expect(calls.redemptions.every((x) => x.foodRequestId === BigInt(1) && x.counterId === BigInt(7) && x.paidBy === "wallet")).toBe(true);
-    expect(calls.walletTxns).toHaveLength(2);
-    expect(calls.walletTxns.every((x) => x.txnType === "DR" && x.sourceTable === "redemption")).toBe(true);
+    // Coupon-only: no cardholder charge — amount is 0, paidBy null, vendor cost kept.
+    expect(
+      calls.redemptions.every(
+        (x) => x.foodRequestId === BigInt(1) && x.counterId === BigInt(7) && x.paidBy === null,
+      ),
+    ).toBe(true);
+    expect(calls.redemptions.every((x) => (x.amount as Prisma.Decimal).toFixed(2) === "0.00")).toBe(true);
     expect(calls.updatedRequest?.status).toBe("delivered");
     expect(calls.event?.toStatus).toBe("delivered");
   });
 
-  it("debits the wallet only once, for the full total", async () => {
-    const { tx, calls } = buildTx({ walletBalance: "1000" });
+  it("carries the per-line sale (rateApplied) and vendor amounts for reporting/settlement", async () => {
+    const { tx, calls } = buildTx({});
     await fulfillFoodRequest(tx, params);
-    // one DR per line, summing to the total
-    const sum = calls.walletTxns.reduce((s, x) => s + Number(x.amount), 0);
-    expect(sum).toBe(50);
+    const sale = calls.redemptions.reduce((s, x) => s + Number((x.rateApplied as Prisma.Decimal).toString()), 0);
+    const vendor = calls.redemptions.reduce((s, x) => s + Number((x.vendorAmount as Prisma.Decimal).toString()), 0);
+    expect(sale).toBe(50); // 30 + 20
+    expect(vendor).toBe(34); // 20 + 14
   });
 });
 
 describe("fulfillFoodRequest — idempotency & guards", () => {
-  it("is idempotent: an already-delivered request returns without re-charging", async () => {
-    const { tx, calls } = buildTx({ status: "delivered", walletBalance: "1000" });
+  it("is idempotent: an already-delivered request returns without re-posting", async () => {
+    const { tx, calls } = buildTx({ status: "delivered" });
     const r = await fulfillFoodRequest(tx, params);
     expect(r.status).toBe("DELIVERED");
     expect(r.reason).toBe("Already delivered");
-    expect(calls.walletUpdated).toBe(false);
     expect(calls.redemptions).toHaveLength(0);
   });
 
-  it("loses the status compare-and-swap to a concurrent delivery → idempotent, no charge", async () => {
-    const { tx, calls } = buildTx({ walletBalance: "1000", claimLost: true });
+  it("loses the status compare-and-swap to a concurrent delivery → idempotent, no post", async () => {
+    const { tx, calls } = buildTx({ claimLost: true });
     const r = await fulfillFoodRequest(tx, params);
     expect(r.status).toBe("DELIVERED");
     expect(r.reason).toBe("Already delivered");
-    expect(calls.walletUpdated).toBe(false);
     expect(calls.redemptions).toHaveLength(0);
   });
 
-  it("rejects a request that isn't out for delivery (no charge)", async () => {
+  it("rejects a request that isn't out for delivery (no post)", async () => {
     const { tx, calls } = buildTx({ status: "preparing" });
     const r = await fulfillFoodRequest(tx, params);
     expect(r.status).toBe("REJECTED");
@@ -197,28 +178,12 @@ describe("fulfillFoodRequest — RFID verification", () => {
     const { tx, calls } = buildTx({ cardUserId: BigInt(99) });
     const r = await fulfillFoodRequest(tx, params);
     expect(r.reason).toBe("CARD DOES NOT MATCH CARDHOLDER");
-    expect(calls.walletUpdated).toBe(false);
+    expect(calls.redemptions).toHaveLength(0);
   });
 
   it("rejects a blocked card", async () => {
     const { tx } = buildTx({ cardStatus: "blocked" });
     expect((await fulfillFoodRequest(tx, params)).reason).toBe("CARD BLOCKED");
-  });
-});
-
-describe("fulfillFoodRequest — funds", () => {
-  it("rejects when the wallet can't cover the charge (no ledger writes)", async () => {
-    const { tx, calls } = buildTx({ walletBalance: "10" });
-    const r = await fulfillFoodRequest(tx, params);
-    expect(r.status).toBe("REJECTED");
-    expect(r.reason).toBe("INSUFFICIENT BALANCE");
-    expect(calls.redemptions).toHaveLength(0);
-    expect(calls.walletUpdated).toBe(false);
-  });
-
-  it("throws a retryable conflict when the optimistic-lock guard loses", async () => {
-    const { tx } = buildTx({ walletBalance: "1000", forceConflict: true });
-    await expect(fulfillFoodRequest(tx, params)).rejects.toBeInstanceOf(FulfillConflictError);
   });
 });
 

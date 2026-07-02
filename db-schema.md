@@ -2,6 +2,12 @@
 
 > Status: living document. Created 2026-06-08 from the reviewed MySQL 8.0 DDL proposal.
 > Companion to `plan.md`. This is the **authoritative schema** (base DDL + corrections + additions).
+>
+> **⚠️ Wallet retired (coupon-only) — 2026-07-02.** The app no longer uses the money-balance wallet.
+> The `wallets` and `wallet_transactions` tables and `recharges.remaining_amount` are **kept for
+> back-compat but dormant** — no code reads or writes them. `redemptions.paid_by` is now `coupon`
+> for counter taps and `NULL` for food-request deliveries (never `wallet`). Balances, ledgers, and
+> reconciliation described below apply to **coupons**; the wallet sections are historical.
 
 ---
 

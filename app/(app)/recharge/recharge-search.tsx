@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { INPUT_FIND, PANEL, BTN_PRIMARY } from "@/components/ui/controls";
 
-type Match = { id: string; code: string; fullName: string; category: string; wallet: string };
+type Match = { id: string; code: string; fullName: string; category: string };
 
 /**
  * Live cardholder search for the recharge page. As the operator types a name,
@@ -88,7 +88,6 @@ export function RechargeSearch() {
               >
                 <span className="text-ink">
                   <span className="font-mono">{u.code}</span> · {u.fullName} · {u.category}
-                  <span className="ml-2 font-mono text-muted">{u.wallet}</span>
                 </span>
                 <button type="button" data-recharge-user={u.id} className={BTN_PRIMARY}>Recharge</button>
               </div>

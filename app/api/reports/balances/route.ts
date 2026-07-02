@@ -5,7 +5,7 @@ import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { toCsv } from "@/lib/csv";
 
-/** GET /api/reports/balances — branch-scoped wallet + per-meal coupon balances CSV. */
+/** GET /api/reports/balances — branch-scoped per-meal coupon balances CSV. */
 export async function GET(req: Request) {
   const actor = await getActor();
   if (!actor) return new NextResponse("Unauthorized", { status: 401 });
@@ -27,20 +27,19 @@ export async function GET(req: Request) {
     prisma.mealType.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     prisma.user.findMany({
       where,
-      include: { category: true, wallet: true, couponBalances: true },
+      include: { category: true, couponBalances: true },
       orderBy: { fullName: "asc" },
       take: 50000,
     }),
   ]);
 
-  const header = ["code", "cardholder", "category", "wallet", ...meals.map((m) => m.name)];
+  const header = ["code", "cardholder", "category", ...meals.map((m) => m.name)];
   const rows = users.map((u) => {
     const byMeal = new Map(u.couponBalances.map((c) => [c.mealTypeId.toString(), c.count]));
     return [
       u.code,
       u.fullName,
       u.category.name,
-      (u.wallet?.balanceAmount ?? new Prisma.Decimal(0)).toFixed(2),
       ...meals.map((m) => String(byMeal.get(m.id.toString()) ?? 0)),
     ];
   });

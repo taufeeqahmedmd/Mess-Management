@@ -43,14 +43,6 @@ export const TrendingUpIcon = () => (
   </svg>
 );
 
-export const WalletIcon = () => (
-  <svg {...base}>
-    <path d="M19 7V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-2" />
-    <path d="M21 7H6a3 3 0 0 0 0 6h15v-6Z" />
-    <circle cx="16.5" cy="10" r="1" fill="currentColor" stroke="none" />
-  </svg>
-);
-
 export const CoinsIcon = () => (
   <svg {...base}>
     <circle cx="9" cy="9" r="6" />

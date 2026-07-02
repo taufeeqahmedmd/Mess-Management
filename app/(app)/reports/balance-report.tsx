@@ -6,7 +6,7 @@ import { inr } from "@/lib/format";
 import { StatCard } from "@/components/ui/stat-card";
 import { DonutChart } from "@/components/reports/donut-chart";
 import { Pager } from "@/components/ui/pager";
-import { UsersIcon, ReceiptIcon, WalletIcon, CoinsIcon } from "@/components/reports/stat-icons";
+import { UsersIcon, ReceiptIcon, CoinsIcon } from "@/components/reports/stat-icons";
 import { BTN_GHOST, BTN_PRIMARY, INPUT_FIND, PANEL, TH, TD, clampPageSize } from "@/components/ui/controls";
 import { DownloadGlyph } from "@/components/ui/glyphs";
 import { activeCardholderCount, cardholdersByCategory, couponLiability, mealColorMap } from "@/services/reporting";
@@ -26,25 +26,23 @@ export async function BalanceReport({ actor, sp }: { actor: Actor; sp: BalancePa
     ...(q ? { OR: [{ code: { contains: q, mode: "insensitive" } }, { fullName: { contains: q, mode: "insensitive" } }] } : {}),
   };
 
-  const [meals, activeCount, tableTotal, users, walletAgg, couponAgg, byCategory, liability] = await Promise.all([
+  const [meals, activeCount, tableTotal, users, couponAgg, byCategory, liability] = await Promise.all([
     prisma.mealType.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
     activeCardholderCount(prisma, branchId),
     prisma.user.count({ where: tableWhere }),
     prisma.user.findMany({
       where: tableWhere,
-      include: { category: true, wallet: true, couponBalances: true },
+      include: { category: true, couponBalances: true },
       orderBy: { fullName: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
     }),
-    prisma.wallet.aggregate({ where: { user: { is: branchWhere } }, _sum: { balanceAmount: true } }),
     prisma.couponBalance.groupBy({ by: ["mealTypeId"], where: { user: { is: branchWhere } }, _sum: { count: true } }),
     cardholdersByCategory(prisma, branchId),
     couponLiability(prisma, branchId),
   ]);
   const mealColors = await mealColorMap(prisma);
 
-  const walletTotal = walletAgg._sum.balanceAmount ?? new Prisma.Decimal(0);
   const couponTotals = new Map(couponAgg.map((g) => [g.mealTypeId.toString(), g._sum.count ?? 0]));
   const couponsOnHand = [...couponTotals.values()].reduce((s, n) => s + n, 0);
   const maxMeal = Math.max(1, ...meals.map((m) => couponTotals.get(m.id.toString()) ?? 0));
@@ -52,17 +50,16 @@ export async function BalanceReport({ actor, sp }: { actor: Actor; sp: BalancePa
   return (
     <>
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-[13px] text-muted">{activeCount.toLocaleString("en-IN")} cardholders · wallet {inr(walletTotal)} on hand</p>
+        <p className="text-[13px] text-muted">{activeCount.toLocaleString("en-IN")} cardholders · {couponsOnHand.toLocaleString("en-IN")} coupons on hand</p>
         <a href={`/api/reports/balances${q ? `?q=${encodeURIComponent(q)}` : ""}`} className={BTN_GHOST}>
           <DownloadGlyph />
           Export CSV
         </a>
       </div>
 
-      <section className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <section className="grid grid-cols-1 gap-4 sm:grid-cols-3">
         <StatCard label="Cardholders" value={activeCount.toLocaleString("en-IN")} hint="active accounts" variant="plain" icon={<UsersIcon />} />
         <StatCard label="Coupons on hand" value={couponsOnHand.toLocaleString("en-IN")} hint="unredeemed across all meals" variant="saffron" icon={<ReceiptIcon />} />
-        <StatCard label="Wallet on hand" value={inr(walletTotal)} hint="sum of wallet balances" variant="navy" icon={<WalletIcon />} />
         <StatCard label="Coupon liability" value={inr(liability)} hint="coupons × vendor rate" variant="green" icon={<CoinsIcon />} />
       </section>
 
@@ -123,13 +120,12 @@ export async function BalanceReport({ actor, sp }: { actor: Actor; sp: BalancePa
               <tr className="border-b border-line bg-surface-2 text-left">
                 <th className={TH}>Cardholder</th>
                 <th className={TH}>Category</th>
-                <th className={`${TH} text-right`}>Wallet</th>
                 {meals.map((m) => <th key={m.id.toString()} className={`${TH} text-right`}>{m.name}</th>)}
               </tr>
             </thead>
             <tbody>
               {users.length === 0 ? (
-                <tr><td colSpan={3 + meals.length} className="px-5 py-12 text-center text-muted">No cardholders match your search.</td></tr>
+                <tr><td colSpan={2 + meals.length} className="px-5 py-12 text-center text-muted">No cardholders match your search.</td></tr>
               ) : (
                 users.map((u) => {
                   const byMeal = new Map(u.couponBalances.map((c) => [c.mealTypeId.toString(), c.count]));
@@ -140,7 +136,6 @@ export async function BalanceReport({ actor, sp }: { actor: Actor; sp: BalancePa
                         <span className="ml-2 font-mono text-[11.5px] text-muted-2">{u.code}</span>
                       </td>
                       <td className={`${TD} text-muted`}>{u.category.name}</td>
-                      <td className={`${TD} text-right font-mono font-semibold text-ink`}>{inr(u.wallet?.balanceAmount ?? new Prisma.Decimal(0))}</td>
                       {meals.map((m) => {
                         const n = byMeal.get(m.id.toString()) ?? 0;
                         return <td key={m.id.toString()} className={`${TD} text-right font-mono ${n > 0 ? "font-semibold text-ink" : "text-muted-2"}`}>{n}</td>;

@@ -2,6 +2,15 @@
 
 > Status: living document. Started 2026-06-08.
 > Supersedes the single-file PWA mock (`rfid-coupon.html`), which remains the reference for behavior.
+>
+> **⚠️ Wallet retired (coupon-only) — 2026-07-02.** The dual "wallet + coupon" model was reduced to
+> **coupons only**. Meals are paid by coupon; there is no money-balance wallet. Recharges grant
+> coupons (the `amount` is the collection value, not a wallet credit); counter taps consume one
+> coupon; food-request deliveries are recorded for settlement/reporting but **do not charge** the
+> cardholder. The `wallets` / `wallet_transactions` tables and `recharges.remaining_amount` are
+> **retained in the schema but dormant** (never read/written). Wherever this doc describes wallet
+> balances, wallet-first/coupon-first resolution, or wallet earmarking (esp. §6, §15), treat it as
+> historical — the live behavior is coupon-only.
 
 ---
 

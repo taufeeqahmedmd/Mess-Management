@@ -73,9 +73,8 @@ export default async function RechargeReceiptPage({
           {r.transactionId ? <Field label="Transaction ID" value={r.transactionId} mono /> : null}
         </div>
 
-        <div className="grid grid-cols-2 gap-4 border-t border-line py-4 sm:grid-cols-3">
-          <Field label="Wallet amount" value={`₹${r.amount.toFixed(2)}`} mono big />
-          <Field label="Unspent wallet" value={`₹${r.remainingAmount.toFixed(2)}`} mono />
+        <div className="grid grid-cols-2 gap-4 border-t border-line py-4">
+          <Field label="Recharge value" value={`₹${r.amount.toFixed(2)}`} mono big />
           <Field label="Valid till" value={fmtDate(r.validTill)} />
         </div>
 

@@ -28,17 +28,9 @@ export async function saveConsumptionAction(
   }[] = [];
 
   for (const cat of categories) {
-    const models = [
-      ...new Set(
-        formData
-          .getAll(`models_${cat.id}`)
-          .map(String)
-          .filter((m): m is ConsumptionModel => m === "wallet" || m === "coupon"),
-      ),
-    ];
-    if (models.length === 0) {
-      return { error: `Select at least one model for ${cat.name}.` };
-    }
+    // Coupon-only: every category resolves taps by coupon (the wallet model was
+    // retired). The stored `models` is fixed to ["coupon"].
+    const models: ConsumptionModel[] = ["coupon"];
     const dupStr = String(formData.get(`dup_${cat.id}`) ?? "0").trim();
     if (!/^\d+$/.test(dupStr)) {
       return { error: `Duplicate window for ${cat.name} must be a whole number of seconds.` };

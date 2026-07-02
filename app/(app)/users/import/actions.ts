@@ -126,7 +126,6 @@ export async function importUsersAction(
             createdBy: BigInt(actor.id),
           },
         });
-        await tx.wallet.create({ data: { userId: user.id } });
         if (cardUid) {
           const card = await tx.rfidCard.create({
             data: { cardUid, userId: user.id, status: "active", issuedAt: new Date() },

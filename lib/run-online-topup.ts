@@ -70,7 +70,6 @@ export async function creditPaymentOrder(order: PaymentOrderRow, transactionId: 
         remarks: "Online top-up (Jodo)",
         clientUuid: order.clientUuid,
         transactionId,
-        creditWallet: false,
       });
       await tx.paymentOrder.update({
         where: { id: order.id },

@@ -37,7 +37,7 @@ const ICON_BASE = "/assets/images/favicon";
 
 export const metadata: Metadata = {
   title: "Mess Management",
-  description: "RFID coupon & wallet management system",
+  description: "RFID coupon management system",
   manifest: "/manifest.webmanifest",
   icons: {
     icon: [

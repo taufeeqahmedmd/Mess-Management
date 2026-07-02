@@ -201,7 +201,7 @@ export function LookupClient() {
       <div className="wrap">
         <div className="head">
           <h1>Check your <span className="sanskrit">balance</span></h1>
-          <p>Enter your ID to view your wallet, meal coupons, and top up.</p>
+          <p>Enter your ID to view your meal coupons and top up.</p>
         </div>
 
         {notice ? <div className={`banner ${notice.tone}`} role="status">{notice.text}</div> : null}
@@ -234,31 +234,30 @@ export function LookupClient() {
                 <span className="wc-live"><i />{statusLabel}</span>
               </div>
               <div className="wc-bal">
-                <div className="b-col">
-                  <div className="b-lab">Wallet balance</div>
-                  <div className="b-val">₹{balance.wallet}</div>
-                </div>
+                {balance.phone || balance.email ? (
+                  <div className="b-col">
+                    <div className="b-lab">Contact</div>
+                    <div className="cc-stack">
+                      {balance.phone ? (
+                        <span className="cc">
+                          <svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.6 2Z" /></svg>
+                          <span className="mono">{balance.phone}</span>
+                        </span>
+                      ) : null}
+                      {balance.email ? (
+                        <span className="cc">
+                          <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z" /><path d="M22 6l-10 7L2 6" /></svg>
+                          <span>{balance.email}</span>
+                        </span>
+                      ) : null}
+                    </div>
+                  </div>
+                ) : null}
                 <div className="b-col">
                   <div className="b-lab">Coupons</div>
                   <div className="b-val">{couponTotal}<span className="b-unit">total</span></div>
                 </div>
               </div>
-              {balance.phone || balance.email ? (
-                <div className="wc-contact">
-                  {balance.phone ? (
-                    <span className="cc">
-                      <svg viewBox="0 0 24 24"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 2 .7 2.9a2 2 0 0 1-.4 2.1L8.1 10a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.9.6 2.9.7a2 2 0 0 1 1.6 2Z" /></svg>
-                      <span className="mono">{balance.phone}</span>
-                    </span>
-                  ) : null}
-                  {balance.email ? (
-                    <span className="cc">
-                      <svg viewBox="0 0 24 24"><path d="M4 4h16v16H4z" /><path d="M22 6l-10 7L2 6" /></svg>
-                      <span>{balance.email}</span>
-                    </span>
-                  ) : null}
-                </div>
-              ) : null}
 
               <div className="wc-foot">
                 <div>
@@ -451,10 +450,11 @@ html[data-theme="dark"] .tpg{
 .tpg .wc-bal .b-lab{font-size:10.5px;font-weight:600;letter-spacing:.8px;text-transform:uppercase;opacity:.65}
 .tpg .wc-bal .b-val{font-size:32px;font-weight:700;letter-spacing:-1.4px;font-variant-numeric:tabular-nums;margin-top:4px}
 .tpg .wc-bal .b-val .b-unit{font-size:13px;font-weight:500;opacity:.65;letter-spacing:0;margin-left:5px}
-.tpg .wc-contact{position:relative;z-index:1;display:flex;gap:18px;flex-wrap:wrap;margin-top:16px}
-.tpg .wc-contact .cc{display:inline-flex;align-items:center;gap:7px;font-size:12px;opacity:.85}
-.tpg .wc-contact .cc svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;opacity:.7;flex:none}
-.tpg .wc-contact .cc .mono{font-family:var(--font-jetbrains-mono),monospace;font-size:11.5px}
+.tpg .wc-bal .cc-stack{display:flex;flex-direction:column;gap:9px;margin-top:9px}
+.tpg .wc-bal .cc{display:inline-flex;align-items:center;gap:7px;font-size:12px;opacity:.9;max-width:100%}
+.tpg .wc-bal .cc svg{width:13px;height:13px;stroke:currentColor;stroke-width:2;fill:none;opacity:.7;flex:none}
+.tpg .wc-bal .cc span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tpg .wc-bal .cc .mono{font-family:var(--font-jetbrains-mono),monospace;font-size:11.5px}
 .tpg .wc-foot{position:relative;z-index:1;display:flex;align-items:flex-end;margin-top:16px}
 .tpg .wc-foot .v-lab{font-size:10.5px;opacity:.6}
 .tpg .wc-foot .v-val{font-family:var(--font-jetbrains-mono),monospace;font-size:12px;margin-top:2px}

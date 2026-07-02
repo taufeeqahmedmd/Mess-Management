@@ -44,7 +44,7 @@ export async function ConsumptionReport({ actor, sp }: { actor: Actor; sp: Consu
   const branchId = actor.branchId ? BigInt(actor.branchId) : null;
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const pageSize = clampPageSize(sp.size, 25);
-  const paidBy = sp.paidBy === "wallet" || sp.paidBy === "coupon" ? sp.paidBy : undefined;
+  const paidBy = sp.paidBy === "coupon" ? sp.paidBy : undefined;
 
   const f: ConsumptionFilter = {
     branchId,
@@ -101,8 +101,7 @@ export async function ConsumptionReport({ actor, sp }: { actor: Actor; sp: Consu
               {categories.map((c) => <option key={c.id.toString()} value={c.id.toString()}>{c.name}</option>)}
             </select>
             <select name="paidBy" defaultValue={paidBy ?? ""} aria-label="Paid by" className={SELECT}>
-              <option value="">Any payment</option>
-              <option value="wallet">Wallet</option>
+              <option value="">Any</option>
               <option value="coupon">Coupon</option>
             </select>
           </DateRangeForm>
@@ -170,10 +169,17 @@ export async function ConsumptionReport({ actor, sp }: { actor: Actor; sp: Consu
                     <td className={`${TD} text-muted`}>{r.mealType.name}</td>
                     <td className={`${TD} text-muted`}>{r.counter.name}</td>
                     <td className={TD}>
-                      <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-medium ${r.paidBy === "coupon" ? "text-gold-deep" : "text-navy-text"}`}>
-                        <span className={`size-[7px] rounded-full ${r.paidBy === "coupon" ? "bg-gold" : "bg-navy"}`} />
-                        {r.paidBy === "coupon" ? "Coupon" : "Wallet"}
-                      </span>
+                      {r.paidBy === "coupon" ? (
+                        <span className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-gold-deep">
+                          <span className="size-[7px] rounded-full bg-gold" />
+                          Coupon
+                        </span>
+                      ) : (
+                        <span className="inline-flex items-center gap-1.5 text-[12.5px] font-medium text-muted-2">
+                          <span className="size-[7px] rounded-full bg-line-strong" />
+                          Food request
+                        </span>
+                      )}
                     </td>
                     <td className={`${TD} text-right font-mono font-semibold text-ink`}>{inr(r.rateApplied)}</td>
                     <td className={`${TD} text-right font-mono text-ink-2`}>{inr(r.vendorAmount)}</td>

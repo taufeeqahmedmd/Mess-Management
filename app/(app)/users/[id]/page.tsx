@@ -1,6 +1,5 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
@@ -64,7 +63,6 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
     include: {
       category: true,
       branch: true,
-      wallet: true,
       cards: { orderBy: { id: "desc" } },
       cardEvents: { orderBy: { id: "desc" }, take: 30, include: { appUser: true } },
       couponBalances: { include: { mealType: true }, orderBy: { mealTypeId: "asc" } },
@@ -344,7 +342,6 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
         <Fact label="Category" value={u.category.name} />
         <Fact label="Branch" value={u.branch.name} />
         <Fact label="Status" value={statusLabel} />
-        <Fact label="Wallet" value={inr(u.wallet?.balanceAmount ?? new Prisma.Decimal(0))} big />
         <Fact label="Validity" value={fmtDate(u.cardExpiryDate)} mono />
         <Fact label="Phone" value={u.phone || "—"} mono={Boolean(u.phone)} dim={!u.phone} />
         <Fact label="Email" value={u.email || "—"} dim={!u.email} />

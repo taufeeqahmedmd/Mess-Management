@@ -1,5 +1,4 @@
 import { NextResponse } from "next/server";
-import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
@@ -15,7 +14,6 @@ export const HEADER = [
   "branch",
   "status",
   "cardExpiry",
-  "wallet",
   "cardUid",
 ];
 
@@ -31,7 +29,6 @@ export async function GET() {
       category: true,
       department: true,
       branch: true,
-      wallet: true,
       cards: { where: { status: "active" }, take: 1 },
     },
     orderBy: { fullName: "asc" },
@@ -47,7 +44,6 @@ export async function GET() {
     u.branch.name,
     u.status,
     u.cardExpiryDate ? u.cardExpiryDate.toISOString().slice(0, 10) : "",
-    (u.wallet?.balanceAmount ?? new Prisma.Decimal(0)).toFixed(2),
     u.cards[0]?.cardUid ?? "",
   ]);
 

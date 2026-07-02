@@ -78,7 +78,7 @@ type TapResult = {
   // from REJECTED so a 500/403/timeout never looks like a real card decline.
   status: "APPROVED" | "REJECTED" | "BLOCKED" | "QUEUED" | "ERROR";
   reason: string;
-  paidBy?: "wallet" | "coupon";
+  paidBy?: "coupon";
   charged?: string;
   meal?: { id: string; name: string };
   cardholder?: {
@@ -88,14 +88,13 @@ type TapResult = {
     category: string;
     photoUrl: string | null;
     status: string;
-    walletBalance: string;
     couponsRemaining: number;
   };
   redemptionId?: string;
 };
 
-type RecentTap = { key: string; name: string; status: TapResult["status"]; meal?: string; charged?: string; paidBy?: "wallet" | "coupon"; at: string };
-type SyncResult = { clientTxId: string; status: string; reason: string; name?: string; charged?: string; paidBy?: "wallet" | "coupon"; meal?: string };
+type RecentTap = { key: string; name: string; status: TapResult["status"]; meal?: string; charged?: string; paidBy?: "coupon"; at: string };
+type SyncResult = { clientTxId: string; status: string; reason: string; name?: string; charged?: string; paidBy?: "coupon"; meal?: string };
 
 const STATUS_STYLE: Record<TapResult["status"], { panel: string; chip: string; title: string; ring: string }> = {
   APPROVED: {
@@ -531,24 +530,14 @@ export function CounterScreen({
                     {result.status === "APPROVED" ? (
                       <div className="text-center">
                         <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Charged</div>
-                        <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">{result.paidBy === "coupon" ? "Coupon" : `₹${result.charged}`}</div>
+                        <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">Coupon</div>
                       </div>
                     ) : null}
-                    {/* Coupons are consumed first; wallet is the fallback. Mirror that
-                        on screen: show the coupon count when the tap was paid by
-                        coupon (or the cardholder still holds coupons), otherwise the
-                        remaining wallet balance. */}
-                    {result.paidBy === "coupon" || (result.paidBy !== "wallet" && ch.couponsRemaining > 0) ? (
-                      <div className="text-center">
-                        <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Coupons Left</div>
-                        <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">{ch.couponsRemaining}</div>
-                      </div>
-                    ) : (
-                      <div className="text-center">
-                        <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Balance</div>
-                        <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">₹{ch.walletBalance}</div>
-                      </div>
-                    )}
+                    {/* Coupon-only: always show the cardholder's remaining coupon count. */}
+                    <div className="text-center">
+                      <div className="text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2">Coupons Left</div>
+                      <div className="mt-0.5 font-mono text-[17px] font-bold tabular-nums text-ink">{ch.couponsRemaining}</div>
+                    </div>
                   </div>
                 ) : null}
               </>
@@ -601,13 +590,9 @@ export function CounterScreen({
                       <span>· {t.at}</span>
                     </span>
                   </span>
-                  {/* Mirror the main panel: a coupon-paid tap reads "Coupon", not ₹0.00. */}
+                  {/* Coupon-only: an approved tap reads "Coupon". */}
                   {t.status === "APPROVED" ? (
-                    t.paidBy === "coupon" ? (
-                      <span className="shrink-0 rounded-pill bg-sage-soft-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sage-deep">Coupon</span>
-                    ) : t.charged ? (
-                      <span className="shrink-0 font-mono text-[13px] font-bold text-sage-deep">₹{t.charged}</span>
-                    ) : null
+                    <span className="shrink-0 rounded-pill bg-sage-soft-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-sage-deep">Coupon</span>
                   ) : null}
                 </li>
               ))}

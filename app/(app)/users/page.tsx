@@ -4,7 +4,6 @@ import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
-import { inr } from "@/lib/format";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { Pager } from "@/components/ui/pager";
 import { BTN_GHOST, BTN_PRIMARY, PANEL, TH, TD, LINK_ACT_GOLD, LINK_ACT_DANGER, LINK_ACT_SAGE, clampPageSize } from "@/components/ui/controls";
@@ -55,7 +54,7 @@ export default async function UsersPage({
   const [users, total, categories, departments, branches] = await Promise.all([
     prisma.user.findMany({
       where,
-      include: { category: true, wallet: true, couponBalances: true, cards: { where: { status: "active" }, take: 1 } },
+      include: { category: true, couponBalances: true, cards: { where: { status: "active" }, take: 1 } },
       orderBy: { fullName: "asc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -110,7 +109,6 @@ export default async function UsersPage({
                 <th className={TH}>Name</th>
                 <th className={TH}>Category</th>
                 <th className={TH}>Card UID</th>
-                <th className={`${TH} text-right`}>Wallet</th>
                 <th className={`${TH} text-right`}>Coupons</th>
                 <th className={TH}>Validity</th>
                 <th className={TH}>Status</th>
@@ -119,7 +117,7 @@ export default async function UsersPage({
             </thead>
             <tbody>
               {users.length === 0 ? (
-                <tr><td colSpan={9} className="px-5 py-12 text-center text-muted">{q ? "No cardholders match your search." : "No cardholders yet."}</td></tr>
+                <tr><td colSpan={8} className="px-5 py-12 text-center text-muted">{q ? "No cardholders match your search." : "No cardholders yet."}</td></tr>
               ) : (
                 users.map((u) => {
                   const st = ST[u.status] ?? ST.inactive;
@@ -137,7 +135,6 @@ export default async function UsersPage({
                         </span>
                       </td>
                       <td className={`${TD} whitespace-nowrap font-mono text-ink-2`}>{u.cards[0]?.cardUid ?? "—"}</td>
-                      <td className={`${TD} text-right font-mono font-semibold text-ink`}>{inr(u.wallet?.balanceAmount ?? new Prisma.Decimal(0))}</td>
                       <td className={`${TD} text-right font-mono font-semibold text-ink`}>{u.couponBalances.reduce((s, cb) => s + cb.count, 0)}</td>
                       <td className={`${TD} whitespace-nowrap text-muted`}>{u.cardExpiryDate ? u.cardExpiryDate.toISOString().slice(0, 10) : "—"}</td>
                       <td className={TD}>
