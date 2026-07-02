@@ -186,7 +186,7 @@ export function LookupClient() {
         <Logo className="h-[30px] w-auto shrink-0" />
         <div>
           <div className="brand-name">Mess Management</div>
-          <div className="brand-sub">Bhojan · भोजन</div>
+          <div className="brand-sub">K-innovative Hub</div>
         </div>
         <button className="theme" onClick={toggleTheme} aria-label="Toggle theme" type="button">
           {isDark ? (
@@ -371,7 +371,7 @@ export function LookupClient() {
           </div>
         ) : null}
 
-        <div className="foot">Powered by Bhojan · Mess Management</div>
+        <div className="foot">Powered by K-innovative Hub</div>
       </div>
     </div>
   );
