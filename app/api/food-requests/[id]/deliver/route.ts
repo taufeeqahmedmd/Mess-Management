@@ -5,6 +5,7 @@ import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { vendorForActor } from "@/lib/vendor";
 import { runFulfillment } from "@/lib/run-fulfillment";
+import { emitFoodRequestEvent } from "@/lib/notifications/food-request";
 
 const schema = z.object({
   cardUid: z.string().trim().min(1).max(64),
@@ -13,9 +14,10 @@ const schema = z.object({
 
 /**
  * POST /api/food-requests/[id]/deliver — vendor confirms delivery by scanning the
- * cardholder's RFID card. Charges the wallet via the shared redemption ledger only
- * after the tap is verified. Idempotent on the request (a replay returns the
- * original result, never double-charges).
+ * cardholder's RFID card. Records the delivery via the shared redemption ledger
+ * only after the tap is verified (coupon-only: the cardholder is not charged).
+ * Idempotent on the request (a replay returns the original result, never
+ * double-posts).
  */
 export async function POST(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const actor = await getActor();
@@ -52,6 +54,11 @@ export async function POST(req: Request, { params }: { params: Promise<{ id: str
     },
     { appUserId: BigInt(actor.id) },
   );
+
+  // Notify only on the FIRST successful delivery — idempotent replays stay silent.
+  if (result.status === "DELIVERED" && result.reason !== "Already delivered") {
+    await emitFoodRequestEvent("foodRequest.delivered", requestId);
+  }
 
   return NextResponse.json(result);
 }

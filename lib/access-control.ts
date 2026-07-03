@@ -19,7 +19,9 @@ export type RoleName = (typeof ROLES)[number];
 
 export const DEFAULT_ROLE_PERMISSIONS: Record<RoleName, readonly Permission[]> = {
   "Super Admin": PERMISSIONS,
-  Admin: PERMISSIONS, // mock: Admin always sees everything (editable)
+  // mock: Admin always sees everything (editable) — EXCEPT the Notifications
+  // module, which the spec reserves for Super Admin (grantable later via the grid).
+  Admin: PERMISSIONS.filter((p) => p !== "notifications.manage"),
   "Mess Incharge": ["counter.operate", "vendorDashboard.view"],
   Accountant: [
     "dashboard.view",
@@ -158,5 +160,10 @@ export const ACCESS_SCREENS: readonly AccessScreen[] = [
       { action: "roles", label: "Roles", permission: "roles.manage" },
       { action: "staff", label: "Staff", permission: "staff.manage" },
     ],
+  },
+  {
+    key: "notifications",
+    label: "Notifications Management",
+    actions: [{ action: "manage", label: "Manage", permission: "notifications.manage" }],
   },
 ];

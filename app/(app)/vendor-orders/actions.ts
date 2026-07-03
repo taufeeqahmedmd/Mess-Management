@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
 import { vendorForActor } from "@/lib/vendor";
 import { vendorCanDecide, vendorAdvanceTarget } from "@/services/food-request";
+import { emitFoodRequestEvent } from "@/lib/notifications/food-request";
 
 export type VendorActionState = { error?: string; success?: boolean };
 
@@ -39,6 +40,7 @@ export async function vendorAcceptAction(formData: FormData): Promise<void> {
     await writeAudit({ appUserId: BigInt(actor.id), action: "foodRequest.vendorAccept", entity: "food_request", entityId: id }, tx);
   });
 
+  await emitFoodRequestEvent("foodRequest.accepted", id);
   revalidatePath("/vendor-orders");
   revalidatePath(`/vendor-orders/${id}`);
 }
@@ -65,6 +67,7 @@ export async function vendorAdvanceAction(formData: FormData): Promise<void> {
     await writeAudit({ appUserId: BigInt(actor.id), action: "foodRequest.vendorAdvance", entity: "food_request", entityId: id, after: { status: target } }, tx);
   });
 
+  await emitFoodRequestEvent(target === "preparing" ? "foodRequest.preparing" : "foodRequest.out_for_delivery", id);
   revalidatePath("/vendor-orders");
   revalidatePath(`/vendor-orders/${id}`);
 }
@@ -102,6 +105,7 @@ export async function vendorRejectAction(
     throw e;
   }
 
+  await emitFoodRequestEvent("foodRequest.rejected", id, { reason });
   revalidatePath("/vendor-orders");
   revalidatePath(`/vendor-orders/${id}`);
   return { success: true };

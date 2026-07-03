@@ -51,3 +51,40 @@ self.addEventListener("fetch", (event) => {
 
   event.respondWith(networkFirst(request, isCounterNav));
 });
+
+/* Web Push (Notifications module): show the pushed payload and focus/open the
+   app on click. Payloads are JSON { title, body, url } from lib/notifications. */
+self.addEventListener("push", (event) => {
+  let data = {};
+  try {
+    data = event.data ? event.data.json() : {};
+  } catch {
+    data = { body: event.data ? event.data.text() : "" };
+  }
+  event.waitUntil(
+    self.registration.showNotification(data.title || "Mess Management", {
+      body: data.body || "",
+      icon: "/assets/images/logo/logo-white.png",
+      badge: "/assets/images/logo/logo-white.png",
+      data: { url: data.url || "/" },
+    }),
+  );
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = (event.notification.data && event.notification.data.url) || "/";
+  event.waitUntil(
+    (async () => {
+      const list = await self.clients.matchAll({ type: "window", includeUncontrolled: true });
+      for (const client of list) {
+        if ("focus" in client) {
+          await client.focus();
+          if ("navigate" in client) await client.navigate(url);
+          return;
+        }
+      }
+      await self.clients.openWindow(url);
+    })(),
+  );
+});

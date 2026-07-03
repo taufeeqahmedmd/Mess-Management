@@ -69,7 +69,9 @@ export async function GET(req: Request) {
     r.categoryId ? catName.get(r.categoryId.toString()) ?? "" : "",
     r.mealType.name,
     r.counter.name,
-    r.paidBy ?? "",
+    // Coupon taps carry "coupon"; food-request deliveries have no paidBy (the
+    // cardholder isn't charged) — label them so the CSV matches the on-screen report.
+    r.paidBy ?? "food_request",
     r.rateApplied.toFixed(2),
     r.vendorAmount.toFixed(2),
     r.rateApplied.minus(r.vendorAmount).toFixed(2),

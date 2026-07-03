@@ -44,6 +44,7 @@ export const PERMISSIONS = [
   "roles.manage",
   "staff.manage",
   "accessControl.manage",
+  "notifications.manage",
 ] as const;
 
 export type Permission = (typeof PERMISSIONS)[number];

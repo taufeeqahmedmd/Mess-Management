@@ -4,6 +4,7 @@ import { requireActor } from "@/lib/session";
 import { BTN_GHOST } from "@/components/ui/controls";
 import { ChangePasswordForm } from "../account/change-password-form";
 import { ProfileDetailsForm } from "./profile-details-form";
+import { PushToggle } from "@/components/pwa/push-toggle";
 
 const IB_LAB = "mb-2.5 flex items-center gap-[7px] text-[10px] font-bold uppercase tracking-[0.08em] text-muted-2 [&_svg]:size-[13px] [&_svg]:shrink-0";
 const TAG = "rounded-pill border border-line bg-surface-2 px-2.5 py-[3px] text-[11.5px] text-muted";
@@ -43,13 +44,6 @@ function CollapsibleSection({ icon, title, sub, badge, children }: { icon: React
     </details>
   );
 }
-
-const NOTIFS = [
-  { name: "Recharge reversals", hint: "When a recharge you posted is reversed", on: true },
-  { name: "Settlement approvals", hint: "When a vendor settlement is approved", on: true },
-  { name: "Low coupon alerts", hint: "Daily summary of low-balance cardholders", on: false },
-  { name: "Email digests", hint: "Weekly activity summary by email", on: true },
-];
 
 export default async function ProfilePage() {
   const actor = await requireActor();
@@ -194,24 +188,16 @@ export default async function ProfilePage() {
             icon={<SgIco tint="navy"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.9} strokeLinecap="round" strokeLinejoin="round"><path d="M18 8a6 6 0 1 0-12 0c0 7-3 9-3 9h18s-3-2-3-9" /><path d="M13.7 21a2 2 0 0 1-3.4 0" /></svg></SgIco>}
             title="Notifications"
             sub="How we reach you."
-            badge={<span className="rounded-pill bg-surface-2 px-2.5 py-1 text-[10.5px] font-semibold uppercase tracking-[0.05em] text-muted-2">Coming soon</span>}
           >
-            <div>
-              {NOTIFS.map((n, i) => (
-                <div key={n.name} className={`flex items-center gap-3 py-[13px] ${i < NOTIFS.length - 1 ? "border-b border-line" : ""}`}>
-                  <div className="min-w-0 flex-1">
-                    <div className="text-[13.5px] font-medium text-ink">{n.name}</div>
-                    <div className="mt-px text-[11px] text-muted-2">{n.hint}</div>
-                  </div>
-                  <span
-                    aria-hidden="true"
-                    title="Notification preferences aren’t configurable yet"
-                    className={`inline-flex h-[22px] w-[38px] shrink-0 items-center rounded-full opacity-50 ${n.on ? "justify-end bg-sage pr-0.5" : "justify-start bg-line-strong pl-0.5"}`}
-                  >
-                    <span className="size-[18px] rounded-full bg-white shadow-sm" />
-                  </span>
-                </div>
-              ))}
+            <div className="py-3">
+              {process.env.VAPID_PUBLIC_KEY ? (
+                <PushToggle vapidPublicKey={process.env.VAPID_PUBLIC_KEY} />
+              ) : (
+                <p className="rounded-sm border border-line bg-surface-2 px-3 py-2.5 text-[12px] text-muted-2">
+                  Push notifications aren&rsquo;t enabled on this server yet (VAPID keys pending).
+                  Which events notify whom is configured in Notifications Management.
+                </p>
+              )}
             </div>
           </CollapsibleSection>
         </div>

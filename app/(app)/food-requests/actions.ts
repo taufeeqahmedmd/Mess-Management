@@ -15,9 +15,11 @@ import {
   requestCode,
   isEditable,
   isCancellable,
+  FOOD_REQUEST_STATUS_META,
   type CatalogItem,
   type LineInput,
 } from "@/services/food-request";
+import { emitFoodRequestEvent } from "@/lib/notifications/food-request";
 
 export type FoodRequestFormState = { error?: string };
 
@@ -192,6 +194,7 @@ export async function createFoodRequestAction(
     throw e;
   }
 
+  await emitFoodRequestEvent("foodRequest.raised", newId);
   revalidatePath("/food-requests");
   redirect(`/food-requests/${newId}?flash=created`);
 }
@@ -346,6 +349,7 @@ export async function rejectFoodRequestAction(
     );
   });
 
+  await emitFoodRequestEvent("foodRequest.rejected", id, { reason });
   revalidatePath("/food-requests");
   revalidatePath(`/food-requests/${id}`);
   return { success: true };
@@ -377,6 +381,9 @@ export async function cancelFoodRequestAction(formData: FormData): Promise<void>
     );
   });
 
+  await emitFoodRequestEvent("foodRequest.cancelled", id, {
+    stage: FOOD_REQUEST_STATUS_META[existing.status].label,
+  });
   revalidatePath("/food-requests");
   revalidatePath(`/food-requests/${id}`);
 }

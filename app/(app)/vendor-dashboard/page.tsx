@@ -13,8 +13,8 @@ import { resolveDateRange, consumptionSummary, usageByMeal, usageByCounter, meal
  * Vendor Dashboard (plan.md §7 #9) — caterer-facing view of the vendor payable
  * (Σ redemption.vendorAmount) per meal and per counter. Scoped to the operator's
  * assigned counters; admins (counters.manage) / Super Admin see all in-branch
- * counters. The cardholder's payment method is irrelevant here — the caterer
- * served the meal regardless of wallet vs coupon.
+ * counters. How the meal was consumed is irrelevant here — the caterer
+ * served it regardless (coupon tap or food-request delivery).
  */
 export default async function VendorDashboardPage({
   searchParams,

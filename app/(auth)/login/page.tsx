@@ -3,7 +3,7 @@ import { Logo } from "@/components/shell/icons";
 import { ThemeToggleButton } from "@/components/shell/theme-control";
 import { LoginForm } from "./login-form";
 
-function WalletGlyph({ className }: { className?: string }) {
+function TopUpGlyph({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" className={className} aria-hidden="true">
       <path d="M3 7a2 2 0 0 1 2-2h13a1 1 0 0 1 1 1v2" />
@@ -44,7 +44,7 @@ export default function LoginPage() {
           </h2>
           <div className="my-5 h-1 w-11 rounded-pill bg-gold" />
           <p className="max-w-[22rem] text-[13.5px] leading-relaxed text-muted">
-            RFID coupon &amp; wallet management for the cafeteria.
+            RFID coupon management for the cafeteria.
           </p>
         </div>
       </section>
@@ -71,7 +71,7 @@ export default function LoginPage() {
             href="/top-up"
             className="mt-4 flex items-center justify-center gap-2 rounded-sm border border-line-strong bg-surface px-4 py-3 text-[13.5px] font-semibold text-ink transition-colors hover:border-gold-soft-2 hover:bg-gold-soft hover:text-gold-deep focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
           >
-            <WalletGlyph className="size-[18px]" />
+            <TopUpGlyph className="size-[18px]" />
             Top Up
           </Link>
           <p className="mt-2 text-center text-[11.5px] text-muted-2">

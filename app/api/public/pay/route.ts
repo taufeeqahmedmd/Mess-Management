@@ -5,6 +5,7 @@ import { prisma } from "@/lib/prisma";
 import { rateLimit, clientIp } from "@/lib/rate-limit";
 import { publicCodeSchema } from "@/lib/public-schema";
 import { defaultRatesForCategory } from "@/services/pricing";
+import { couponValue } from "@/services/recharge";
 import { localDateValue } from "@/lib/time";
 import { createJodoOrder } from "@/lib/jodo";
 import { normalizePhone, normalizeEmail } from "@/lib/contact";
@@ -59,20 +60,21 @@ export async function POST(req: Request) {
   if (!phone) return NextResponse.json({ error: "A valid 10-digit phone number is required." }, { status: 422 });
   if (!email) return NextResponse.json({ error: "A valid email address is required." }, { status: 422 });
 
-  // Recompute the amount from the catalog — the client-sent total is never trusted.
+  // Recompute the amount from the catalog — the client-sent total is never
+  // trusted. Money math stays Decimal (couponValue, the same pricer the credit
+  // path uses); the float conversion happens only at the Jodo JSON boundary.
   const today = localDateValue(new Date());
   const rates = await defaultRatesForCategory(prisma, { branchId: user.branchId, categoryId: user.categoryId, today });
-  let amount = 0;
-  const items: { mealTypeId: string; qty: number }[] = [];
-  for (const it of parsed.data.items) {
-    if (it.qty <= 0) continue;
-    const price = rates[it.mealId];
-    if (!price) return NextResponse.json({ error: "A selected meal has no current rate." }, { status: 422 });
-    amount += Number.parseFloat(price) * it.qty;
-    items.push({ mealTypeId: it.mealId, qty: it.qty });
+  const items = parsed.data.items
+    .filter((it) => it.qty > 0)
+    .map((it) => ({ mealTypeId: it.mealId, qty: it.qty }));
+  const valued = couponValue(items.map((it) => ({ mealTypeId: it.mealTypeId, count: it.qty })), rates);
+  if ("missingMeal" in valued) {
+    return NextResponse.json({ error: "A selected meal has no current rate." }, { status: 422 });
   }
-  amount = Number(amount.toFixed(2));
-  if (amount <= 0) return NextResponse.json({ error: "Add at least one coupon to continue." }, { status: 422 });
+  const total = valued.value; // Decimal, 2dp rates × integer counts
+  if (total.lte(0)) return NextResponse.json({ error: "Add at least one coupon to continue." }, { status: 422 });
+  const amountStr = total.toFixed(2);
 
   const appUrl = (process.env.APP_URL ?? new URL(req.url).origin).replace(/\/$/, "");
   const order = await createJodoOrder({
@@ -80,7 +82,7 @@ export async function POST(req: Request) {
     phone,
     email,
     collectorCode,
-    amount,
+    amount: Number(amountStr), // Jodo JSON boundary — exact after toFixed(2)
     callbackUrl: `${appUrl}/api/public/pay/callback`,
   });
 
@@ -100,11 +102,11 @@ export async function POST(req: Request) {
       clientUuid: crypto.randomUUID(),
       userId: user.id,
       branchId: user.branchId,
-      amount: new Prisma.Decimal(amount.toFixed(2)),
+      amount: new Prisma.Decimal(amountStr),
       items,
       status: "pending",
     },
   });
 
-  return NextResponse.json({ paymentUrl: order.paymentUrl, amount: amount.toFixed(2) }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ paymentUrl: order.paymentUrl, amount: amountStr }, { headers: { "Cache-Control": "no-store" } });
 }

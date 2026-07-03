@@ -1,6 +1,7 @@
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/lib/audit";
+import { emitNotification } from "@/lib/notifications/notify";
 import { applyRecharge } from "@/services/recharge-ledger";
 import { defaultRatesForCategory } from "@/services/pricing";
 import { couponValue } from "@/services/recharge";
@@ -43,7 +44,10 @@ export async function creditPaymentOrder(order: PaymentOrderRow, transactionId: 
     .filter((c) => c.mealTypeId && Number.isInteger(c.count) && c.count > 0);
   if (coupons.length === 0) return { ok: false, error: "Nothing to credit." };
 
-  const user = await prisma.user.findUnique({ where: { id: order.userId }, select: { categoryId: true, branchId: true } });
+  const user = await prisma.user.findUnique({
+    where: { id: order.userId },
+    select: { categoryId: true, branchId: true, fullName: true, code: true, phone: true, email: true },
+  });
   if (!user) return { ok: false, error: "Cardholder not found." };
 
   const rates = await defaultRatesForCategory(prisma, {
@@ -87,6 +91,17 @@ export async function creditPaymentOrder(order: PaymentOrderRow, transactionId: 
     }
     throw e;
   }
+
+  await emitNotification("recharge.online_credited", {
+    vars: {
+      name: user.fullName,
+      code: user.code,
+      amount: amount.toFixed(2),
+      coupons: String(coupons.reduce((s, c) => s + c.count, 0)),
+      transactionId: transactionId ?? "",
+    },
+    cardholder: { email: user.email, phone: user.phone, branchId: user.branchId },
+  });
 
   return { ok: true, already: false };
 }

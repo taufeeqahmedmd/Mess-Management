@@ -49,6 +49,14 @@ const SECTIONS: NavSection[] = [
       },
     ],
   },
+  {
+    title: "Notifications Management",
+    items: [
+      { label: "Push Notifications", href: "/notifications/push", icon: "bell", permission: "notifications.manage" },
+      { label: "Email Notifications", href: "/notifications/email", icon: "mail", permission: "notifications.manage" },
+      { label: "WhatsApp Communication", href: "/notifications/whatsapp", icon: "chat", permission: "notifications.manage" },
+    ],
+  },
 ];
 
 function cx(...parts: Array<string | false | undefined>) {

@@ -17,7 +17,7 @@ export function ExpirySweepButton() {
     const ok = await confirm({
       title: "Run expiry sweep",
       message:
-        "Claw back the unspent remainder of recharges past their validity, and zero the wallet + coupons of cardholders past their expiry date?",
+        "Claw back the unspent coupons of recharges past their validity, and zero the coupons of cardholders past their expiry date?",
       confirmLabel: "Yes, run",
     });
     if (!ok) return;
