@@ -195,16 +195,17 @@ async function main() {
 
   // --- Per-category consumption settings (one active per category) ---
   // Coupon-only (the wallet model was retired): every tap deducts one per-meal
-  // coupon. Student keeps a 120s duplicate window + once-per-session.
+  // coupon. A uniform 10s duplicate-tap window applies to every category; the
+  // Student category additionally keeps once-per-meal-session.
   const categoryModels: Record<
     string,
     { models: ("wallet" | "coupon")[]; duplicateWindow: number; restrictMealSession: boolean }
   > = {
-    STU: { models: ["coupon"], duplicateWindow: 120, restrictMealSession: true },
-    EMP: { models: ["coupon"], duplicateWindow: 0, restrictMealSession: false },
-    CON: { models: ["coupon"], duplicateWindow: 0, restrictMealSession: false },
-    GST: { models: ["coupon"], duplicateWindow: 0, restrictMealSession: false },
-    VIS: { models: ["coupon"], duplicateWindow: 0, restrictMealSession: false },
+    STU: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: true },
+    EMP: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: false },
+    CON: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: false },
+    GST: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: false },
+    VIS: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: false },
   };
   for (const [cc, cfg] of Object.entries(categoryModels)) {
     if ((await prisma.categorySetting.count({ where: { categoryId: catId[cc] } })) === 0) {
