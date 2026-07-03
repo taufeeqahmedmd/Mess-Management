@@ -1,5 +1,7 @@
 import { prisma } from "./prisma";
 import { writeAudit } from "./audit";
+import { formatDateTimeInZone } from "./time";
+import { emitNotification } from "./notifications/notify";
 import {
   tapEngine,
   isRetryableTapError,
@@ -8,6 +10,34 @@ import {
 } from "@/services/consumption";
 
 const MAX_RETRIES = 4;
+
+/** Post-commit "coupon utilized" notification for a freshly APPROVED tap (not a
+ *  replay). Best-effort — a notification problem never affects the tap result. */
+async function notifyCouponUtilized(result: TapResult, params: TapParams, counterId: bigint): Promise<void> {
+  try {
+    if (result.status !== "APPROVED" || result.reason === "Already recorded" || !result.cardholder) return;
+    const [user, counter] = await Promise.all([
+      prisma.user.findUnique({
+        where: { id: BigInt(result.cardholder.id) },
+        select: { email: true, phone: true, branchId: true },
+      }),
+      prisma.counter.findUnique({ where: { id: counterId }, select: { name: true } }),
+    ]);
+    await emitNotification("coupon.utilized", {
+      vars: {
+        name: result.cardholder.name,
+        code: result.cardholder.code,
+        meal: result.meal?.name ?? "",
+        counter: counter?.name ?? "",
+        remaining: String(result.cardholder.couponsRemaining),
+        time: formatDateTimeInZone(params.at),
+      },
+      cardholder: user ? { email: user.email, phone: user.phone, branchId: user.branchId } : null,
+    });
+  } catch (e) {
+    console.error("coupon.utilized notification failed:", e);
+  }
+}
 
 /**
  * Run one tap through the consumption engine inside a single `$transaction`,
@@ -22,19 +52,19 @@ export async function runTap(
 ): Promise<TapResult> {
   for (let attempt = 0; ; attempt++) {
     try {
-      return await prisma.$transaction(async (tx) => {
-        const result = await tapEngine(tx, params);
-        if (result.status === "APPROVED" && result.redemptionId) {
+      const result = await prisma.$transaction(async (tx) => {
+        const r = await tapEngine(tx, params);
+        if (r.status === "APPROVED" && r.redemptionId) {
           await writeAudit(
             {
               appUserId: audit.appUserId,
               action: "tap.approve",
               entity: "redemption",
-              entityId: BigInt(result.redemptionId),
+              entityId: BigInt(r.redemptionId),
               after: {
-                paidBy: result.paidBy,
-                charged: result.charged,
-                meal: result.meal?.name,
+                paidBy: r.paidBy,
+                charged: r.charged,
+                meal: r.meal?.name,
                 counterId: audit.counterId.toString(),
                 synced: Boolean(params.syncedAt),
               },
@@ -42,8 +72,10 @@ export async function runTap(
             tx,
           );
         }
-        return result;
+        return r;
       });
+      await notifyCouponUtilized(result, params, audit.counterId);
+      return result;
     } catch (e) {
       if (isRetryableTapError(e) && attempt < MAX_RETRIES) continue;
       throw e;

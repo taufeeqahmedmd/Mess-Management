@@ -8,6 +8,7 @@ import { requirePermission } from "@/lib/session";
 import { readClientUuid } from "@/lib/idempotency";
 import { writeAudit } from "@/lib/audit";
 import { applyRecharge, reverseRechargeRemaining } from "@/services/recharge-ledger";
+import { emitNotification } from "@/lib/notifications/notify";
 import { couponValue } from "@/services/recharge";
 import { defaultRatesForCategory } from "@/services/pricing";
 import { expireRecharges, expireUserValidities } from "@/services/expiry";
@@ -128,6 +129,17 @@ export async function createRechargeAction(
     }
     throw e;
   }
+
+  await emitNotification("recharge.created", {
+    vars: {
+      name: user.fullName,
+      code: user.code,
+      amount: priced.amount.toFixed(2),
+      coupons: String(coupons.reduce((s, c) => s + c.count, 0)),
+      validTill: validTillStr,
+    },
+    cardholder: { email: user.email, phone: user.phone, branchId: user.branchId },
+  });
 
   revalidatePath("/recharge");
   revalidatePath(`/users/${userId}`);

@@ -20,7 +20,9 @@ export type IconName =
   | "cart"
   | "bag"
   | "settings"
-  | "shield";
+  | "shield"
+  | "mail"
+  | "chat";
 
 const ICONS: Record<IconName, ReactNode> = {
   menu: <path d="M4 6h16M4 12h16M4 18h16" />,
@@ -136,6 +138,18 @@ const ICONS: Record<IconName, ReactNode> = {
     <>
       <path d="M12 2 4 6v6c0 5 3.5 8 8 10 4.5-2 8-5 8-10V6z" />
       <path d="m9 12 2 2 4-4" />
+    </>
+  ),
+  mail: (
+    <>
+      <rect x="3" y="5" width="18" height="14" rx="2" />
+      <path d="m3 7 9 6 9-6" />
+    </>
+  ),
+  chat: (
+    <>
+      <path d="M21 12a8 8 0 0 1-8 8H4l1.5-3.5A8 8 0 1 1 21 12z" />
+      <path d="M8.5 12h.01M12 12h.01M15.5 12h.01" />
     </>
   ),
 };

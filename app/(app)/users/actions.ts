@@ -7,6 +7,7 @@ import { z } from "zod";
 import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
+import { emitNotification } from "@/lib/notifications/notify";
 import type { Actor } from "@/lib/rbac";
 
 export type UserFormState = { error?: string };
@@ -116,6 +117,7 @@ export async function createUserAction(
   const cardUid = String(formData.get("cardUid") ?? "").trim();
   if (!cardUid) return { error: "RFID card UID is required." };
 
+  let createdId: bigint | null = null;
   try {
     await prisma.$transaction(async (tx) => {
       const user = await tx.user.create({
@@ -145,12 +147,28 @@ export async function createUserAction(
         { appUserId: BigInt(actor.id), action: "user.create", entity: "user", entityId: user.id, after: { code: v.code, fullName: input.fullName, cardUid: cardUid || null } },
         tx,
       );
+      createdId = user.id;
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
       return { error: "That identifier or card UID is already in use." };
     }
     throw e;
+  }
+
+  // Welcome notification (post-commit, best-effort) — Notifications Management
+  // decides whether/where it actually goes.
+  if (createdId) {
+    const fresh = await prisma.user.findUnique({
+      where: { id: createdId },
+      include: { category: true, branch: true },
+    });
+    if (fresh) {
+      await emitNotification("user.created", {
+        vars: { name: fresh.fullName, code: fresh.code, category: fresh.category.name, branch: fresh.branch.name },
+        cardholder: { email: fresh.email, phone: fresh.phone, branchId: fresh.branchId },
+      });
+    }
   }
 
   revalidatePath("/users");

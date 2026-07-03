@@ -153,6 +153,7 @@ model Branch {
   name      String       @db.VarChar(150)
   address   String?      @db.VarChar(255)
   collectorCode String?  @map("collector_code") @db.VarChar(60) // Jodo payment collector code for this branch
+  emailEntityId BigInt?  @map("email_entity_id") // sending identity (Pallavi/DPS) for this branch's mail
   status    BranchStatus @default(active)
   createdBy BigInt?      @map("created_by")
   updatedBy BigInt?      @map("updated_by")
@@ -170,6 +171,7 @@ model Branch {
   foodItems    FoodItem[]
   foodRequests FoodRequest[]
   deliveryLocations DeliveryLocation[]
+  emailEntity  EmailEntity?       @relation(fields: [emailEntityId], references: [id])
 
   @@map("branches")
 }
@@ -237,6 +239,7 @@ model AppUser {
   cardholder       User?              @relation("AppUserCardholder", fields: [cardholderUserId], references: [id])
   vendor           Vendor?            @relation("VendorStaff", fields: [vendorId], references: [id])
   counterOperators CounterOperator[]
+  pushSubscriptions PushSubscription[]
   cardEvents       CardEvent[]
   recharges        Recharge[]
   redemptions      Redemption[]
@@ -934,4 +937,123 @@ model Setting {
   branch Branch? @relation(fields: [branchId], references: [id])
 
   @@map("settings")
+}
+
+// ---------- Notifications module (Super Admin — plan: Notifications Management) ----------
+
+enum NotificationChannel {
+  push
+  email
+  whatsapp
+}
+
+enum NotificationFrequency {
+  instant
+  daily_digest
+}
+
+enum NotificationLogStatus {
+  pending
+  sent
+  failed
+  skipped
+}
+
+// Per event × channel delivery rule, edited from the Notifications Management
+// pages. The event catalog itself is code (services/notification-events.ts) so
+// new events ship with features; rules/templates are data so behaviour is
+// configurable without deployments.
+model NotificationRule {
+  id         BigInt                @id @default(autoincrement())
+  eventCode  String                @map("event_code") @db.VarChar(60)
+  channel    NotificationChannel
+  enabled    Boolean               @default(false)
+  // Recipient config: { roles?: string[], vendor?: bool, requester?: bool, cardholder?: bool }
+  recipients Json                  @default("{}")
+  frequency  NotificationFrequency @default(instant)
+  templateId BigInt?               @map("template_id")
+  updatedAt  DateTime              @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  template NotificationTemplate? @relation(fields: [templateId], references: [id])
+
+  @@unique([eventCode, channel])
+  @@map("notification_rules")
+}
+
+// Channel templates with {{variable}} placeholders (variables come from the
+// event catalog). WhatsApp rows also carry the approved Business template id +
+// the ordered variable mapping (Smartping), so templates update from the portal
+// without code changes.
+model NotificationTemplate {
+  id           BigInt              @id @default(autoincrement())
+  channel      NotificationChannel
+  name         String              @db.VarChar(120)
+  title        String?             @db.VarChar(200) // push title / email subject; unused for WhatsApp
+  body         String
+  waTemplateId String?             @map("wa_template_id") @db.VarChar(120) // approved WhatsApp Business template id
+  waVariables  Json?               @map("wa_variables") // ordered event-variable names filling {{1}},{{2}},…
+  active       Boolean             @default(true)
+  createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  rules NotificationRule[]
+
+  @@map("notification_templates")
+}
+
+// Email sending identity (Pallavi / DPS). Branches map to an entity; mail about
+// a cardholder goes out via their branch's entity domain. SMTP credentials stay
+// in env under SMTP_<envPrefix>_* — only the pointer is stored here.
+model EmailEntity {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @unique @db.VarChar(80)
+  fromName  String   @map("from_name") @db.VarChar(120)
+  fromEmail String   @map("from_email") @db.VarChar(150)
+  envPrefix String   @unique @map("env_prefix") @db.VarChar(40) // SMTP_<PREFIX>_HOST/PORT/USER/PASS
+  active    Boolean  @default(true)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+  updatedAt DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  branches Branch[]
+
+  @@map("email_entities")
+}
+
+// Browser Web-Push subscription for a staff/vendor login (PWA).
+model PushSubscription {
+  id        BigInt   @id @default(autoincrement())
+  appUserId BigInt   @map("app_user_id")
+  endpoint  String   @unique @db.VarChar(1024)
+  p256dh    String   @db.VarChar(255)
+  auth      String   @db.VarChar(255)
+  userAgent String?  @map("user_agent") @db.VarChar(255)
+  createdAt DateTime @default(now()) @map("created_at") @db.Timestamptz(6)
+
+  appUser AppUser @relation(fields: [appUserId], references: [id], onDelete: Cascade)
+
+  @@index([appUserId])
+  @@map("push_subscriptions")
+}
+
+// Outbox/audit of every notification the dispatcher produced. Senders flip
+// pending → sent/failed; `skipped` = channel not configured (no creds) at send
+// time. Append-only.
+model NotificationLog {
+  id        BigInt                @id @default(autoincrement())
+  eventCode String                @map("event_code") @db.VarChar(60)
+  channel   NotificationChannel
+  recipient String                @db.VarChar(255) // email / phone / app_user:<id>
+  title     String?               @db.VarChar(200)
+  body      String
+  // Channel payload needed to (re)send later — email: {envPrefix,fromName,fromEmail};
+  // whatsapp: {waTemplateId,variables}. Lets the daily-digest sweep flush pending rows.
+  meta      Json?
+  status    NotificationLogStatus @default(pending)
+  error     String?               @db.VarChar(500)
+  createdAt DateTime              @default(now()) @map("created_at") @db.Timestamptz(6)
+  sentAt    DateTime?             @map("sent_at") @db.Timestamptz(6)
+
+  @@index([eventCode, channel])
+  @@index([createdAt])
+  @@map("notification_logs")
 }

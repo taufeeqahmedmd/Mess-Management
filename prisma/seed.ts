@@ -357,6 +357,25 @@ async function main() {
     });
   }
 
+  // --- Email sending entities (Notifications module): Pallavi / DPS ---
+  // Each mails from its own domain; SMTP creds live in env (SMTP_<PREFIX>_*).
+  // From-addresses are placeholders — set the real domains in Notifications →
+  // Email. Branch mapping: PIS Gandipet → Pallavi, everything else → DPS.
+  const pallavi = await prisma.emailEntity.upsert({
+    where: { name: "Pallavi" },
+    update: {},
+    create: { name: "Pallavi", fromName: "Pallavi Group of Institutions", fromEmail: "noreply@pallavi.edu.in", envPrefix: "PALLAVI" },
+  });
+  const dpsEntity = await prisma.emailEntity.upsert({
+    where: { name: "DPS" },
+    update: {},
+    create: { name: "DPS", fromName: "Delhi Public School", fromEmail: "noreply@dps.edu.in", envPrefix: "DPS" },
+  });
+  for (const b of await prisma.branch.findMany({ where: { emailEntityId: null } })) {
+    const isPallavi = /gandipet|\bpis\b/i.test(`${b.code} ${b.name}`);
+    await prisma.branch.update({ where: { id: b.id }, data: { emailEntityId: isPallavi ? pallavi.id : dpsEntity.id } });
+  }
+
   console.log("Seed complete:", {
     branch: branch.code,
     superAdmin: "Srikanth / 9281122104",
