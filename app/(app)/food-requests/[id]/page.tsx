@@ -98,8 +98,8 @@ export default async function FoodRequestDetailPage({ params }: { params: Promis
       {req.status === "delivered" && req.deliveredAt ? (
         <p className="rounded-[12px] border border-sage/40 bg-sage-soft px-4 py-3 text-[13px] text-sage-deep">
           <span className="font-semibold">Delivered</span> on{" "}
-          {req.deliveredAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} — {inr(req.amount)} charged to
-          the wallet (RFID verified). Recorded in the consumption ledger.
+          {req.deliveredAt.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" })} — RFID verified.
+          Recorded in the consumption ledger ({inr(req.amount)} value); the cardholder is not charged.
         </p>
       ) : null}
 

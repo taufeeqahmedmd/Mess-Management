@@ -170,7 +170,7 @@ export function RechargeImportModal() {
 
                   <p className="mt-3.5 rounded-sm border border-line bg-surface-2 p-3 text-[11.5px] leading-relaxed text-muted-2">
                     <b className="font-semibold text-muted">Columns:</b> RFID, one column per meal (e.g. &ldquo;BKF Coupons&rdquo;), paymentMode, validTill, remarks.
-                    Only <b className="font-semibold text-muted">RFID</b> plus at least one coupon count is required; the wallet value is computed from coupons × rate. Dates accept YYYY-MM-DD or DD-MM-YYYY.
+                    Only <b className="font-semibold text-muted">RFID</b> plus at least one coupon count is required; the recharge value is computed from coupons × rate. Dates accept YYYY-MM-DD or DD-MM-YYYY.
                   </p>
 
                   <div className="mt-4 flex justify-end gap-2.5">

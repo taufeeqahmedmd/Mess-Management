@@ -28,7 +28,7 @@ const inr = (n: number) =>
 
 /**
  * Recharge form (Bhojan Tricolour drawer/page body). Per-meal coupon tiles with
- * steppers + a live wallet total, payment mode, validity, and remarks. Used by
+ * steppers + a live recharge-value total, payment mode, validity, and remarks. Used by
  * the recharge create page (/recharge/new), the edit page, and the slide-in edit
  * drawer (passes `onCancel` to close instead of navigating). Logic — counts
  * state, pricing, idempotent clientTxId, confirm-before-write — is unchanged.

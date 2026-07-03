@@ -220,7 +220,7 @@ export function FoodRequestForm({
       </div>
 
       <p className="rounded-sm border border-line bg-surface-2 px-3 py-2.5 text-[11.5px] leading-relaxed text-muted-2">
-        The cardholder&rsquo;s wallet is only charged at delivery, after an RFID tap confirms the card.
+        Delivery is completed by an RFID tap that confirms the card — the cardholder is not charged.
         The amount above is the current catalog estimate and is re-priced server-side.
       </p>
 

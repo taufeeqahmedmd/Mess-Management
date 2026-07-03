@@ -16,8 +16,8 @@ export default async function ImportUsersPage() {
         </p>
         <h1 className="font-display text-2xl font-semibold text-ink">Import cardholders</h1>
         <p className="mt-1 text-sm text-ink-2">
-          Upload a CSV to bulk-create cardholders. Each valid row creates a cardholder (with a
-          wallet, and a card if a UID is given); invalid rows are reported and skipped.{" "}
+          Upload a CSV to bulk-create cardholders. Each valid row creates a cardholder (and a
+          card if a UID is given); invalid rows are reported and skipped.{" "}
           <a href="/api/users/sample" className="font-medium text-gold-deep hover:underline">
             Download a sample template
           </a>
