@@ -8,6 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
 import { emitNotification } from "@/lib/notifications/notify";
+import { ensureCouponBalances, activeMealTypeIds } from "@/services/coupon-balance";
 import type { Actor } from "@/lib/rbac";
 
 export type UserFormState = { error?: string };
@@ -143,6 +144,9 @@ export async function createUserAction(
           data: { cardId: card.id, userId: user.id, type: "issue", newUid: cardUid, appUserId: BigInt(actor.id) },
         });
       }
+      // Materialise the cardholder's coupon-balance grid (one count-0 row per
+      // active meal) so every meal is represented from day one.
+      await ensureCouponBalances(tx, user.id, await activeMealTypeIds(tx));
       await writeAudit(
         { appUserId: BigInt(actor.id), action: "user.create", entity: "user", entityId: user.id, after: { code: v.code, fullName: input.fullName, cardUid: cardUid || null } },
         tx,

@@ -6,6 +6,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
 import { parseCsv } from "@/lib/csv";
+import { ensureCouponBalances, activeMealTypeIds } from "@/services/coupon-balance";
 
 export type ImportReport = {
   error?: string;
@@ -61,6 +62,8 @@ export async function importUsersAction(
   }
   const departments = await prisma.department.findMany({ where: { branchId } });
   const deptByName = new Map(departments.map((d) => [d.name.toLowerCase(), d]));
+  // Resolved once — every imported cardholder gets a count-0 balance row per active meal.
+  const activeMeals = await activeMealTypeIds(prisma);
 
   const failures: { row: number; message: string }[] = [];
   const seenCodes = new Set<string>();
@@ -134,6 +137,7 @@ export async function importUsersAction(
             data: { cardId: card.id, userId: user.id, type: "issue", newUid: cardUid, appUserId: BigInt(actor.id) },
           });
         }
+        await ensureCouponBalances(tx, user.id, activeMeals);
       });
 
       seenCodes.add(code.toLowerCase());

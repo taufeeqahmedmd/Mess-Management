@@ -147,11 +147,12 @@ function subscribeOnline(callback: () => void) {
 export function CounterScreen({
   counters,
   operatorName,
-  counterOnly,
+  exitTo,
 }: {
   counters: Counter[];
   operatorName: string;
-  counterOnly: boolean;
+  /** Best screen to "Exit" to besides the counter; null → show Logout instead. */
+  exitTo: string | null;
 }) {
   const [counterId, setCounterId] = useState(counters[0]?.id ?? "");
   const [scan, setScan] = useState("");
@@ -442,14 +443,14 @@ export function CounterScreen({
             {online ? "Online" : "Offline"}
           </span>
           <span className="hidden text-[13px] font-medium text-ink sm:inline">{operatorName}</span>
-          {counterOnly ? (
+          {exitTo ? (
+            <Link href={exitTo} className="rounded-pill border border-line-strong bg-surface px-[18px] py-2 text-[13px] font-semibold text-ink-2 transition-colors hover:border-gold-soft-2 hover:bg-gold-soft hover:text-gold-deep">
+              Exit
+            </Link>
+          ) : (
             <SignOutButton className="rounded-pill border border-line-strong bg-surface px-[18px] py-2 text-[13px] font-semibold text-ink-2 transition-colors hover:border-gold-soft-2 hover:bg-gold-soft hover:text-gold-deep disabled:opacity-60">
               Logout
             </SignOutButton>
-          ) : (
-            <Link href="/vendor-dashboard" className="rounded-pill border border-line-strong bg-surface px-[18px] py-2 text-[13px] font-semibold text-ink-2 transition-colors hover:border-gold-soft-2 hover:bg-gold-soft hover:text-gold-deep">
-              Exit
-            </Link>
           )}
         </div>
       </header>

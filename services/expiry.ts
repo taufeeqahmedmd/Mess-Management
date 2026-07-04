@@ -1,5 +1,6 @@
 import { Prisma, type PrismaClient } from "@prisma/client";
 import { reverseRechargeRemaining } from "./recharge-ledger";
+import { todayValue } from "@/lib/time";
 
 /**
  * Expiry sweeps (plan.md §6.3). Each runs per-item inside its own transaction so
@@ -10,11 +11,6 @@ import { reverseRechargeRemaining } from "./recharge-ledger";
  */
 
 const ZERO = new Prisma.Decimal(0);
-
-function todayUtc(): Date {
-  const n = new Date();
-  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
-}
 
 /**
  * Validity claw-back for one cardholder: zero all coupon balances via append-only
@@ -64,7 +60,7 @@ export async function expireRecharges(client: PrismaClient, branchId: bigint | n
   const due = await client.recharge.findMany({
     where: {
       status: "posted",
-      validTill: { not: null, lt: todayUtc() },
+      validTill: { not: null, lt: todayValue() },
       ...(branchId !== null ? { user: { branchId } } : {}),
     },
     select: { id: true },
@@ -85,7 +81,7 @@ export async function expireUserValidities(client: PrismaClient, branchId: bigin
   const due = await client.user.findMany({
     where: {
       validityExpired: false,
-      cardExpiryDate: { not: null, lt: todayUtc() },
+      cardExpiryDate: { not: null, lt: todayValue() },
       ...(branchId !== null ? { branchId } : {}),
     },
     select: { id: true },

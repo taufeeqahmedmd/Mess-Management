@@ -10,11 +10,7 @@ import { parseCsv } from "@/lib/csv";
 import { applyRecharge } from "@/services/recharge-ledger";
 import { couponValue } from "@/services/recharge";
 import { defaultRatesForCategory } from "@/services/pricing";
-
-function todayUtc(): Date {
-  const n = new Date();
-  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
-}
+import { todayValue } from "@/lib/time";
 
 /**
  * Parse an import date as UTC midnight. Accepts ISO `YYYY-MM-DD` and the
@@ -87,7 +83,7 @@ export async function importRechargesAction(
   }
   const defaultPm = paymentModes[0]?.id;
 
-  const today = todayUtc();
+  const today = todayValue();
   // Cache the branch-default rate map per (branch, category) so we price coupons
   // once per distinct category, not per row.
   const ratesCache = new Map<string, Record<string, string>>();

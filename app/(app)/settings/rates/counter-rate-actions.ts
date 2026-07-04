@@ -6,13 +6,9 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
 import { isMoney, rateRowsSchema } from "@/services/rates";
+import { todayValue } from "@/lib/time";
 
 export type RatesEditorState = { error?: string; success?: boolean };
-
-function todayUtc(): Date {
-  const n = new Date();
-  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
-}
 
 /**
  * Save the rates editor rows (settings/rates — one table). Each row is a meal
@@ -98,7 +94,7 @@ export async function saveRatesAction(
     }
   }
 
-  const today = todayUtc();
+  const today = todayValue();
   const yesterday = new Date(today);
   yesterday.setUTCDate(yesterday.getUTCDate() - 1);
 
