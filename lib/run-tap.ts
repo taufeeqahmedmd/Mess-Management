@@ -40,6 +40,41 @@ async function notifyCouponUtilized(result: TapResult, params: TapParams, counte
 }
 
 /**
+ * Record a REJECTED / BLOCKED tap in the audit trail so it surfaces in
+ * Reports → Audit log with the reason, time, operator, and cardholder. A
+ * rejected tap mutates nothing (no charge, no redemption), so this is a
+ * standalone audit write — not part of the tap transaction. Best-effort: an
+ * audit failure must never change the tap result the operator sees.
+ *
+ * Not idempotent by design: rejections persist nothing to key off, so a
+ * re-sent/re-synced rejected tap logs each attempt — an honest record of every
+ * declined tap, consistent with the append-only audit contract.
+ */
+async function auditRejectedTap(result: TapResult, params: TapParams, audit: { appUserId: bigint; counterId: bigint }): Promise<void> {
+  try {
+    if (result.status === "APPROVED") return;
+    await writeAudit({
+      appUserId: audit.appUserId,
+      action: result.status === "BLOCKED" ? "tap.block" : "tap.reject",
+      entity: "tap",
+      after: {
+        status: result.status,
+        reason: result.reason,
+        cardUid: params.cardUid,
+        cardholder: result.cardholder?.name ?? null,
+        code: result.cardholder?.code ?? null,
+        category: result.cardholder?.category ?? null,
+        meal: result.meal?.name ?? null,
+        counterId: audit.counterId.toString(),
+        synced: Boolean(params.syncedAt),
+      },
+    });
+  } catch (e) {
+    console.error("tap rejection audit failed:", e);
+  }
+}
+
+/**
  * Run one tap through the consumption engine inside a single `$transaction`,
  * writing the approval audit row in the SAME transaction (api.md). Retries the
  * whole transaction on an optimistic-lock conflict / write-conflict / duplicate
@@ -74,6 +109,7 @@ export async function runTap(
         }
         return r;
       });
+      await auditRejectedTap(result, params, audit);
       await notifyCouponUtilized(result, params, audit.counterId);
       return result;
     } catch (e) {
