@@ -133,6 +133,26 @@ crontab -e
 #   0 2 * * *  /home/ubuntu/mess-management/deploy/backup.sh >> /var/log/mess-backup.log 2>&1
 ```
 
+## 9. Scheduled jobs (cron endpoints)
+
+Two endpoints are designed to be hit by the server's scheduler and authenticate
+via the `CRON_SECRET` env var (set it in `.env`, then `sudo systemctl restart mess`):
+
+- `POST /api/payments/reconcile` — settles online top-ups whose Jodo redirect
+  callback never fired (payer closed the tab / gateway settlement lag). Without
+  this, a paid order can sit `pending` forever and its coupons are never
+  credited. Idempotent — safe to run every few minutes.
+- `POST /api/notifications/digest` — sends the pending notification digest.
+
+```bash
+crontab -e
+#   */5 * * * *  curl -s -X POST -H "x-cron-secret: <CRON_SECRET>" https://<subdomain>/api/payments/reconcile >> /var/log/mess-reconcile.log 2>&1
+#   0 8 * * *    curl -s -X POST -H "x-cron-secret: <CRON_SECRET>" https://<subdomain>/api/notifications/digest > /dev/null 2>&1
+```
+
+Each reconcile run logs one JSON line (`{"checked":…,"credited":…}`) — a cheap
+audit trail that the sweep is alive. Verify once with `tail /var/log/mess-reconcile.log`.
+
 ---
 
 ## Redeploying after a code change
