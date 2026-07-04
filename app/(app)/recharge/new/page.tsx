@@ -6,11 +6,7 @@ import { can } from "@/lib/rbac";
 import { RechargeForm } from "../recharge-form";
 import { createRechargeAction } from "../actions";
 import { defaultRatesForCategory } from "@/services/pricing";
-
-function todayUtc(): Date {
-  const n = new Date();
-  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
-}
+import { todayValue } from "@/lib/time";
 
 export default async function NewRechargePage({
   searchParams,
@@ -47,7 +43,7 @@ export default async function NewRechargePage({
   const [meals, paymentModes, rates] = await Promise.all([
     prisma.mealType.findMany({ where: { active: true }, orderBy: { startTime: "asc" } }),
     prisma.paymentMode.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    defaultRatesForCategory(prisma, { branchId: user.branchId, categoryId: user.categoryId, today: todayUtc() }),
+    defaultRatesForCategory(prisma, { branchId: user.branchId, categoryId: user.categoryId, today: todayValue() }),
   ]);
 
   return (

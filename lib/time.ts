@@ -94,6 +94,15 @@ export function localDateValue(d: Date, tz: string = APP_TIMEZONE): Date {
 }
 
 /**
+ * "Today" in the app timezone as a UTC-midnight Date — the value to compare
+ * against `@db.Date` columns (valid_from/valid_to, card_expiry_date). Use this
+ * instead of a UTC-derived "today", which is a day off from IST around midnight.
+ */
+export function todayValue(tz: string = APP_TIMEZONE): Date {
+  return localDateValue(new Date(), tz);
+}
+
+/**
  * The [start, end) instant range covering the local calendar day that contains
  * `d`. Use this to filter `timestamptz` columns (e.g. redeemed_at) by "today".
  */

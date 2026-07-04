@@ -320,6 +320,13 @@ CREATE TABLE coupon_balances (
 > If the final coupon decision is "coupons are just earmarked money", drop `coupon_balances` /
 > `coupon_transactions` and represent coupons as earmarked `recharges` against the wallet.
 
+> **Materialised grid.** Every non-deleted cardholder holds one `count=0` row per **active**
+> meal, created with the user (single create, CSV import, seed — via
+> `services/coupon-balance.ts`) and backfilled by migration
+> `20260704090000_backfill_coupon_balances`. These rows are behaviour-neutral (tap engine and
+> reports already read a missing row as `0`; `applyRecharge` upserts on grant) — they just remove
+> the "missing record" gap. Existing rows are never zeroed; recharges still mutate `count` normally.
+
 ---
 
 ## 7. Catalog & pricing

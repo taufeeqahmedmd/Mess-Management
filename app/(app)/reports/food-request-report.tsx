@@ -10,6 +10,7 @@ import { BTN_GHOST, PANEL, TH, TD, clampPageSize } from "@/components/ui/control
 import { DownloadGlyph } from "@/components/ui/glyphs";
 import { Prisma, type FoodRequestStatus } from "@prisma/client";
 import { resolveDateRange } from "@/services/reporting";
+import { formatDateInZone } from "@/lib/time";
 import { foodRequestReport, type FrBreakdown } from "@/services/food-request-reporting";
 import { FOOD_REQUEST_STATUS_META } from "@/services/food-request";
 
@@ -145,7 +146,7 @@ export async function FoodRequestReport({ actor, sp }: { actor: Actor; sp: FoodR
                       <td className={`${TD} whitespace-nowrap`}>
                         <Link href={`/food-requests/${r.id}`} className="font-mono text-[12.5px] font-medium text-ink transition-colors hover:text-gold-deep">{r.code}</Link>
                       </td>
-                      <td className={`${TD} whitespace-nowrap font-mono text-[12.5px] text-muted`}>{r.createdAt.toISOString().slice(0, 10)}</td>
+                      <td className={`${TD} whitespace-nowrap font-mono text-[12.5px] text-muted`}>{formatDateInZone(r.createdAt)}</td>
                       <td className={`${TD} whitespace-nowrap`}>
                         <Link href={`/users/${r.userId}`} className="font-medium text-ink transition-colors hover:text-gold-deep">{r.user.fullName}</Link>
                         <span className="ml-2 font-mono text-[11.5px] text-muted-2">{r.user.code}</span>

@@ -21,7 +21,9 @@ export async function loginAction(
   const { mobile, password } = parsed.data;
 
   try {
-    await signIn("credentials", { mobile, password, redirectTo: "/dashboard" });
+    // Land on `/`, which routes each role to its own home screen (a Mess
+    // Incharge to /counter, an admin to /dashboard, …) — see app/page.tsx.
+    await signIn("credentials", { mobile, password, redirectTo: "/" });
     return {};
   } catch (error) {
     // signIn throws a redirect on success — rethrow it; only swallow auth errors.

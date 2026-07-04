@@ -3,11 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { defaultRatesForCategory } from "@/services/pricing";
-
-function todayUtc(): Date {
-  const n = new Date();
-  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
-}
+import { todayValue } from "@/lib/time";
 
 /**
  * GET /api/recharges/[id]/edit — data for the slide-in edit drawer: the meals
@@ -44,7 +40,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     defaultRatesForCategory(prisma, {
       branchId: recharge.user.branchId,
       categoryId: recharge.user.categoryId,
-      today: todayUtc(),
+      today: todayValue(),
     }),
   ]);
 

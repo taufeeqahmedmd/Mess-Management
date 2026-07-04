@@ -6,11 +6,7 @@ import { can } from "@/lib/rbac";
 import { RechargeForm, type RechargeInitial } from "../../recharge-form";
 import { editRechargeAction } from "../../actions";
 import { defaultRatesForCategory } from "@/services/pricing";
-
-function todayUtc(): Date {
-  const n = new Date();
-  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
-}
+import { todayValue } from "@/lib/time";
 
 export default async function EditRechargePage({
   params,
@@ -52,7 +48,7 @@ export default async function EditRechargePage({
     defaultRatesForCategory(prisma, {
       branchId: recharge.user.branchId,
       categoryId: recharge.user.categoryId,
-      today: todayUtc(),
+      today: todayValue(),
     }),
   ]);
 

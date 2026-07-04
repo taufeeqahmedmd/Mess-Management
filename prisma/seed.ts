@@ -12,6 +12,7 @@
 import { PrismaClient, Prisma } from "@prisma/client";
 import bcrypt from "bcryptjs";
 import { PERMISSIONS } from "../lib/rbac";
+import { ensureCouponBalances, activeMealTypeIds } from "../services/coupon-balance";
 import { DEFAULT_ROLE_PERMISSIONS, ROLES, type RoleName } from "../lib/access-control";
 
 const prisma = new PrismaClient();
@@ -195,17 +196,17 @@ async function main() {
 
   // --- Per-category consumption settings (one active per category) ---
   // Coupon-only (the wallet model was retired): every tap deducts one per-meal
-  // coupon. A uniform 10s duplicate-tap window applies to every category; the
+  // coupon. A uniform 5s duplicate-tap window applies to every category; the
   // Student category additionally keeps once-per-meal-session.
   const categoryModels: Record<
     string,
     { models: ("wallet" | "coupon")[]; duplicateWindow: number; restrictMealSession: boolean }
   > = {
-    STU: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: true },
-    EMP: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: false },
-    CON: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: false },
-    GST: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: false },
-    VIS: { models: ["coupon"], duplicateWindow: 10, restrictMealSession: false },
+    STU: { models: ["coupon"], duplicateWindow: 5, restrictMealSession: true },
+    EMP: { models: ["coupon"], duplicateWindow: 5, restrictMealSession: false },
+    CON: { models: ["coupon"], duplicateWindow: 5, restrictMealSession: false },
+    GST: { models: ["coupon"], duplicateWindow: 5, restrictMealSession: false },
+    VIS: { models: ["coupon"], duplicateWindow: 5, restrictMealSession: false },
   };
   for (const [cc, cfg] of Object.entries(categoryModels)) {
     if ((await prisma.categorySetting.count({ where: { categoryId: catId[cc] } })) === 0) {
@@ -355,6 +356,7 @@ async function main() {
         data: { cardUid: u.cardUid, userId: created.id, status: "active", issuedAt: new Date() },
       });
       await tx.cardEvent.create({ data: { cardId: card.id, userId: created.id, type: "issue", newUid: u.cardUid } });
+      await ensureCouponBalances(tx, created.id, await activeMealTypeIds(tx));
     });
   }
 

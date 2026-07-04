@@ -12,13 +12,9 @@ import { emitNotification } from "@/lib/notifications/notify";
 import { couponValue } from "@/services/recharge";
 import { defaultRatesForCategory } from "@/services/pricing";
 import { expireRecharges, expireUserValidities } from "@/services/expiry";
+import { todayValue } from "@/lib/time";
 
 export type RechargeFormState = { error?: string };
-
-function todayUtc(): Date {
-  const n = new Date();
-  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
-}
 
 /**
  * Where to land after a recharge — the page it was started from (e.g. a
@@ -41,7 +37,7 @@ async function priceCoupons(
   const rates = await defaultRatesForCategory(prisma, {
     branchId: user.branchId,
     categoryId: user.categoryId,
-    today: todayUtc(),
+    today: todayValue(),
   });
   const valued = couponValue(coupons, rates);
   if ("missingMeal" in valued) {

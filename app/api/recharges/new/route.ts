@@ -3,11 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { defaultRatesForCategory } from "@/services/pricing";
-
-function todayUtc(): Date {
-  const n = new Date();
-  return new Date(Date.UTC(n.getUTCFullYear(), n.getUTCMonth(), n.getUTCDate()));
-}
+import { todayValue } from "@/lib/time";
 
 /**
  * GET /api/recharges/new?userId= — data for the create-recharge drawer: the
@@ -35,7 +31,7 @@ export async function GET(req: Request) {
   const [meals, paymentModes, rates] = await Promise.all([
     prisma.mealType.findMany({ where: { active: true }, orderBy: { startTime: "asc" } }),
     prisma.paymentMode.findMany({ where: { active: true }, orderBy: { name: "asc" } }),
-    defaultRatesForCategory(prisma, { branchId: user.branchId, categoryId: user.categoryId, today: todayUtc() }),
+    defaultRatesForCategory(prisma, { branchId: user.branchId, categoryId: user.categoryId, today: todayValue() }),
   ]);
 
   return NextResponse.json({
