@@ -24,6 +24,20 @@ function changedKeys(before: unknown, after: unknown): string[] {
   return [...keys].filter((k) => JSON.stringify(b[k]) !== JSON.stringify(a[k]));
 }
 
+/** A declined tap (`tap.reject` / `tap.block`) — pull the reason + who out of
+ *  the audit `after` payload so the table shows why the tap failed and for whom. */
+function tapRejection(action: string, after: unknown): { reason: string; who: string | null } | null {
+  if (!/^tap\.(reject|block)$/.test(action)) return null;
+  const a = (after && typeof after === "object" ? after : {}) as Record<string, unknown>;
+  const reason = typeof a.reason === "string" ? a.reason : null;
+  if (!reason) return null;
+  const name = typeof a.cardholder === "string" ? a.cardholder : null;
+  const code = typeof a.code === "string" ? a.code : null;
+  const uid = typeof a.cardUid === "string" ? a.cardUid : null;
+  const who = name ? (code ? `${name} · ${code}` : name) : (code ?? uid);
+  return { reason, who };
+}
+
 const startOfDay = (d: Date) => new Date(d.getFullYear(), d.getMonth(), d.getDate());
 const ymd = (d: Date) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 
@@ -67,7 +81,7 @@ export async function AuditReport({ actor, sp }: { actor: Actor; sp: AuditParams
   const monthly = spanDays > 62;
   const keyOf = (d: Date) => (monthly ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}` : ymd(d));
   const labelOf = (d: Date) => (monthly ? d.toLocaleDateString("en-IN", { month: "short" }) : String(d.getDate()));
-  const blank = (): AuditDayRow => ({ label: "", create: 0, update: 0, delete: 0, security: 0, other: 0 });
+  const blank = (): AuditDayRow => ({ label: "", create: 0, update: 0, delete: 0, reject: 0, security: 0, other: 0 });
   const buckets = new Map<string, AuditDayRow>();
   const cursor = monthly ? new Date(range.from.getFullYear(), range.from.getMonth(), 1) : startOfDay(range.from);
   while (cursor < range.toExclusive) {
@@ -149,7 +163,7 @@ export async function AuditReport({ actor, sp }: { actor: Actor; sp: AuditParams
                 <th className={TH}>Actor</th>
                 <th className={TH}>Action</th>
                 <th className={TH}>Entity</th>
-                <th className={TH}>Changed</th>
+                <th className={TH}>Details</th>
               </tr>
             </thead>
             <tbody>
@@ -158,6 +172,7 @@ export async function AuditReport({ actor, sp }: { actor: Actor; sp: AuditParams
               ) : (
                 rows.map((r) => {
                   const keys = changedKeys(r.beforeJson, r.afterJson);
+                  const rej = tapRejection(r.action, r.afterJson);
                   const k = auditKind(r.action);
                   const name = r.appUser?.name ?? "system";
                   return (
@@ -179,7 +194,14 @@ export async function AuditReport({ actor, sp }: { actor: Actor; sp: AuditParams
                         {r.entityId != null ? <span className="ml-1.5 font-mono text-[12px] text-muted-2">#{r.entityId.toString()}</span> : null}
                       </td>
                       <td className={TD}>
-                        {keys.length > 0 ? (
+                        {rej ? (
+                          <span className="flex flex-col items-start gap-1">
+                            <span className="inline-flex items-center gap-1.5 rounded-pill bg-terracotta-soft px-2 py-0.5 text-[11.5px] font-semibold text-terracotta">
+                              <span className="size-1.5 rounded-full bg-terracotta" />{rej.reason}
+                            </span>
+                            {rej.who ? <span className="font-mono text-[11.5px] text-muted">{rej.who}</span> : null}
+                          </span>
+                        ) : keys.length > 0 ? (
                           <span className="flex flex-wrap gap-1">
                             {keys.map((key) => <span key={key} className="rounded-[6px] border border-line bg-surface-2 px-1.5 py-0.5 font-mono text-[11px] text-muted">{key}</span>)}
                           </span>
