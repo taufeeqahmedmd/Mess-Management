@@ -24,7 +24,7 @@ export type JodoOrderResult =
   | { ok: false; error: string; status?: number; raw?: unknown };
 
 export type JodoOrderStatus =
-  | { ok: true; paid: boolean; amount: number | null; transactionId: string | null; raw: unknown }
+  | { ok: true; paid: boolean; orderStatus: string | null; amount: number | null; transactionId: string | null; raw: unknown }
   | { ok: false; error: string; status?: number };
 
 function jodoConfig(): { base: string; auth: string } | null {
@@ -120,6 +120,7 @@ export async function getJodoOrder(orderId: string): Promise<JodoOrderStatus> {
   return {
     ok: true,
     paid: data.status === "paid",
+    orderStatus: typeof data.status === "string" ? data.status : null,
     amount: details.length ? amount : null,
     transactionId: typeof data.transaction_id === "string" ? data.transaction_id : null,
     raw,
