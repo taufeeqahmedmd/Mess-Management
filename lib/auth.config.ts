@@ -9,6 +9,12 @@ import type { Permission } from "./rbac";
  */
 const PUBLIC_PREFIXES = ["/login", "/top-up", "/api/auth", "/api/public", "/api/health"];
 
+// Cron-invoked endpoints that authenticate INSIDE the route (x-cron-secret, or a
+// signed-in actor with the module permission). The edge gate must let them
+// through — otherwise a cron request is redirected to /login before the route's
+// own check ever runs. Deny-by-default still holds: each route 401/403s itself.
+const SELF_AUTH_ROUTES = ["/api/payments/reconcile", "/api/notifications/digest"];
+
 export const authConfig = {
   pages: { signIn: "/login" },
   session: { strategy: "jwt" },
@@ -19,6 +25,7 @@ export const authConfig = {
       if (pathname === "/" || PUBLIC_PREFIXES.some((p) => pathname.startsWith(p))) {
         return true;
       }
+      if (SELF_AUTH_ROUTES.includes(pathname)) return true;
       return !!auth?.user; // protected → require a session, else redirect to /login
     },
     jwt({ token, user }) {
