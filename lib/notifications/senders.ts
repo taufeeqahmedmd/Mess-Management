@@ -85,12 +85,12 @@ function msisdn(phone: string): string {
 }
 
 /**
- * Send an approved WhatsApp template via Smartping. Preferred path: the PARTNER
- * API's direct template send (template name + language + positional body params —
- * exactly what the synced Templates tab lists). Fallback: the campaign API
- * (apiKey in the JSON body, send by campaign name whose status is Live — only
- * works if a campaign exists with the same name as the template).
- * `params` are the template's {{1}},{{2}},… values in order (event waParams).
+ * Send an approved WhatsApp template via Smartping. Tries the PARTNER API's
+ * direct template send first (template name + language + positional params),
+ * and on ANY failure falls back to the campaign API (apiKey in the JSON body,
+ * send by Live API-Campaign name = the registered template name) — so a wrong
+ * or revoked Partner key degrades to the working path instead of blocking
+ * production sends. `params` fill {{1}},{{2}},… in order (event waParams).
  */
 export async function sendWhatsApp(p: {
   phone: string;
@@ -102,6 +102,7 @@ export async function sendWhatsApp(p: {
   if (!p.templateName) return { status: "skipped", reason: "No WhatsApp template mapped to this event" };
 
   // Preferred: Partner API direct send by template name.
+  let partnerError: string | null = null;
   if (partnerSendConfigured()) {
     const r = await sendPartnerTemplate({
       to: msisdn(p.phone),
@@ -109,11 +110,14 @@ export async function sendWhatsApp(p: {
       language: p.language || "en",
       params: p.params,
     });
-    return r.ok ? { status: "sent" } : { status: "failed", error: r.error };
+    if (r.ok) return { status: "sent" };
+    partnerError = r.error;
+    // fall through to the campaign API
   }
 
-  // Fallback: campaign API (send by campaign name = template name).
+  // Campaign API (send by Live API-Campaign name = the registered template name).
   if (!whatsappConfigured()) {
+    if (partnerError) return { status: "failed", error: partnerError };
     return {
       status: "skipped",
       reason: "WhatsApp not configured (PINBOT_API_KEY / PINBOT_WABA_ID or SMARTPING_API_KEY / SMARTPING_BASE_URL)",
@@ -135,11 +139,13 @@ export async function sendWhatsApp(p: {
     });
     if (!res.ok) {
       const text = (await res.text().catch(() => "")).slice(0, 300);
-      return { status: "failed", error: `Smartping campaign ${res.status}: ${text}` };
+      const campaignError = `Smartping campaign ${res.status}: ${text}`;
+      return { status: "failed", error: partnerError ? `${partnerError} | ${campaignError}` : campaignError };
     }
     return { status: "sent" };
   } catch (e) {
-    return { status: "failed", error: e instanceof Error ? e.message : String(e) };
+    const msg = e instanceof Error ? e.message : String(e);
+    return { status: "failed", error: partnerError ? `${partnerError} | ${msg}` : msg };
   }
 }
 
