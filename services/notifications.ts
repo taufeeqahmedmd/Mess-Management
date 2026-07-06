@@ -25,10 +25,12 @@ export function parseRecipients(value: unknown): RecipientsConfig {
 /**
  * Render {{variable}} placeholders from the event's context. Unknown variables
  * render as empty (never leak the raw placeholder to a recipient). Whitespace
- * inside braces is tolerated ({{ name }}).
+ * inside braces is tolerated ({{ name }}). Purely numeric placeholders
+ * ({{1}},{{2}},…) are LEFT ALONE — those are WhatsApp positional params, filled
+ * later from the ordered event values, not from named vars.
  */
 export function renderTemplate(text: string, vars: Record<string, string>): string {
-  return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) => vars[key] ?? "");
+  return text.replace(/\{\{\s*([A-Za-z_][\w.]*)\s*\}\}/g, (_, key: string) => vars[key] ?? "");
 }
 
 /** Fallback body when a rule has no template: a readable key/value summary. */
