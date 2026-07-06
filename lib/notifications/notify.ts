@@ -133,11 +133,14 @@ async function dispatchRule(
   const waVars = waParamValues(eventCode, ctx.vars);
   const userName = ctx.vars.name || ctx.vars.cardholder || "Customer";
   const waMeta = { templateName, language, userName, variables: waVars };
+  // Log preview: fill the template's positional {{1}},{{2}},… so the outbox shows
+  // the message as delivered (the send itself carries `params`, not this text).
+  const waBody = body.replace(/\{\{\s*(\d+)\s*\}\}/g, (_, n: string) => waVars[Number(n) - 1] ?? "");
   for (const phone of [...new Set(phones)]) {
     const outcome = digest
       ? digestOutcome
       : await sendWhatsApp({ phone, templateName, language, userName, params: waVars });
-    await writeLog({ eventCode, channel: "whatsapp", recipient: phone, title: null, body, meta: waMeta, outcome });
+    await writeLog({ eventCode, channel: "whatsapp", recipient: phone, title: null, body: waBody, meta: waMeta, outcome });
   }
 }
 
