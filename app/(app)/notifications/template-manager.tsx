@@ -7,10 +7,12 @@ import { BTN_PRIMARY, BTN_GHOST, PANEL, FORM_LABEL, FORM_INPUT, LINK_ACT_GOLD, L
 import { saveTemplateAction, deleteTemplateAction, type NotifyFormState } from "./actions";
 
 /**
- * Channel template CRUD. Templates use {{variable}} placeholders from the event
- * catalog. For WhatsApp, a row also stores the APPROVED Business template id and
- * the ordered variable names that fill {{1}},{{2}},… — so Smartping templates are
- * managed from the portal without code changes (spec: WhatsApp Template Management).
+ * Channel template CRUD. Email/push templates use {{variable}} placeholders from
+ * the event catalog. WhatsApp rows only REGISTER a Smartping template for the
+ * event-rule dropdown: the exact template name (Partner/Direct send) or Live
+ * API-Campaign name (campaign-API send), an optional language + message preview.
+ * Rows can also arrive via "Sync from Smartping"; the send fills the approved
+ * template's positional params from the event's waParams.
  */
 
 export type TemplateRow = {
@@ -19,6 +21,7 @@ export type TemplateRow = {
   title: string | null;
   body: string;
   waTemplateId: string | null;
+  waLanguage: string | null;
   waVariables: string[];
   active: boolean;
 };
@@ -80,17 +83,15 @@ export function TemplateManager({
                   <span className="text-[13.5px] font-semibold text-ink">{row.name}</span>
                   {!row.active ? <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted">Disabled</span> : null}
                   {isWa && row.waTemplateId ? (
-                    <span className="font-mono text-[11px] text-muted-2">ID: {row.waTemplateId}</span>
+                    <span className="font-mono text-[11px] text-muted-2">{row.waTemplateId}</span>
+                  ) : null}
+                  {isWa && row.waLanguage ? (
+                    <span className="rounded-pill bg-surface-2 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-muted-2">{row.waLanguage}</span>
                   ) : null}
                 </div>
                 <div className="mt-0.5 truncate text-[12px] text-muted-2">
                   {row.title ? `${row.title} — ` : ""}{row.body}
                 </div>
-                {isWa && row.waVariables.length > 0 ? (
-                  <div className="mt-0.5 font-mono text-[10.5px] text-muted-2">
-                    {row.waVariables.map((v, i) => `{{${i + 1}}}←${v}`).join("  ")}
-                  </div>
-                ) : null}
               </div>
               <div className="flex shrink-0 items-center gap-2">
                 <button type="button" onClick={() => { setEditing(row); setCreating(false); }} className={LINK_ACT_GOLD}>
@@ -134,8 +135,11 @@ export function TemplateManager({
             </div>
             {isWa ? (
               <div>
-                <label htmlFor={`tpl-waid-${channel}`} className={FORM_LABEL}>WhatsApp Template ID</label>
-                <input id={`tpl-waid-${channel}`} name="waTemplateId" required maxLength={120} defaultValue={t?.waTemplateId ?? ""} placeholder="approved Business template id" className={`${FORM_INPUT} font-mono`} />
+                <label htmlFor={`tpl-waid-${channel}`} className={FORM_LABEL}>Smartping template / campaign name</label>
+                <input id={`tpl-waid-${channel}`} name="waTemplateId" required maxLength={120} defaultValue={t?.waTemplateId ?? ""} placeholder="e.g. coupon_used_v1" className={`${FORM_INPUT} font-mono`} />
+                <p className="mt-1.5 text-[11px] leading-relaxed text-muted-2">
+                  Copy it exactly from Smartping. Campaign-API sends need the <b>Live API Campaign</b> name; Partner-API sends use the template name.
+                </p>
               </div>
             ) : (
               <div>
@@ -145,21 +149,23 @@ export function TemplateManager({
             )}
           </div>
 
-          <div>
-            <label htmlFor={`tpl-body-${channel}`} className={FORM_LABEL}>
-              Body <span className="font-medium normal-case tracking-normal text-muted-2">— placeholders: {variablesHint.map((v) => `{{${v}}}`).join(" ")}</span>
-            </label>
-            <textarea id={`tpl-body-${channel}`} name="body" required rows={3} defaultValue={t?.body} placeholder="Hi {{name}}, …" className={`${FORM_INPUT} resize-y`} />
-          </div>
-
           {isWa ? (
-            <div>
-              <label htmlFor={`tpl-wavars-${channel}`} className={FORM_LABEL}>
-                Variable mapping <span className="font-medium normal-case tracking-normal text-muted-2">(ordered, comma-separated — fills {"{{1}},{{2}},…"} of the approved template)</span>
-              </label>
-              <input id={`tpl-wavars-${channel}`} name="waVariables" maxLength={500} defaultValue={t?.waVariables.join(", ") ?? ""} placeholder="e.g. name, meal, remaining" className={`${FORM_INPUT} font-mono`} />
+            <div className="max-w-[200px]">
+              <label htmlFor={`tpl-walang-${channel}`} className={FORM_LABEL}>Language <span className="font-medium normal-case tracking-normal text-muted-2">(optional)</span></label>
+              <input id={`tpl-walang-${channel}`} name="waLanguage" maxLength={10} defaultValue={t?.waLanguage ?? "en"} placeholder="en" className={`${FORM_INPUT} font-mono`} />
             </div>
           ) : null}
+
+          <div>
+            <label htmlFor={`tpl-body-${channel}`} className={FORM_LABEL}>
+              {isWa ? (
+                <>Message preview <span className="font-medium normal-case tracking-normal text-muted-2">(optional) — the approved template text, for reference (not sent from here)</span></>
+              ) : (
+                <>Body <span className="font-medium normal-case tracking-normal text-muted-2">— placeholders: {variablesHint.map((v) => `{{${v}}}`).join(" ")}</span></>
+              )}
+            </label>
+            <textarea id={`tpl-body-${channel}`} name="body" required={!isWa} rows={3} defaultValue={t?.body} placeholder={isWa ? "Hi {{1}}, your {{2}} coupon was used. {{3}} left." : "Hi {{name}}, …"} className={`${FORM_INPUT} resize-y`} />
+          </div>
 
           <label className="inline-flex items-center gap-2 text-[13px] text-ink-2">
             <input type="checkbox" name="active" defaultChecked={t?.active ?? true} className="size-[16px] accent-[var(--gold)]" />

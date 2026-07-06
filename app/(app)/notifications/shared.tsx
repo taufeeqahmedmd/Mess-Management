@@ -42,6 +42,7 @@ export async function loadChannelData(channel: NotificationChannel): Promise<{
       title: t.title,
       body: t.body,
       waTemplateId: t.waTemplateId,
+      waLanguage: t.waLanguage,
       waVariables: Array.isArray(t.waVariables) ? t.waVariables.map(String) : [],
       active: t.active,
     })),

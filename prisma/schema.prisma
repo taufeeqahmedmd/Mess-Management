@@ -990,8 +990,9 @@ model NotificationTemplate {
   name         String              @db.VarChar(120)
   title        String?             @db.VarChar(200) // push title / email subject; unused for WhatsApp
   body         String
-  waTemplateId String?             @map("wa_template_id") @db.VarChar(120) // approved WhatsApp Business template id
-  waVariables  Json?               @map("wa_variables") // ordered event-variable names filling {{1}},{{2}},…
+  waTemplateId String?             @map("wa_template_id") @db.VarChar(120) // approved WhatsApp template NAME (synced from the Partner API)
+  waLanguage   String?             @map("wa_language") @db.VarChar(10) // template language code (e.g. en, en_US) — required by the send API
+  waVariables  Json?               @map("wa_variables") // positional markers ["1".."N"] — the template's param count (display only)
   active       Boolean             @default(true)
   createdAt    DateTime            @default(now()) @map("created_at") @db.Timestamptz(6)
   updatedAt    DateTime            @updatedAt @map("updated_at") @db.Timestamptz(6)

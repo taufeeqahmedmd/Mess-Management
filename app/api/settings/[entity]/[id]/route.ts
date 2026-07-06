@@ -33,7 +33,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ entity:
   if (entity === "branches") {
     const b = await prisma.branch.findFirst({ where: { id: bid, deletedAt: null } });
     if (!b) return NextResponse.json({ error: "Not found" }, { status: 404 });
-    return NextResponse.json({ id: b.id.toString(), code: b.code, name: b.name, address: b.address ?? "", collectorCode: b.collectorCode ?? "", status: b.status === "inactive" ? "inactive" : "active" });
+    return NextResponse.json({
+      id: b.id.toString(),
+      code: b.code,
+      name: b.name,
+      address: b.address ?? "",
+      collectorCode: b.collectorCode ?? "",
+      emailEntityId: b.emailEntityId?.toString() ?? "",
+      status: b.status === "inactive" ? "inactive" : "active",
+    });
   }
   if (entity === "categories") {
     const c = await prisma.category.findUnique({ where: { id: bid } });

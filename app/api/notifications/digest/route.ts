@@ -61,9 +61,10 @@ export async function POST(req: Request) {
     } else {
       outcome = await sendWhatsApp({
         phone: row.recipient,
-        waTemplateId: typeof meta.waTemplateId === "string" ? meta.waTemplateId : null,
-        variables: Array.isArray(meta.variables) ? meta.variables.map(String) : [],
-        body: row.body,
+        templateName: typeof meta.templateName === "string" ? meta.templateName : null,
+        language: typeof meta.language === "string" ? meta.language : null,
+        userName: typeof meta.userName === "string" ? meta.userName : "Customer",
+        params: Array.isArray(meta.variables) ? meta.variables.map(String) : [],
       });
     }
 

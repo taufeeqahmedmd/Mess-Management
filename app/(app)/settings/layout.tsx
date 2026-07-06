@@ -1,3 +1,4 @@
+import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { SETTINGS_TABS } from "./tabs";
@@ -20,6 +21,14 @@ export default async function SettingsLayout({
     label: t.label,
   }));
 
+  // Email-entity options for the branch add/edit form in the drawer (mapping a
+  // branch to its sending entity lives on the branch itself).
+  const emailEntities = can(actor, "settings.manage")
+    ? (await prisma.emailEntity.findMany({ where: { active: true }, orderBy: { id: "asc" }, select: { id: true, name: true } })).map(
+        (e) => ({ id: e.id.toString(), name: e.name }),
+      )
+    : [];
+
   return (
     <div className="mx-auto flex w-full max-w-[1600px] flex-col gap-4 px-5 py-6 sm:px-7">
       <div>
@@ -30,7 +39,7 @@ export default async function SettingsLayout({
       {tabs.length > 0 ? <SettingsTabs tabs={tabs} /> : null}
 
       <div className="min-w-0">{children}</div>
-      <SettingsDrawer />
+      <SettingsDrawer emailEntities={emailEntities} />
     </div>
   );
 }

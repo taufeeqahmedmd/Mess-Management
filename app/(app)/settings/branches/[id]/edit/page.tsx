@@ -25,12 +25,21 @@ export default async function EditBranchPage({
   const branch = await prisma.branch.findUnique({ where: { id: branchId } });
   if (!branch || branch.deletedAt) notFound();
 
+  // Active entities for the dropdown — plus this branch's current entity even
+  // if it has been deactivated, so the form doesn't silently unmap on save.
+  const entities = await prisma.emailEntity.findMany({
+    where: { OR: [{ active: true }, { id: branch.emailEntityId ?? BigInt(0) }] },
+    orderBy: { id: "asc" },
+    select: { id: true, name: true },
+  });
+
   const branchData: BranchData = {
     id: branch.id.toString(),
     code: branch.code,
     name: branch.name,
     address: branch.address ?? "",
     collectorCode: branch.collectorCode ?? "",
+    emailEntityId: branch.emailEntityId?.toString() ?? "",
     status: branch.status === "inactive" ? "inactive" : "active",
   };
 
@@ -45,7 +54,7 @@ export default async function EditBranchPage({
 
       <section className="flex flex-col gap-4">
         <h2 className="font-display text-lg font-semibold text-ink">Details</h2>
-        <BranchForm action={updateBranchAction} branch={branchData} />
+        <BranchForm action={updateBranchAction} branch={branchData} entities={entities.map((e) => ({ id: e.id.toString(), name: e.name }))} />
       </section>
     </div>
   );

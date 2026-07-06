@@ -1,13 +1,17 @@
 import nodemailer, { type Transporter } from "nodemailer";
 import webpush from "web-push";
 import { prisma } from "@/lib/prisma";
+import { whatsappConfigured, partnerConfigured, partnerSendConfigured, sendPartnerTemplate } from "./smartping";
+
+export { whatsappConfigured, partnerConfigured };
 
 /**
  * Channel senders (phase 2 — live transports). Each sender validates its
  * environment configuration and reports `skipped` (with the reason) when the
  * credentials aren't provisioned, so the module degrades gracefully per channel:
  *   - email:    nodemailer SMTP, one account per entity under SMTP_<PREFIX>_* (Pallavi/DPS)
- *   - whatsapp: Smartping Business API — approved template id + ordered variables
+ *   - whatsapp: Smartping — Partner API direct template send (preferred), else the
+ *               campaign API by campaign name (fallback)
  *   - push:     Web Push (VAPID) to the staff login's PWA subscriptions
  * Every outcome lands in notification_logs via the dispatcher.
  */
@@ -72,11 +76,7 @@ export async function sendEmail(p: {
 
 // ------------------------------------------------------------------ whatsapp
 
-export function whatsappConfigured(): boolean {
-  return Boolean(env("SMARTPING_API_KEY") && env("SMARTPING_BASE_URL"));
-}
-
-/** Indian mobile → E.164-ish MSISDN Smartping expects (91XXXXXXXXXX). */
+/** Indian mobile → country-coded MSISDN AiSensy expects (91XXXXXXXXXX). */
 function msisdn(phone: string): string {
   const digits = phone.replace(/\D/g, "");
   if (digits.length === 10) return `91${digits}`;
@@ -84,39 +84,58 @@ function msisdn(phone: string): string {
   return digits;
 }
 
+/**
+ * Send an approved WhatsApp template via Smartping. Preferred path: the PARTNER
+ * API's direct template send (template name + language + positional body params —
+ * exactly what the synced Templates tab lists). Fallback: the campaign API
+ * (apiKey in the JSON body, send by campaign name whose status is Live — only
+ * works if a campaign exists with the same name as the template).
+ * `params` are the template's {{1}},{{2}},… values in order (event waParams).
+ */
 export async function sendWhatsApp(p: {
   phone: string;
-  waTemplateId: string | null;
-  variables: string[];
-  body: string; // rendered preview (logged; the approved template is what's actually sent)
+  templateName: string | null;
+  language: string | null;
+  userName: string;
+  params: string[];
 }): Promise<SendOutcome> {
-  if (!whatsappConfigured()) {
-    return { status: "skipped", reason: "Smartping not configured (SMARTPING_API_KEY / SMARTPING_BASE_URL)" };
-  }
-  if (!p.waTemplateId) return { status: "skipped", reason: "No WhatsApp template id mapped" };
+  if (!p.templateName) return { status: "skipped", reason: "No WhatsApp template mapped to this event" };
 
+  // Preferred: Partner API direct send by template name.
+  if (partnerSendConfigured()) {
+    const r = await sendPartnerTemplate({
+      to: msisdn(p.phone),
+      templateName: p.templateName,
+      language: p.language || "en",
+      params: p.params,
+    });
+    return r.ok ? { status: "sent" } : { status: "failed", error: r.error };
+  }
+
+  // Fallback: campaign API (send by campaign name = template name).
+  if (!whatsappConfigured()) {
+    return {
+      status: "skipped",
+      reason: "WhatsApp not configured (PINBOT_API_KEY / PINBOT_WABA_ID or SMARTPING_API_KEY / SMARTPING_BASE_URL)",
+    };
+  }
   try {
-    // Smartping WhatsApp Business template send. SMARTPING_BASE_URL is the full
-    // send endpoint from the account's API docs; adjust the payload field names
-    // here if the account uses a different contract — everything else (template
-    // manager, variable mapping, outbox) is contract-agnostic.
-    const res = await fetch(env("SMARTPING_BASE_URL"), {
+    const base = env("SMARTPING_BASE_URL").replace(/\/$/, "");
+    const res = await fetch(`${base}/`, {
       method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-        Authorization: `Bearer ${env("SMARTPING_API_KEY")}`,
-      },
+      headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
-        channel: "whatsapp",
-        to: msisdn(p.phone),
-        from: env("SMARTPING_SENDER") || undefined,
-        templateId: p.waTemplateId,
-        params: p.variables,
+        apiKey: env("SMARTPING_API_KEY"),
+        campaignName: p.templateName,
+        destination: msisdn(p.phone),
+        userName: p.userName || "Customer",
+        source: "mess-management",
+        templateParams: p.params,
       }),
     });
     if (!res.ok) {
       const text = (await res.text().catch(() => "")).slice(0, 300);
-      return { status: "failed", error: `Smartping ${res.status}: ${text}` };
+      return { status: "failed", error: `Smartping campaign ${res.status}: ${text}` };
     }
     return { status: "sent" };
   } catch (e) {

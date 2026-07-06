@@ -59,7 +59,7 @@ export function RulesEditor({
   templates: { id: string; name: string }[];
   initialRules: Record<string, RuleRow>;
 }) {
-  const [rules, setRules] = useState<Record<string, RuleRow>>(() => {
+  const defaults = (): Record<string, RuleRow> => {
     const out: Record<string, RuleRow> = {};
     for (const e of events) {
       out[e.code] = initialRules[e.code] ?? {
@@ -70,7 +70,8 @@ export function RulesEditor({
       };
     }
     return out;
-  });
+  };
+  const [rules, setRules] = useState<Record<string, RuleRow>>(defaults);
 
   const { state, onSubmit, pending } = useConfirmedAction(saveRulesAction, initial, {
     confirm: {
@@ -86,15 +87,19 @@ export function RulesEditor({
   const setRecipients = (code: string, patch: Partial<RuleRow["recipients"]>) =>
     setRules((prev) => ({ ...prev, [code]: { ...prev[code], recipients: { ...prev[code].recipients, ...patch } } }));
 
-  const payload = JSON.stringify(
-    events.map((e) => ({
-      eventCode: e.code,
-      enabled: rules[e.code].enabled,
-      recipients: rules[e.code].recipients,
-      frequency: rules[e.code].frequency,
-      templateId: rules[e.code].templateId,
-    })),
-  );
+  const serialize = (r: Record<string, RuleRow>) =>
+    JSON.stringify(
+      events.map((e) => ({
+        eventCode: e.code,
+        enabled: r[e.code].enabled,
+        recipients: r[e.code].recipients,
+        frequency: r[e.code].frequency,
+        templateId: r[e.code].templateId,
+      })),
+    );
+  const payload = serialize(rules);
+  // Dirty-check against the server truth so unsaved toggles are unmissable.
+  const dirty = payload !== serialize(defaults());
 
   const modules = [...new Set(events.map((e) => e.module))];
   const roleOptions = roles.map((r) => ({ value: r, label: r }));
@@ -207,10 +212,29 @@ export function RulesEditor({
         </div>
       ))}
 
-      <div>
-        <button type="submit" disabled={pending} className={BTN_PRIMARY}>
+      {/* Sticky save bar — toggles only persist on Save (mirrors the Access
+          Control grid), so unsaved changes must be impossible to miss. */}
+      <div className="sticky bottom-0 z-10 -mx-5 flex items-center gap-3.5 border-t border-line bg-canvas/90 px-5 py-3 backdrop-blur-md sm:-mx-7 sm:px-7">
+        <button type="submit" disabled={pending || !dirty} className={`${BTN_PRIMARY} disabled:cursor-not-allowed disabled:opacity-50`}>
           {pending ? "Saving…" : "Save rules"}
         </button>
+        {dirty ? (
+          <span className="text-[12.5px] font-medium text-gold-deep">Unsaved changes — click Save rules to apply.</span>
+        ) : state.success ? (
+          <span className="text-[12.5px] font-medium text-sage-deep">Saved</span>
+        ) : (
+          <span className="text-[12.5px] text-muted">All changes saved</span>
+        )}
+        <div className="ml-auto">
+          <button
+            type="button"
+            onClick={() => setRules(defaults())}
+            disabled={pending || !dirty}
+            className="rounded-sm px-3.5 py-2 text-[13px] font-semibold text-ink-2 transition-colors hover:bg-surface-2 hover:text-ink disabled:opacity-40"
+          >
+            Discard
+          </button>
+        </div>
       </div>
     </form>
   );
