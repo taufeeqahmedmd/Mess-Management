@@ -8,6 +8,7 @@ import { writeAudit } from "@/lib/audit";
 import { notificationEvent } from "@/services/notification-events";
 import { parseRecipients } from "@/services/notifications";
 import { listPartnerTemplates } from "@/lib/notifications/smartping";
+import { resendLogRow } from "@/lib/notifications/resend";
 
 export type NotifyFormState = { error?: string; success?: boolean };
 
@@ -324,4 +325,35 @@ export async function syncWhatsAppTemplatesAction(): Promise<NotifyFormState> {
 
   revalidatePath("/notifications/whatsapp");
   return { success: true };
+}
+
+/**
+ * Retry one failed/skipped/pending outbox row from its stored payload (the same
+ * engine as the digest flush). The row's status/error update in place, so the
+ * log immediately shows the new outcome — including the provider's error text
+ * if it fails again.
+ */
+export async function retryNotificationAction(formData: FormData): Promise<void> {
+  const actor = await requirePermission("notifications.manage");
+
+  let id: bigint;
+  try {
+    id = BigInt(String(formData.get("id") ?? ""));
+  } catch {
+    return;
+  }
+  const row = await prisma.notificationLog.findUnique({ where: { id } });
+  if (!row || row.status === "sent") return; // nothing to retry
+
+  const outcome = await resendLogRow(row);
+  await writeAudit({
+    appUserId: BigInt(actor.id),
+    action: "notifications.retry",
+    entity: "notification_log",
+    entityId: id,
+    before: { status: row.status },
+    after: { status: outcome.status },
+  });
+
+  revalidatePath(channelPath(row.channel));
 }
