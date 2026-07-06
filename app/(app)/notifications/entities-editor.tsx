@@ -1,16 +1,16 @@
 "use client";
 
-import { useState } from "react";
+import Link from "next/link";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { BTN_PRIMARY, PANEL, FORM_LABEL, FORM_INPUT } from "@/components/ui/controls";
-import { saveEntityAction, saveBranchMappingAction, type NotifyFormState } from "./actions";
+import { saveEntityAction, type NotifyFormState } from "./actions";
 
 /**
- * Email sending entities (Pallavi / DPS) + the branch → entity mapping. Each
- * entity mails from its own domain; a branch's cardholders get mail via the
- * entity mapped here (e.g. PIS Gandipet → Pallavi, DPS branches → DPS). SMTP
- * credentials live in env under SMTP_<PREFIX>_* — the badge shows whether they
- * are present on this server.
+ * Email sending entities (Pallavi / DPS): edit each entity's From identity here.
+ * Each entity mails from its own domain; a branch's cardholders get mail via
+ * the entity mapped to their branch. The mapping itself is edited on the branch
+ * (Settings → Branches → Edit) and shown read-only below. SMTP credentials live
+ * in env under SMTP_<PREFIX>_* — the badge shows whether they are present.
  */
 
 export type EntityRow = {
@@ -83,65 +83,63 @@ function EntityCard({ entity }: { entity: EntityRow }) {
 }
 
 export function EntitiesEditor({ entities, branches }: { entities: EntityRow[]; branches: BranchRow[] }) {
-  const [mapping, setMapping] = useState<Record<string, string>>(() =>
-    Object.fromEntries(branches.map((b) => [b.id, b.emailEntityId ?? ""])),
-  );
-  const { state, onSubmit, pending } = useConfirmedAction(saveBranchMappingAction, initial, {
-    confirm: {
-      title: "Save branch mapping",
-      message: "Apply the branch → entity mapping? Mail for each branch's cardholders goes out via its entity domain.",
-      confirmLabel: "Yes, save",
-    },
-    successMessage: "Branch mapping saved.",
-  });
+  const entityName = new Map(entities.map((e) => [e.id, e.name]));
 
   return (
     <div className="flex flex-col gap-4">
+      {entities.length === 0 ? (
+        <p className={`${PANEL} px-5 py-4 text-[13px] text-ink-2`}>
+          No sending entities exist yet. Run <span className="font-mono text-[12px]">npm run db:sync-entities</span> on
+          the server to create the Pallavi / DPS entities and map existing branches.
+        </p>
+      ) : null}
+
       <div className="grid grid-cols-1 gap-4 lg:grid-cols-2">
         {entities.map((e) => <EntityCard key={e.id} entity={e} />)}
       </div>
 
-      <form onSubmit={onSubmit} className={PANEL}>
-        <input type="hidden" name="payload" value={JSON.stringify(mapping)} />
-        <div className="flex items-center gap-2.5 border-b border-line px-5 py-3">
-          <span className="h-[15px] w-1 rounded-full bg-gold" />
-          <h3 className="font-display text-[15px] font-bold text-ink">Branch → entity mapping</h3>
+      <div className={PANEL}>
+        <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
+          <div className="flex items-center gap-2.5">
+            <span className="h-[15px] w-1 rounded-full bg-gold" />
+            <h3 className="font-display text-[15px] font-bold text-ink">Branch → entity mapping</h3>
+          </div>
+          <span className="text-[11.5px] text-muted-2">
+            Set per branch in{" "}
+            <Link href="/settings/branches" className="font-semibold text-gold-deep hover:underline">
+              Settings → Branches
+            </Link>
+          </span>
         </div>
-
-        {state.error ? (
-          <p role="alert" className="mx-5 mt-3 rounded-sm border border-tomato/30 bg-tomato-soft px-3 py-2.5 text-[12.5px] font-medium text-tomato">
-            {state.error}
-          </p>
-        ) : null}
 
         <div className="flex flex-col">
-          {branches.map((b) => (
-            <div key={b.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3 last:border-0">
-              <div>
-                <span className="text-[13.5px] font-medium text-ink">{b.name}</span>
-                <span className="ml-2 font-mono text-[11.5px] text-muted-2">{b.code}</span>
+          {branches.map((b) => {
+            const mapped = b.emailEntityId ? entityName.get(b.emailEntityId) : null;
+            return (
+              <div key={b.id} className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3 last:border-0">
+                <div>
+                  <span className="text-[13.5px] font-medium text-ink">{b.name}</span>
+                  <span className="ml-2 font-mono text-[11.5px] text-muted-2">{b.code}</span>
+                </div>
+                {mapped ? (
+                  <span className="inline-flex items-center gap-1.5 rounded-pill bg-sage-soft px-2.5 py-1 text-[12px] font-semibold text-sage-deep">
+                    <span className="size-1.5 rounded-full bg-sage" />
+                    {mapped}
+                  </span>
+                ) : (
+                  <Link
+                    href={`/settings/branches/${b.id}/edit`}
+                    className="inline-flex items-center gap-1.5 rounded-pill bg-surface-2 px-2.5 py-1 text-[12px] font-semibold text-ink-2 hover:text-gold-deep"
+                  >
+                    <span className="size-1.5 rounded-full bg-line-strong" />
+                    Not mapped — set up
+                  </Link>
+                )}
               </div>
-              <select
-                value={mapping[b.id] ?? ""}
-                onChange={(ev) => setMapping((prev) => ({ ...prev, [b.id]: ev.target.value }))}
-                aria-label={`${b.name} email entity`}
-                className="rounded-[9px] border border-line-strong bg-surface px-2.5 py-1.5 text-[13px] text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
-              >
-                <option value="">— Not mapped —</option>
-                {entities.map((e) => (
-                  <option key={e.id} value={e.id}>{e.name}</option>
-                ))}
-              </select>
-            </div>
-          ))}
+            );
+          })}
         </div>
-
-        <div className="border-t border-line px-5 py-3.5">
-          <button type="submit" disabled={pending} className={BTN_PRIMARY}>
-            {pending ? "Saving…" : "Save mapping"}
-          </button>
-        </div>
-      </form>
+      </div>
     </div>
   );
 }

@@ -256,45 +256,5 @@ export async function saveEntityAction(_prev: NotifyFormState, formData: FormDat
   return { success: true };
 }
 
-/** Map branches to email entities (which domain mails each branch's cardholders). */
-export async function saveBranchMappingAction(_prev: NotifyFormState, formData: FormData): Promise<NotifyFormState> {
-  const actor = await requirePermission("notifications.manage");
-
-  let payload: unknown;
-  try {
-    payload = JSON.parse(String(formData.get("payload") ?? "{}"));
-  } catch {
-    return { error: "Could not read the submitted mapping." };
-  }
-  if (typeof payload !== "object" || payload === null) return { error: "Could not read the submitted mapping." };
-
-  const entries: { branchId: bigint; entityId: bigint | null }[] = [];
-  for (const [branchRaw, entityRaw] of Object.entries(payload as Record<string, unknown>)) {
-    try {
-      entries.push({
-        branchId: BigInt(branchRaw),
-        entityId: entityRaw == null || String(entityRaw) === "" ? null : BigInt(String(entityRaw)),
-      });
-    } catch {
-      return { error: "Invalid branch mapping." };
-    }
-  }
-
-  await prisma.$transaction(async (tx) => {
-    for (const e of entries) {
-      await tx.branch.update({ where: { id: e.branchId }, data: { emailEntityId: e.entityId } });
-    }
-    await writeAudit(
-      {
-        appUserId: BigInt(actor.id),
-        action: "notifications.entity.mapping",
-        entity: "branch",
-        after: Object.fromEntries(entries.map((e) => [e.branchId.toString(), e.entityId?.toString() ?? null])),
-      },
-      tx,
-    );
-  });
-
-  revalidatePath("/notifications/email");
-  return { success: true };
-}
+// Branch → entity mapping is edited on the branch itself (Settings → Branches →
+// Edit, `settings.manage`); the Entities tab shows it read-only.

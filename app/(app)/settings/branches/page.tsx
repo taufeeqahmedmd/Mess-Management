@@ -14,6 +14,7 @@ export default async function BranchesPage() {
   const branches = await prisma.branch.findMany({
     where: { deletedAt: null },
     orderBy: { code: "asc" },
+    include: { emailEntity: { select: { name: true } } },
   });
 
   return (
@@ -34,13 +35,14 @@ export default async function BranchesPage() {
                 <th className={TH}>Code</th>
                 <th className={TH}>Name</th>
                 <th className={TH}>Address</th>
+                <th className={TH}>Email entity</th>
                 <th className={TH}>Status</th>
                 <th className={`${TH} text-right`}>Actions</th>
               </tr>
             </thead>
             <tbody>
               {branches.length === 0 ? (
-                <tr><td colSpan={5} className="px-5 py-12 text-center text-muted">No branches yet. Add the first one.</td></tr>
+                <tr><td colSpan={6} className="px-5 py-12 text-center text-muted">No branches yet. Add the first one.</td></tr>
               ) : (
                 branches.map((b) => {
                   const on = b.status === "active";
@@ -49,6 +51,13 @@ export default async function BranchesPage() {
                       <td className={`${TD} font-mono text-muted`}>{b.code}</td>
                       <td className={`${TD} font-medium text-ink`}>{b.name}</td>
                       <td className={`${TD} text-muted`}>{b.address ?? "—"}</td>
+                      <td className={TD}>
+                        {b.emailEntity ? (
+                          <span className="text-[12.5px] font-medium text-ink-2">{b.emailEntity.name}</span>
+                        ) : (
+                          <span className="text-[12.5px] text-muted">Not mapped</span>
+                        )}
+                      </td>
                       <td className={TD}>
                         <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-medium ${on ? "text-sage-deep" : "text-muted"}`}>
                           <span className={`size-[7px] rounded-full ${on ? "bg-sage" : "bg-muted-2"}`} />

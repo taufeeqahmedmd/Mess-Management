@@ -3,7 +3,7 @@
 import { useEffect, useState } from "react";
 import { usePathname, useSearchParams } from "next/navigation";
 import { XGlyph } from "@/components/ui/glyphs";
-import { BranchForm, type BranchData } from "./branches/branch-form";
+import { BranchForm, type BranchData, type EntityOption } from "./branches/branch-form";
 import { CategoryForm, type CategoryData } from "./categories/category-form";
 import { MealForm, type MealData } from "./meals/meal-form";
 import { StaffForm, type StaffData } from "./staff/staff-form";
@@ -25,7 +25,7 @@ const ENTITIES: Entity[] = ["branches", "categories", "meals", "staff"];
  * *Form wired to the create/update server actions (which redirect to
  * /settings/<entity>?flash=… on save, closing the drawer).
  */
-export function SettingsDrawer() {
+export function SettingsDrawer({ emailEntities }: { emailEntities: EntityOption[] }) {
   const [open, setOpen] = useState(false);
   const [entity, setEntity] = useState<Entity>("branches");
   const [mode, setMode] = useState<"create" | "edit">("create");
@@ -119,7 +119,7 @@ export function SettingsDrawer() {
   function renderForm() {
     const key = `${entity}:${mode}:${(data?.id as string) ?? (data?.staff as { id?: string } | undefined)?.id ?? "new"}`;
     if (entity === "branches")
-      return <BranchForm key={key} action={isEdit ? updateBranchAction : createBranchAction} branch={isEdit ? (data as unknown as BranchData) : undefined} onCancel={close} />;
+      return <BranchForm key={key} action={isEdit ? updateBranchAction : createBranchAction} branch={isEdit ? (data as unknown as BranchData) : undefined} entities={emailEntities} onCancel={close} />;
     if (entity === "categories")
       return <CategoryForm key={key} action={isEdit ? updateCategoryAction : createCategoryAction} category={isEdit ? (data as unknown as CategoryData) : undefined} onCancel={close} />;
     if (entity === "meals")

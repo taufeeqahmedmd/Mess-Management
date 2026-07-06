@@ -11,8 +11,11 @@ export type BranchData = {
   name: string;
   address: string;
   collectorCode: string;
+  emailEntityId: string; // "" = not mapped
   status: "active" | "inactive";
 };
+
+export type EntityOption = { id: string; name: string };
 
 type Action = (prev: BranchFormState, formData: FormData) => Promise<BranchFormState>;
 
@@ -27,7 +30,7 @@ const COLLECTOR_CODES = [
 
 const inputClass = FORM_INPUT;
 
-export function BranchForm({ action, branch, onCancel }: { action: Action; branch?: BranchData; onCancel?: () => void }) {
+export function BranchForm({ action, branch, entities, onCancel }: { action: Action; branch?: BranchData; entities: EntityOption[]; onCancel?: () => void }) {
   const isEdit = Boolean(branch);
   const { state, onSubmit, pending } = useConfirmedAction(action, {}, {
     confirm: {
@@ -75,12 +78,24 @@ export function BranchForm({ action, branch, onCancel }: { action: Action; branc
         </div>
       </div>
 
-      <div>
-        <label htmlFor="status" className={FORM_LABEL}>Status</label>
-        <select id="status" name="status" defaultValue={branch?.status ?? "active"} className={`${inputClass} max-w-40`}>
-          <option value="active">Active</option>
-          <option value="inactive">Inactive</option>
-        </select>
+      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
+        <div>
+          <label htmlFor="emailEntityId" className={FORM_LABEL}>Email entity <span className={FORM_OPT}>(notifications)</span></label>
+          <select id="emailEntityId" name="emailEntityId" defaultValue={branch?.emailEntityId ?? ""} className={inputClass}>
+            <option value="">— Not mapped —</option>
+            {entities.map((e) => (
+              <option key={e.id} value={e.id}>{e.name}</option>
+            ))}
+          </select>
+          <p className="mt-1.5 text-[11px] text-muted-2">Event emails to this branch&rsquo;s cardholders are sent from this entity&rsquo;s domain.</p>
+        </div>
+        <div>
+          <label htmlFor="status" className={FORM_LABEL}>Status</label>
+          <select id="status" name="status" defaultValue={branch?.status ?? "active"} className={`${inputClass} max-w-40`}>
+            <option value="active">Active</option>
+            <option value="inactive">Inactive</option>
+          </select>
+        </div>
       </div>
 
       <div className="mt-1 flex items-center gap-2.5">
