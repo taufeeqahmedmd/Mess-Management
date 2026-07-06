@@ -4,7 +4,9 @@ import { prisma } from "@/lib/prisma";
 import { formatDateTimeInZone } from "@/lib/time";
 import { parseRecipients } from "@/services/notifications";
 import { NOTIFICATION_EVENTS } from "@/services/notification-events";
-import { PANEL, TH, TD } from "@/components/ui/controls";
+import { PANEL, TH, TD, LINK_ACT_GOLD } from "@/components/ui/controls";
+import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
+import { retryNotificationAction } from "./actions";
 import type { RuleRow, EventRowDef } from "./rules-editor";
 import type { TemplateRow } from "./template-manager";
 
@@ -123,11 +125,12 @@ export function LogTable({ logs }: { logs: LogRow[] }) {
               <th className={TH}>Recipient</th>
               <th className={TH}>Message</th>
               <th className={TH}>Status</th>
+              <th className={`${TH} text-right`}>Action</th>
             </tr>
           </thead>
           <tbody>
             {logs.length === 0 ? (
-              <tr><td colSpan={5} className="px-5 py-8 text-center text-[13px] text-muted">Nothing sent yet.</td></tr>
+              <tr><td colSpan={6} className="px-5 py-8 text-center text-[13px] text-muted">Nothing sent yet.</td></tr>
             ) : (
               logs.map((l) => {
                 const st = LOG_STATUS[l.status] ?? LOG_STATUS.pending;
@@ -142,6 +145,25 @@ export function LogTable({ logs }: { logs: LogRow[] }) {
                         <span className={`size-[7px] rounded-full ${st.dot}`} />
                         {st.label}
                       </span>
+                    </td>
+                    <td className={`${TD} text-right`}>
+                      {l.status === "sent" ? (
+                        <span className="text-[12px] text-muted-2">—</span>
+                      ) : (
+                        <ConfirmActionForm
+                          action={retryNotificationAction}
+                          fields={{ id: l.id }}
+                          confirm={{
+                            title: "Retry notification",
+                            message: `Resend this ${l.eventCode} notification to ${l.recipient}?`,
+                            confirmLabel: "Yes, retry",
+                          }}
+                          successMessage="Retried — the row's status has been updated."
+                          buttonClassName={LINK_ACT_GOLD}
+                        >
+                          Retry
+                        </ConfirmActionForm>
+                      )}
                     </td>
                   </tr>
                 );
