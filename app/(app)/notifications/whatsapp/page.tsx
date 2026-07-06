@@ -2,9 +2,10 @@ import { redirect } from "next/navigation";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { landingFor } from "@/lib/landing";
-import { whatsappConfigured } from "@/lib/notifications/senders";
+import { whatsappConfigured, partnerConfigured } from "@/lib/notifications/smartping";
 import { RulesEditor } from "../rules-editor";
 import { TemplateManager } from "../template-manager";
+import { WaSyncPanel, WaEventReference } from "../whatsapp-templates";
 import { loadChannelData, LogTable, ChannelTabs, activeTab } from "../shared";
 import { NOTIFICATION_EVENTS } from "@/services/notification-events";
 
@@ -15,9 +16,11 @@ const TABS = [
 ] as const;
 
 /**
- * Notifications Management → WhatsApp Communication (Super Admin). Templates map
- * approved Smartping Business template ids + ordered variables to application
- * events — editable from the portal without code changes.
+ * Notifications Management → WhatsApp Communication (Super Admin). Templates are
+ * created & approved in Smartping; the app FETCHES them via the Partner API
+ * (read-only Templates tab + "Sync from Smartping") and the admin only maps one
+ * per event in Event rules. At send time the approved template's {{1}},{{2}},…
+ * are filled from the event (waParams).
  */
 export default async function WhatsAppNotificationsPage({
   searchParams,
@@ -30,8 +33,8 @@ export default async function WhatsAppNotificationsPage({
   const sp = await searchParams;
   const tab = activeTab(TABS, sp.tab);
   const data = await loadChannelData("whatsapp");
-  const configured = whatsappConfigured();
-  const allVariables = [...new Set(NOTIFICATION_EVENTS.flatMap((e) => e.variables))];
+  const partnerReady = partnerConfigured();
+  const configured = partnerReady || whatsappConfigured();
 
   return (
     <div className="mx-auto flex w-full max-w-[1200px] flex-col gap-4 px-5 py-6 sm:px-7">
@@ -48,15 +51,13 @@ export default async function WhatsAppNotificationsPage({
           }`}
         >
           <span className={`size-1.5 rounded-full ${configured ? "bg-sage" : "bg-line-strong"}`} />
-          {configured ? "Smartping configured" : "Smartping pending (API key)"}
+          {partnerReady ? "Smartping connected" : configured ? "Send-only (add Partner API to sync)" : "Smartping pending (API keys)"}
         </span>
       </div>
 
       <ChannelTabs base="/notifications/whatsapp" tabs={TABS} active={tab} />
 
-      {tab === "templates" ? (
-        <TemplateManager channel="whatsapp" templates={data.templates} variablesHint={allVariables} />
-      ) : tab === "rules" ? (
+      {tab === "rules" ? (
         <RulesEditor
           channel="whatsapp"
           events={data.events}
@@ -64,6 +65,12 @@ export default async function WhatsAppNotificationsPage({
           templates={data.templates.filter((t) => t.active).map((t) => ({ id: t.id, name: t.name }))}
           initialRules={data.initialRules}
         />
+      ) : tab === "templates" ? (
+        <div className="flex flex-col gap-4">
+          <WaSyncPanel partnerReady={partnerReady} />
+          <TemplateManager channel="whatsapp" templates={data.templates} variablesHint={[]} />
+          <WaEventReference eventRefs={NOTIFICATION_EVENTS.map((e) => ({ label: e.label, params: e.waParams }))} />
+        </div>
       ) : (
         <LogTable logs={data.logs} />
       )}

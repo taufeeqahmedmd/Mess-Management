@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
 import { notificationEvent } from "@/services/notification-events";
 import { parseRecipients } from "@/services/notifications";
+import { listPartnerTemplates } from "@/lib/notifications/smartping";
 
 export type NotifyFormState = { error?: string; success?: boolean };
 
@@ -118,7 +119,14 @@ export async function saveRulesAction(_prev: NotifyFormState, formData: FormData
   return { success: true };
 }
 
-/** Create or update a channel template (WhatsApp rows carry the Business template id + variable order). */
+/**
+ * Create or update a template. Email/push: subject/title + body. WhatsApp: the
+ * message content always lives in Smartping — a row here just REGISTERS it for
+ * the event-rule dropdown: `waTemplateId` = the template name (Partner/Direct
+ * send) or the Live API-Campaign name (campaign-API send), plus an optional
+ * language + preview. Rows also arrive automatically via syncWhatsAppTemplates-
+ * Action once a fetch credential exists; manual entry is the fallback until then.
+ */
 export async function saveTemplateAction(_prev: NotifyFormState, formData: FormData): Promise<NotifyFormState> {
   const actor = await requirePermission("notifications.manage");
 
@@ -131,29 +139,27 @@ export async function saveTemplateAction(_prev: NotifyFormState, formData: FormD
   const title = String(formData.get("title") ?? "").trim();
   const body = String(formData.get("body") ?? "").trim();
   const waTemplateId = String(formData.get("waTemplateId") ?? "").trim();
-  const waVariablesRaw = String(formData.get("waVariables") ?? "").trim();
+  const waLanguage = String(formData.get("waLanguage") ?? "").trim();
   const active = formData.get("active") !== "off";
 
-  if (!name) return { error: "Template name is required." };
-  if (!body) return { error: "Template body is required." };
-  if (channel !== "whatsapp" && !title) {
-    return { error: channel === "email" ? "Email subject is required." : "Push title is required." };
+  if (!name) return { error: "Name is required." };
+  if (channel === "whatsapp") {
+    if (!waTemplateId) return { error: "The Smartping template / campaign name is required." };
+  } else {
+    if (!body) return { error: "Body is required." };
+    if (!title) {
+      return { error: channel === "email" ? "Email subject is required." : "Push title is required." };
+    }
   }
-  if (channel === "whatsapp" && !waTemplateId) {
-    return { error: "WhatsApp Template ID is required (the approved Business template)." };
-  }
-
-  const waVariables = waVariablesRaw
-    ? waVariablesRaw.split(",").map((s) => s.trim()).filter(Boolean)
-    : [];
 
   const data = {
     channel,
     name,
     title: channel === "whatsapp" ? null : title,
-    body,
+    body: channel === "whatsapp" ? body || waTemplateId : body,
     waTemplateId: channel === "whatsapp" ? waTemplateId : null,
-    waVariables: channel === "whatsapp" ? (waVariables as unknown as Prisma.InputJsonValue) : Prisma.JsonNull,
+    waLanguage: channel === "whatsapp" ? waLanguage || "en" : null,
+    waVariables: Prisma.JsonNull,
     active,
   };
 
@@ -258,3 +264,64 @@ export async function saveEntityAction(_prev: NotifyFormState, formData: FormDat
 
 // Branch → entity mapping is edited on the branch itself (Settings → Branches →
 // Edit, `settings.manage`); the Entities tab shows it read-only.
+
+/**
+ * Pull the templates from Smartping's Partner API into the local read-only
+ * mirror (spec: templates are created in Smartping; the app only fetches names).
+ * Upserts by template name, refreshes body/language/param-count, keeps only
+ * APPROVED templates active, and deactivates local rows that vanished from
+ * Smartping (kept so historical logs/rules still resolve, but out of dropdowns).
+ */
+export async function syncWhatsAppTemplatesAction(): Promise<NotifyFormState> {
+  const actor = await requirePermission("notifications.manage");
+
+  const result = await listPartnerTemplates();
+  if (!result.ok) return { error: result.error };
+
+  const existing = await prisma.notificationTemplate.findMany({ where: { channel: "whatsapp" } });
+  const byName = new Map(existing.filter((t) => t.waTemplateId).map((t) => [t.waTemplateId as string, t]));
+  const seenActive = new Set<string>();
+
+  await prisma.$transaction(async (tx) => {
+    for (const t of result.templates) {
+      const approved = t.status.toUpperCase() === "APPROVED";
+      if (approved) seenActive.add(t.name);
+      const row = byName.get(t.name);
+      const data = {
+        channel: "whatsapp" as const,
+        name: t.name,
+        title: null,
+        body: t.body || t.name,
+        waTemplateId: t.name,
+        waLanguage: t.language,
+        // Positional markers {{1}}..{{N}} — display-only param count; the send
+        // fills them from the event's waParams.
+        waVariables:
+          t.paramCount > 0
+            ? (Array.from({ length: t.paramCount }, (_, i) => String(i + 1)) as unknown as Prisma.InputJsonValue)
+            : Prisma.JsonNull,
+        active: approved,
+      };
+      if (row) await tx.notificationTemplate.update({ where: { id: row.id }, data });
+      else await tx.notificationTemplate.create({ data });
+    }
+    const stale = existing
+      .filter((t) => t.active && (!t.waTemplateId || !seenActive.has(t.waTemplateId)))
+      .map((t) => t.id);
+    if (stale.length > 0) {
+      await tx.notificationTemplate.updateMany({ where: { id: { in: stale } }, data: { active: false } });
+    }
+    await writeAudit(
+      {
+        appUserId: BigInt(actor.id),
+        action: "notifications.whatsapp.sync",
+        entity: "notification_template",
+        after: { fetched: result.templates.length, approved: seenActive.size, deactivated: stale.length },
+      },
+      tx,
+    );
+  });
+
+  revalidatePath("/notifications/whatsapp");
+  return { success: true };
+}

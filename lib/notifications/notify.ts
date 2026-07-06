@@ -1,8 +1,8 @@
 import { Prisma } from "@prisma/client";
 import type { NotificationChannel } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
-import { notificationEvent } from "@/services/notification-events";
-import { parseRecipients, renderTemplate, waVariableValues, fallbackBody } from "@/services/notifications";
+import { notificationEvent, waParamValues } from "@/services/notification-events";
+import { parseRecipients, renderTemplate, fallbackBody } from "@/services/notifications";
 import { sendEmail, sendWhatsApp, sendPush, type SendOutcome } from "./senders";
 
 /**
@@ -121,19 +121,30 @@ async function dispatchRule(
     return;
   }
 
-  // whatsapp
+  // whatsapp — the approved template (synced from Smartping's Partner API) is
+  // what's actually sent; the app only fills its positional params from the
+  // event (waParams), in order. `waTemplateId` on the selected row = template name.
   const phones: string[] = [];
   if (cfg.cardholder && ctx.cardholder?.phone) phones.push(ctx.cardholder.phone);
   for (const s of await staffRecipients(cfg, ctx)) if (s.mobile) phones.push(s.mobile);
   if (phones.length === 0) return;
-  const waVars = waVariableValues(rule.template?.waVariables, ctx.vars);
-  const waMeta = { waTemplateId: rule.template?.waTemplateId ?? null, variables: waVars };
+  const templateName = rule.template?.waTemplateId ?? null;
+  const language = rule.template?.waLanguage ?? null;
+  const waVars = waParamValues(eventCode, ctx.vars);
+  const userName = ctx.vars.name || ctx.vars.cardholder || "Customer";
+  const waMeta = { templateName, language, userName, variables: waVars };
   for (const phone of [...new Set(phones)]) {
     const outcome = digest
       ? digestOutcome
-      : await sendWhatsApp({ phone, waTemplateId: rule.template?.waTemplateId ?? null, variables: waVars, body });
+      : await sendWhatsApp({ phone, templateName, language, userName, params: waVars });
     await writeLog({ eventCode, channel: "whatsapp", recipient: phone, title: null, body, meta: waMeta, outcome });
   }
+}
+
+/** The public self-service address for message links (e.g. "mm.k-innovative.com"),
+ *  derived from APP_URL — available to every event as {{link}}. */
+function publicLink(): string {
+  return (process.env.APP_URL ?? "").trim().replace(/^https?:\/\//, "").replace(/\/$/, "");
 }
 
 /**
@@ -143,13 +154,15 @@ async function dispatchRule(
  */
 export async function emitNotification(eventCode: string, ctx: NotifyContext): Promise<void> {
   try {
+    // Common variables every event carries; explicit ctx.vars win on collision.
+    const enriched: NotifyContext = { ...ctx, vars: { link: publicLink(), ...ctx.vars } };
     const rules = await prisma.notificationRule.findMany({
       where: { eventCode, enabled: true },
       include: { template: true },
     });
     for (const rule of rules) {
       try {
-        await dispatchRule(rule, eventCode, ctx);
+        await dispatchRule(rule, eventCode, enriched);
       } catch (e) {
         console.error(`notification dispatch failed (${eventCode}/${rule.channel}):`, e);
       }

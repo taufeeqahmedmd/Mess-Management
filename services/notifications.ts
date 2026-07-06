@@ -31,17 +31,6 @@ export function renderTemplate(text: string, vars: Record<string, string>): stri
   return text.replace(/\{\{\s*([\w.]+)\s*\}\}/g, (_, key: string) => vars[key] ?? "");
 }
 
-/**
- * Resolve the ordered WhatsApp variable values for an approved Business template:
- * `waVariables` is a JSON array of event-variable names filling {{1}},{{2}},… in
- * the approved template. Missing values become empty strings (Smartping rejects
- * missing params otherwise).
- */
-export function waVariableValues(waVariables: unknown, vars: Record<string, string>): string[] {
-  if (!Array.isArray(waVariables)) return [];
-  return waVariables.map((name) => vars[String(name)] ?? "");
-}
-
 /** Fallback body when a rule has no template: a readable key/value summary. */
 export function fallbackBody(label: string, vars: Record<string, string>): string {
   const parts = Object.entries(vars)
