@@ -14,7 +14,7 @@
  * A `null` branchId actor (Super Admin / all-branch) sees everything.
  */
 
-import { Prisma, type PrismaClient } from "@prisma/client";
+import { Prisma, type PrismaClient, type RechargeStatus } from "@prisma/client";
 import { mealColorAt } from "@/lib/meal-colors";
 
 const ZERO = new Prisma.Decimal(0);
@@ -99,6 +99,59 @@ export function redemptionWhere(f: ConsumptionFilter): Prisma.RedemptionWhereInp
   if (f.categoryId) where.categoryId = f.categoryId;
   if (f.paidBy) where.paidBy = f.paidBy;
   return where;
+}
+
+/** Recharge-list filters — shared by the Reports → Recharges tab and its CSV export. */
+export type RechargeFilter = {
+  branchId: bigint | null;
+  q?: string;
+  from?: Date; // both set = date range applied; both unset = all time
+  toExclusive?: Date;
+  status?: RechargeStatus;
+  paymentModeId?: bigint;
+  source?: "online" | "manual";
+  operator?: "self" | bigint; // "self" = online/self-service (no operator)
+};
+
+export function rechargeWhere(f: RechargeFilter): Prisma.RechargeWhereInput {
+  const where: Prisma.RechargeWhereInput = {};
+  if (f.branchId) where.user = { branchId: f.branchId };
+  if (f.from && f.toExclusive) where.rechargedAt = { gte: f.from, lt: f.toExclusive };
+  if (f.status) where.status = f.status;
+  if (f.paymentModeId) where.paymentModeId = f.paymentModeId;
+  if (f.source === "online") where.transactionId = { not: null };
+  if (f.source === "manual") where.transactionId = null;
+  if (f.operator === "self") where.appUserId = null;
+  else if (f.operator) where.appUserId = f.operator;
+  if (f.q) {
+    where.OR = [
+      { user: { is: { fullName: { contains: f.q, mode: "insensitive" } } } },
+      { user: { is: { code: { contains: f.q, mode: "insensitive" } } } },
+      { user: { is: { phone: { contains: f.q } } } },
+      { transactionId: { contains: f.q, mode: "insensitive" } },
+      { remarks: { contains: f.q, mode: "insensitive" } },
+    ];
+  }
+  return where;
+}
+
+/** Parse the Recharges tab's raw searchParams into a RechargeFilter (branch scope applied by the caller). */
+export function parseRechargeFilter(
+  sp: { q?: string; from?: string; to?: string; mode?: string; status?: string; source?: string; operator?: string },
+  branchId: bigint | null,
+): RechargeFilter {
+  const hasRange = Boolean(sp.from || sp.to);
+  const range = resolveDateRange(sp.from, sp.to, new Date());
+  return {
+    branchId,
+    q: (sp.q ?? "").trim() || undefined,
+    from: hasRange ? range.from : undefined,
+    toExclusive: hasRange ? range.toExclusive : undefined,
+    status: ["posted", "reversed", "expired"].includes(sp.status ?? "") ? (sp.status as RechargeStatus) : undefined,
+    paymentModeId: /^\d+$/.test(sp.mode ?? "") ? BigInt(sp.mode as string) : undefined,
+    source: sp.source === "online" || sp.source === "manual" ? sp.source : undefined,
+    operator: sp.operator === "self" ? "self" : /^\d+$/.test(sp.operator ?? "") ? BigInt(sp.operator as string) : undefined,
+  };
 }
 
 // ---------------------------------------------------------------- aggregates

@@ -25,7 +25,7 @@ const TABS = [
 export default async function EmailNotificationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; status?: string; event?: string; lq?: string; from?: string; to?: string; page?: string; size?: string }>;
 }) {
   const actor = await requireActor();
   if (!can(actor, "notifications.manage")) redirect(landingFor(actor));
@@ -33,7 +33,7 @@ export default async function EmailNotificationsPage({
   const sp = await searchParams;
   const tab = activeTab(TABS, sp.tab);
   const [data, entities, branches] = await Promise.all([
-    loadChannelData("email"),
+    loadChannelData("email", sp),
     prisma.emailEntity.findMany({ orderBy: { id: "asc" } }),
     prisma.branch.findMany({ where: { deletedAt: null }, orderBy: { name: "asc" }, select: { id: true, name: true, code: true, emailEntityId: true } }),
   ]);
@@ -79,7 +79,7 @@ export default async function EmailNotificationsPage({
       ) : tab === "templates" ? (
         <TemplateManager channel="email" templates={data.templates} variablesHint={allVariables} />
       ) : (
-        <LogTable logs={data.logs} />
+        <LogTable logs={data.logs} base="/notifications/email" filters={data.logFilters} />
       )}
     </div>
   );

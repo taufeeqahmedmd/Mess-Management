@@ -25,14 +25,14 @@ const TABS = [
 export default async function WhatsAppNotificationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; status?: string; event?: string; lq?: string; from?: string; to?: string; page?: string; size?: string }>;
 }) {
   const actor = await requireActor();
   if (!can(actor, "notifications.manage")) redirect(landingFor(actor));
 
   const sp = await searchParams;
   const tab = activeTab(TABS, sp.tab);
-  const data = await loadChannelData("whatsapp");
+  const data = await loadChannelData("whatsapp", sp);
   const partnerReady = partnerConfigured();
   const configured = partnerReady || whatsappConfigured();
 
@@ -72,7 +72,7 @@ export default async function WhatsAppNotificationsPage({
           <WaEventReference eventRefs={NOTIFICATION_EVENTS.map((e) => ({ label: e.label, params: e.waParams }))} />
         </div>
       ) : (
-        <LogTable logs={data.logs} />
+        <LogTable logs={data.logs} base="/notifications/whatsapp" filters={data.logFilters} />
       )}
     </div>
   );

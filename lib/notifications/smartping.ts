@@ -64,15 +64,16 @@ const isMetaId = (v: string) => /^\d{5,}$/.test(v);
 let cachedIds: { wabaId: string; phoneNumberId: string } | null = null;
 
 /**
- * Resolve the WABA id + phone_number_id: numeric env overrides win; otherwise
- * GET /v3/getuserdetails (§34). Non-numeric env values (e.g. a URL pasted by
- * mistake) are ignored rather than breaking every call.
+ * Resolve the WABA id + phone_number_id. GET /v3/getuserdetails (§34) is the
+ * source of truth — it returns the ids the KEY actually belongs to, so a stale
+ * or mistyped env id can't point a valid key at the wrong WABA (which reads as
+ * a confusing 401). Numeric env values are only a fallback when the lookup
+ * itself fails; non-numeric env values (URLs/JWTs pasted by mistake) are ignored.
  */
 export async function getAccountIds(): Promise<{ wabaId: string; phoneNumberId: string } | { error: string }> {
+  if (cachedIds) return cachedIds;
   const envWaba = env("PINBOT_WABA_ID");
   const envPhone = env("PINBOT_PHONE_NUMBER_ID");
-  if (isMetaId(envWaba) && isMetaId(envPhone)) return { wabaId: envWaba, phoneNumberId: envPhone };
-  if (cachedIds) return cachedIds;
 
   try {
     const res = await fetch(`${PARTNER_BASE}/getuserdetails`, {
@@ -80,17 +81,23 @@ export async function getAccountIds(): Promise<{ wabaId: string; phoneNumberId: 
       headers: { Accept: "application/json", apikey: env("PINBOT_API_KEY") },
     });
     const text = await res.text().catch(() => "");
-    if (!res.ok) {
-      return { error: `Partner API ${res.status}: ${text.slice(0, 200)} — check PINBOT_API_KEY (the WABA API key, not the campaign key)` };
+    if (res.ok) {
+      const json = JSON.parse(text) as { data?: { whatsapp_business_account_id?: string; phone_number_id?: string }[] };
+      const first = json?.data?.[0];
+      const wabaId = first?.whatsapp_business_account_id ?? "";
+      const phoneNumberId = first?.phone_number_id ?? "";
+      if (wabaId && phoneNumberId) {
+        cachedIds = { wabaId, phoneNumberId };
+        return cachedIds;
+      }
     }
-    const json = JSON.parse(text) as { data?: { whatsapp_business_account_id?: string; phone_number_id?: string }[] };
-    const first = json?.data?.[0];
-    const wabaId = isMetaId(envWaba) ? envWaba : first?.whatsapp_business_account_id ?? "";
-    const phoneNumberId = isMetaId(envPhone) ? envPhone : first?.phone_number_id ?? "";
-    if (!wabaId || !phoneNumberId) return { error: "getuserdetails returned no account ids — check PINBOT_API_KEY" };
-    cachedIds = { wabaId, phoneNumberId };
-    return cachedIds;
+    // Lookup failed or returned nothing — fall back to explicit numeric env ids.
+    if (isMetaId(envWaba) && isMetaId(envPhone)) return { wabaId: envWaba, phoneNumberId: envPhone };
+    return {
+      error: `Partner API ${res.status}: ${text.slice(0, 200)} — check PINBOT_API_KEY (the WABA API key, not the campaign key)`,
+    };
   } catch (e) {
+    if (isMetaId(envWaba) && isMetaId(envPhone)) return { wabaId: envWaba, phoneNumberId: envPhone };
     return { error: e instanceof Error ? e.message : String(e) };
   }
 }

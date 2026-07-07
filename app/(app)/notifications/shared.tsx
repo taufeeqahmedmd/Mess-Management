@@ -1,28 +1,74 @@
 import Link from "next/link";
-import type { NotificationChannel } from "@prisma/client";
+import { Prisma, type NotificationChannel, type NotificationLogStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { formatDateTimeInZone } from "@/lib/time";
 import { parseRecipients } from "@/services/notifications";
-import { NOTIFICATION_EVENTS } from "@/services/notification-events";
-import { PANEL, TH, TD, LINK_ACT_GOLD } from "@/components/ui/controls";
+import { NOTIFICATION_EVENTS, notificationEvent } from "@/services/notification-events";
+import { resolveDateRange } from "@/services/reporting";
+import { PANEL, TH, TD, INPUT_FIND, BTN_PRIMARY, LINK_ACT_GOLD, clampPageSize } from "@/components/ui/controls";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
+import { Pager } from "@/components/ui/pager";
 import { retryNotificationAction } from "./actions";
 import type { RuleRow, EventRowDef } from "./rules-editor";
 import type { TemplateRow } from "./template-manager";
 
+/** Recent-notifications filters, read from the channel page's searchParams. */
+export type LogParams = {
+  status?: string;
+  event?: string;
+  lq?: string;
+  from?: string;
+  to?: string;
+  page?: string;
+  size?: string;
+};
+
+const LOG_STATUSES: NotificationLogStatus[] = ["sent", "failed", "skipped", "pending"];
+
 /** Server-side loader shared by the three channel pages. */
-export async function loadChannelData(channel: NotificationChannel): Promise<{
+export async function loadChannelData(channel: NotificationChannel, lp: LogParams = {}): Promise<{
   events: EventRowDef[];
   roles: string[];
   templates: TemplateRow[];
   initialRules: Record<string, RuleRow>;
   logs: LogRow[];
+  logFilters: LogFilters;
 }> {
-  const [rules, templates, roles, logs] = await Promise.all([
+  const lq = (lp.lq ?? "").trim();
+  const status = (LOG_STATUSES as string[]).includes(lp.status ?? "") ? (lp.status as NotificationLogStatus) : undefined;
+  const event = notificationEvent(lp.event ?? "") ? lp.event : undefined;
+  const hasRange = Boolean(lp.from || lp.to);
+  const range = resolveDateRange(lp.from, lp.to, new Date());
+  const page = Math.max(1, Number.parseInt(lp.page ?? "1", 10) || 1);
+  const pageSize = clampPageSize(lp.size, 25);
+
+  const logWhere: Prisma.NotificationLogWhereInput = {
+    channel,
+    ...(status ? { status } : {}),
+    ...(event ? { eventCode: event } : {}),
+    ...(hasRange ? { createdAt: { gte: range.from, lt: range.toExclusive } } : {}),
+    ...(lq
+      ? {
+          OR: [
+            { recipient: { contains: lq, mode: "insensitive" } },
+            { body: { contains: lq, mode: "insensitive" } },
+            { error: { contains: lq, mode: "insensitive" } },
+          ],
+        }
+      : {}),
+  };
+
+  const [rules, templates, roles, logs, logTotal] = await Promise.all([
     prisma.notificationRule.findMany({ where: { channel } }),
     prisma.notificationTemplate.findMany({ where: { channel }, orderBy: { name: "asc" } }),
     prisma.role.findMany({ orderBy: { id: "asc" }, select: { name: true } }),
-    prisma.notificationLog.findMany({ where: { channel }, orderBy: { id: "desc" }, take: 15 }),
+    prisma.notificationLog.findMany({
+      where: logWhere,
+      orderBy: { id: "desc" },
+      skip: (page - 1) * pageSize,
+      take: pageSize,
+    }),
+    prisma.notificationLog.count({ where: logWhere }),
   ]);
 
   const initialRules: Record<string, RuleRow> = {};
@@ -58,8 +104,31 @@ export async function loadChannelData(channel: NotificationChannel): Promise<{
       error: l.error,
       at: formatDateTimeInZone(l.createdAt),
     })),
+    logFilters: {
+      lq,
+      status: status ?? "",
+      event: event ?? "",
+      from: hasRange ? (lp.from ?? "") : "",
+      to: hasRange ? (lp.to ?? "") : "",
+      page,
+      pageSize,
+      total: logTotal,
+      filtered: Boolean(lq || status || event || hasRange),
+    },
   };
 }
+
+export type LogFilters = {
+  lq: string;
+  status: string;
+  event: string;
+  from: string;
+  to: string;
+  page: number;
+  pageSize: number;
+  total: number;
+  filtered: boolean;
+};
 
 export type LogRow = {
   id: string;
@@ -108,14 +177,54 @@ const LOG_STATUS: Record<string, { label: string; dot: string; text: string }> =
   skipped: { label: "Skipped", dot: "bg-line-strong", text: "text-muted" },
 };
 
-/** Recent outbox rows for one channel (server-rendered). */
-export function LogTable({ logs }: { logs: LogRow[] }) {
+const LOG_SEL =
+  "rounded-[9px] border border-line-strong bg-surface px-2.5 py-2 text-[12.5px] text-ink focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+
+/** Recent outbox rows for one channel (server-rendered), with filters + pager. */
+export function LogTable({ logs, base, filters }: { logs: LogRow[]; base: string; filters: LogFilters }) {
   return (
     <div className={PANEL}>
-      <div className="flex items-center gap-2.5 border-b border-line px-5 py-3">
-        <span className="h-[15px] w-1 rounded-full bg-line-strong" />
-        <h3 className="font-display text-[15px] font-bold text-ink">Recent notifications</h3>
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-line px-5 py-3">
+        <div className="flex items-center gap-2.5">
+          <span className="h-[15px] w-1 rounded-full bg-line-strong" />
+          <h3 className="font-display text-[15px] font-bold text-ink">Recent notifications</h3>
+          <span className="text-[11.5px] text-muted-2">{filters.total.toLocaleString("en-IN")} total{filters.filtered ? " · filtered" : ""}</span>
+        </div>
       </div>
+
+      {/* Filters: plain GET form — the channel page re-reads them from searchParams. */}
+      <form method="get" action={base} className="flex flex-wrap items-center gap-2.5 border-b border-line px-5 py-3">
+        <input type="hidden" name="tab" value="log" />
+        <input
+          name="lq"
+          defaultValue={filters.lq}
+          placeholder="Search recipient, message, error…"
+          aria-label="Search notifications"
+          className={`${INPUT_FIND} min-w-[200px] flex-1 sm:max-w-[300px]`}
+        />
+        <select name="status" defaultValue={filters.status} aria-label="Status" className={LOG_SEL}>
+          <option value="">Any status</option>
+          <option value="sent">Sent</option>
+          <option value="failed">Failed</option>
+          <option value="skipped">Skipped</option>
+          <option value="pending">Pending</option>
+        </select>
+        <select name="event" defaultValue={filters.event} aria-label="Event" className={LOG_SEL}>
+          <option value="">All events</option>
+          {NOTIFICATION_EVENTS.map((e) => (
+            <option key={e.code} value={e.code}>{e.label}</option>
+          ))}
+        </select>
+        <input type="date" name="from" defaultValue={filters.from} aria-label="From date" className={LOG_SEL} />
+        <input type="date" name="to" defaultValue={filters.to} aria-label="To date" className={LOG_SEL} />
+        <button type="submit" className={BTN_PRIMARY}>Search</button>
+        {filters.filtered ? (
+          <Link href={`${base}?tab=log`} className="px-2 text-[13px] font-medium text-muted transition-colors hover:text-ink-2">
+            Clear
+          </Link>
+        ) : null}
+      </form>
+
       <div className="overflow-x-auto">
         <table className="w-full min-w-[720px]">
           <thead>
@@ -130,7 +239,7 @@ export function LogTable({ logs }: { logs: LogRow[] }) {
           </thead>
           <tbody>
             {logs.length === 0 ? (
-              <tr><td colSpan={6} className="px-5 py-8 text-center text-[13px] text-muted">Nothing sent yet.</td></tr>
+              <tr><td colSpan={6} className="px-5 py-8 text-center text-[13px] text-muted">{filters.filtered ? "No notifications match your filters." : "Nothing sent yet."}</td></tr>
             ) : (
               logs.map((l) => {
                 const st = LOG_STATUS[l.status] ?? LOG_STATUS.pending;
@@ -172,6 +281,7 @@ export function LogTable({ logs }: { logs: LogRow[] }) {
           </tbody>
         </table>
       </div>
+      <Pager page={filters.page} pageSize={filters.pageSize} total={filters.total} />
     </div>
   );
 }

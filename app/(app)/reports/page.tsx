@@ -31,6 +31,11 @@ type ReportSearchParams = {
   paidBy?: string;
   entity?: string;
   kind?: string;
+  // Recharges tab filters
+  mode?: string;
+  status?: string;
+  source?: string;
+  operator?: string;
   page?: string;
   size?: string;
 };

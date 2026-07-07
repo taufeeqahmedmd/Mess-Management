@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { Prisma } from "@prisma/client";
+import { Prisma, type UserStatus } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
@@ -18,10 +18,28 @@ const ST: Record<string, { dot: string; text: string; label: string }> = {
   inactive: { dot: "bg-muted-2", text: "text-muted", label: "Inactive" },
 };
 
+/** Parse a filter select's value into a BigInt id (invalid/absent → undefined). */
+function idFilter(raw: string | undefined): bigint | undefined {
+  const v = (raw ?? "").trim();
+  if (!/^\d+$/.test(v)) return undefined;
+  return BigInt(v);
+}
+
 export default async function UsersPage({
   searchParams,
 }: {
-  searchParams: Promise<{ q?: string; page?: string; size?: string }>;
+  searchParams: Promise<{
+    q?: string;
+    category?: string;
+    department?: string;
+    branch?: string;
+    status?: string;
+    validity?: string;
+    card?: string;
+    coupons?: string;
+    page?: string;
+    size?: string;
+  }>;
 }) {
   const actor = await requireActor();
   if (!can(actor, "users.view")) redirect("/dashboard");
@@ -34,9 +52,36 @@ export default async function UsersPage({
   const page = Math.max(1, Number.parseInt(sp.page ?? "1", 10) || 1);
   const pageSize = clampPageSize(sp.size, 25);
 
+  const categoryId = idFilter(sp.category);
+  const departmentId = idFilter(sp.department);
+  // Branch filter only for all-branch actors — scoped staff stay pinned to theirs.
+  const branchId = actor.branchId ? BigInt(actor.branchId) : idFilter(sp.branch);
+  const status = ["active", "suspended", "inactive"].includes(sp.status ?? "") ? (sp.status as UserStatus) : undefined;
+  const validity = ["valid", "expiring30", "expired", "none"].includes(sp.validity ?? "") ? sp.validity : undefined;
+  const card = ["with", "without"].includes(sp.card ?? "") ? sp.card : undefined;
+  const coupons = ["with", "none"].includes(sp.coupons ?? "") ? sp.coupons : undefined;
+
+  // Validity windows are computed against today's UTC date (matches @db.Date storage).
+  const now = new Date();
+  const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+  const in30 = new Date(today.getTime() + 30 * 24 * 60 * 60 * 1000);
+
   const where: Prisma.UserWhereInput = {
     deletedAt: null,
-    ...(actor.branchId ? { branchId: BigInt(actor.branchId) } : {}),
+    ...(branchId ? { branchId } : {}),
+    ...(categoryId ? { categoryId } : {}),
+    ...(departmentId ? { departmentId } : {}),
+    ...(status ? { status } : {}),
+    ...(validity === "valid" ? { validityExpired: false, cardExpiryDate: { gte: today } } : {}),
+    ...(validity === "expiring30" ? { validityExpired: false, cardExpiryDate: { gte: today, lte: in30 } } : {}),
+    ...(validity === "expired"
+      ? { OR: [{ validityExpired: true }, { cardExpiryDate: { lt: today } }] }
+      : {}),
+    ...(validity === "none" ? { cardExpiryDate: null, validityExpired: false } : {}),
+    ...(card === "with" ? { cards: { some: { status: "active" } } } : {}),
+    ...(card === "without" ? { cards: { none: { status: "active" } } } : {}),
+    ...(coupons === "with" ? { couponBalances: { some: { count: { gt: 0 } } } } : {}),
+    ...(coupons === "none" ? { couponBalances: { none: { count: { gt: 0 } } } } : {}),
     ...(q
       ? {
           OR: [
@@ -50,6 +95,24 @@ export default async function UsersPage({
       : {}),
   };
 
+  // Both `validity: expired` and a search term produce OR groups — AND them
+  // together explicitly so one doesn't clobber the other in the spread above.
+  if (validity === "expired" && q) {
+    where.AND = [
+      { OR: [{ validityExpired: true }, { cardExpiryDate: { lt: today } }] },
+      {
+        OR: [
+          { code: { contains: q, mode: "insensitive" } },
+          { fullName: { contains: q, mode: "insensitive" } },
+          { phone: { contains: q } },
+          { email: { contains: q, mode: "insensitive" } },
+          { cards: { some: { cardUid: { contains: q } } } },
+        ],
+      },
+    ];
+    delete where.OR;
+  }
+
   const canManage = canCreate || canEdit;
   const [users, total, categories, departments, branches] = await Promise.all([
     prisma.user.findMany({
@@ -60,11 +123,10 @@ export default async function UsersPage({
       take: pageSize,
     }),
     prisma.user.count({ where }),
-    canManage ? prisma.category.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }) : Promise.resolve([]),
-    canManage
-      ? prisma.department.findMany({ where: actor.branchId ? { branchId: BigInt(actor.branchId) } : {}, orderBy: { name: "asc" } })
-      : Promise.resolve([]),
-    canManage ? prisma.branch.findMany({ where: actor.branchId ? { id: BigInt(actor.branchId) } : {}, orderBy: { name: "asc" } }) : Promise.resolve([]),
+    // Loaded for BOTH the filter bar and the add/edit drawer.
+    prisma.category.findMany({ where: { status: "active" }, orderBy: { name: "asc" } }),
+    prisma.department.findMany({ where: actor.branchId ? { branchId: BigInt(actor.branchId) } : {}, orderBy: { name: "asc" } }),
+    prisma.branch.findMany({ where: actor.branchId ? { id: BigInt(actor.branchId) } : { deletedAt: null }, orderBy: { name: "asc" } }),
   ]);
 
   return (
@@ -73,7 +135,8 @@ export default async function UsersPage({
         <div>
           <h1 className="font-display text-[27px] font-bold tracking-[-0.6px] text-ink">Cardholders</h1>
           <p className="mt-1 text-[13px] text-muted">
-            {total} cardholder{total === 1 ? "" : "s"}.{q ? " Filtered by search." : ""}
+            {total} cardholder{total === 1 ? "" : "s"}.
+            {q || categoryId || departmentId || status || validity || card || coupons || (!actor.branchId && idFilter(sp.branch)) ? " Filtered." : ""}
           </p>
         </div>
         <div className="flex flex-wrap items-center gap-2.5">
@@ -97,7 +160,22 @@ export default async function UsersPage({
       </div>
 
       <div className={`${PANEL} p-[18px_20px]`}>
-        <UserSearch initialQ={q} />
+        <UserSearch
+          initial={{
+            q,
+            category: categoryId?.toString() ?? "",
+            department: departmentId?.toString() ?? "",
+            branch: actor.branchId ? "" : (idFilter(sp.branch)?.toString() ?? ""),
+            status: status ?? "",
+            validity: validity ?? "",
+            card: card ?? "",
+            coupons: coupons ?? "",
+          }}
+          categories={categories.map((c) => ({ id: c.id.toString(), name: c.name }))}
+          departments={departments.map((d) => ({ id: d.id.toString(), name: d.name }))}
+          branches={branches.map((b) => ({ id: b.id.toString(), name: b.name }))}
+          canChooseBranch={canChooseBranch}
+        />
       </div>
 
       <div className={PANEL}>
@@ -117,7 +195,7 @@ export default async function UsersPage({
             </thead>
             <tbody>
               {users.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-12 text-center text-muted">{q ? "No cardholders match your search." : "No cardholders yet."}</td></tr>
+                <tr><td colSpan={8} className="px-5 py-12 text-center text-muted">{q || status || validity || card || coupons || categoryId || departmentId ? "No cardholders match your filters." : "No cardholders yet."}</td></tr>
               ) : (
                 users.map((u) => {
                   const st = ST[u.status] ?? ST.inactive;
