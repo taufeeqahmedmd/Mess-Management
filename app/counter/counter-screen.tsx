@@ -154,7 +154,10 @@ export function CounterScreen({
   /** Best screen to "Exit" to besides the counter; null → show Logout instead. */
   exitTo: string | null;
 }) {
-  const [counterId, setCounterId] = useState(counters[0]?.id ?? "");
+  // Deliberately starts EMPTY: the operator must pick a counter in the popup on
+  // every visit (every login lands here fresh) — even when only one is assigned —
+  // so taps are never recorded against a counter nobody consciously chose.
+  const [counterId, setCounterId] = useState("");
   const [scan, setScan] = useState("");
   const [result, setResult] = useState<TapResult | null>(null);
   const [busy, setBusy] = useState(false);
@@ -172,21 +175,30 @@ export function CounterScreen({
   const lastKeyAtRef = useRef(0);
   const burstRef = useRef(true);
   const burstTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Mirrors `counterId` for the window-level focus handlers: while the counter
+  // picker is open, the scan input must not steal focus from the dialog.
+  const counterSelectedRef = useRef(false);
+  useEffect(() => {
+    counterSelectedRef.current = Boolean(counterId);
+  }, [counterId]);
 
   useEffect(() => {
-    inputRef.current?.focus();
     void queueCount().then(setQueued);
     void syncQueue();
 
     // Keep the scan input focused, but don't steal focus from a control the
-    // operator is actually using (counter select, sync/exit buttons, links).
+    // operator is actually using (counter select, sync/exit buttons, links) —
+    // and never while the counter picker is still open.
     const refocus = (e: MouseEvent) => {
+      if (!counterSelectedRef.current) return;
       const target = e.target as HTMLElement | null;
       if (target?.closest("button, select, a, input, [role='button']")) return;
       inputRef.current?.focus();
     };
     // Re-grab focus whenever the window/tab regains it, so the reader is always live.
-    const onFocus = () => inputRef.current?.focus();
+    const onFocus = () => {
+      if (counterSelectedRef.current) inputRef.current?.focus();
+    };
     const reSync = () => void syncQueue(); // flush the offline queue on reconnect
     window.addEventListener("click", refocus);
     window.addEventListener("focus", onFocus);
@@ -417,6 +429,63 @@ export function CounterScreen({
 
   return (
     <main className="flex min-h-screen flex-col bg-canvas">
+      {/* Mandatory counter selection — shown on every visit until a counter is
+          consciously picked (even when only one is assigned). No backdrop close:
+          the only ways out are picking a counter or leaving the page. */}
+      {!counterId ? (
+        <div className="fixed inset-0 z-[70] flex items-center justify-center bg-ink/45 p-5 backdrop-blur-sm">
+          <div role="dialog" aria-modal="true" aria-label="Select your counter" className="w-full max-w-md rounded-[20px] border border-line bg-surface p-6 shadow-lg">
+            <div className="flex items-center gap-3">
+              <span className="h-9 w-1 shrink-0 rounded-full bg-gold" />
+              <div>
+                <h2 className="font-display text-[20px] font-bold tracking-[-0.3px] text-ink">Select your counter</h2>
+                <p className="mt-0.5 text-[12.5px] text-muted">
+                  {operatorName}, pick the counter you&rsquo;re operating this session.
+                </p>
+              </div>
+            </div>
+
+            <div className="mt-5 flex flex-col gap-2.5">
+              {counters.map((c) => (
+                <button
+                  key={c.id}
+                  type="button"
+                  onClick={() => {
+                    setCounterId(c.id);
+                    // Re-arm the reader immediately — the next keystroke burst is a tap.
+                    setTimeout(() => inputRef.current?.focus(), 0);
+                  }}
+                  className="flex items-center gap-3.5 rounded-[14px] border border-line-strong bg-surface px-4 py-3.5 text-left transition-colors hover:border-gold-soft-2 hover:bg-gold-soft focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/25"
+                >
+                  <span className="grid size-10 shrink-0 place-items-center rounded-[10px] bg-gold-soft font-mono text-[12px] font-bold text-gold-deep">
+                    {c.code}
+                  </span>
+                  <span className="min-w-0">
+                    <span className="block truncate text-[15px] font-semibold text-ink">{c.name}</span>
+                    <span className="block text-[11.5px] text-muted-2">Taps will be recorded on this counter</span>
+                  </span>
+                  <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2} strokeLinecap="round" strokeLinejoin="round" className="ml-auto size-4 shrink-0 text-muted" aria-hidden="true">
+                    <path d="m9 18 6-6-6-6" />
+                  </svg>
+                </button>
+              ))}
+            </div>
+
+            <div className="mt-5 flex items-center justify-center border-t border-line pt-4">
+              {exitTo ? (
+                <Link href={exitTo} className="text-[12.5px] font-medium text-muted transition-colors hover:text-ink-2">
+                  Exit — not operating a counter now
+                </Link>
+              ) : (
+                <SignOutButton className="text-[12.5px] font-medium text-muted transition-colors hover:text-ink-2 disabled:opacity-60">
+                  Logout
+                </SignOutButton>
+              )}
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       {/* Topbar */}
       <header className="sticky top-0 z-20 flex flex-wrap items-center gap-3.5 border-b border-line bg-canvas/85 px-5 py-3 backdrop-blur-md">
         <div className="flex items-center gap-2.5">

@@ -18,14 +18,14 @@ const TABS = [
 export default async function PushNotificationsPage({
   searchParams,
 }: {
-  searchParams: Promise<{ tab?: string }>;
+  searchParams: Promise<{ tab?: string; status?: string; event?: string; lq?: string; from?: string; to?: string; page?: string; size?: string }>;
 }) {
   const actor = await requireActor();
   if (!can(actor, "notifications.manage")) redirect(landingFor(actor));
 
   const sp = await searchParams;
   const tab = activeTab(TABS, sp.tab);
-  const data = await loadChannelData("push");
+  const data = await loadChannelData("push", sp);
   const configured = pushConfigured();
   const allVariables = [...new Set(NOTIFICATION_EVENTS.flatMap((e) => e.variables))];
 
@@ -61,7 +61,7 @@ export default async function PushNotificationsPage({
       ) : tab === "templates" ? (
         <TemplateManager channel="push" templates={data.templates} variablesHint={allVariables} />
       ) : (
-        <LogTable logs={data.logs} />
+        <LogTable logs={data.logs} base="/notifications/push" filters={data.logFilters} />
       )}
     </div>
   );
