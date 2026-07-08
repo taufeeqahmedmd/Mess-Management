@@ -60,3 +60,6 @@ Thumbs.db
 
 # Claude Code — keep shared config, ignore local overrides
 .claude/settings.local.json
+
+
+.xlsx
