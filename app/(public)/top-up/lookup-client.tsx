@@ -208,11 +208,11 @@ export function LookupClient() {
 
         {/* lookup */}
         <form className="card" onSubmit={onLookup}>
-          <label className="lbl" htmlFor="idInput">Admission / Employee ID</label>
+          <label className="lbl" htmlFor="idInput">ID</label>
           <div className="lookup">
             <div className="inp">
               <svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2" /><path d="M2 10h20M6 15h4" /></svg>
-              <input id="idInput" value={code} onChange={(e) => setCode(e.target.value)} placeholder="e.g. STU001" autoComplete="off" />
+              <input id="idInput" value={code} onChange={(e) => setCode(e.target.value.replace(/\s/g, ""))} placeholder="e.g. STU001" autoComplete="off" />
             </div>
             <button className="btn" type="submit" disabled={loading}>
               <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7" /><path d="M21 21l-4.3-4.3" /></svg>

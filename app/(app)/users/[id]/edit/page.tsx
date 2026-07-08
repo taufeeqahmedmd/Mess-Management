@@ -60,7 +60,7 @@ export default async function EditUserPage({
       <UserForm
         action={updateUserAction}
         user={userData}
-        categories={categories.map((c) => ({ id: c.id.toString(), name: c.name, identifierLabel: c.identifierLabel, identifierRequired: c.identifierRequired }))}
+        categories={categories.map((c) => ({ id: c.id.toString(), name: c.name, identifierLabel: c.identifierLabel, identifierRequired: c.identifierRequired, contactRequired: c.contactRequired }))}
         departments={departments.map((d) => ({ id: d.id.toString(), name: d.name }))}
         branches={branches.map((b) => ({ id: b.id.toString(), name: b.name }))}
         canChooseBranch={!actor.branchId}

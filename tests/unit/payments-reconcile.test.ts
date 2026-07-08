@@ -14,6 +14,7 @@ import { describe, it, expect, vi, beforeEach } from "vitest";
 const findMany = vi.fn();
 const update = vi.fn();
 const getJodoOrder = vi.fn();
+const resolveJodoConfig = vi.fn();
 const creditPaymentOrder = vi.fn();
 const getActor = vi.fn();
 const can = vi.fn();
@@ -23,7 +24,10 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/session", () => ({ getActor: (...a: unknown[]) => getActor(...a) }));
 vi.mock("@/lib/rbac", () => ({ can: (...a: unknown[]) => can(...a) }));
-vi.mock("@/lib/jodo", () => ({ getJodoOrder: (...a: unknown[]) => getJodoOrder(...a) }));
+vi.mock("@/lib/jodo", () => ({
+  getJodoOrder: (...a: unknown[]) => getJodoOrder(...a),
+  resolveJodoConfig: (...a: unknown[]) => resolveJodoConfig(...a),
+}));
 vi.mock("@/lib/run-online-topup", () => ({ creditPaymentOrder: (...a: unknown[]) => creditPaymentOrder(...a) }));
 
 import { POST } from "@/app/api/payments/reconcile/route";
@@ -49,6 +53,7 @@ beforeEach(() => {
   process.env.CRON_SECRET = SECRET;
   can.mockReturnValue(true);
   findMany.mockResolvedValue([]);
+  resolveJodoConfig.mockResolvedValue({ base: "https://ext.jodo.in", auth: "dXNlcjpwYXNz", collectorCode: "NACHARAM" });
   creditPaymentOrder.mockResolvedValue({ ok: true, already: false });
 });
 
@@ -120,6 +125,16 @@ describe("POST /api/payments/reconcile — settlement", () => {
 
     const res = await POST(cronReq());
     expect(await res.json()).toMatchObject({ stillPending: 1, failed: 0 });
+    expect(update).not.toHaveBeenCalled();
+  });
+
+  it("leaves an order pending (errored) when its branch has no gateway config", async () => {
+    findMany.mockResolvedValue([order()]);
+    resolveJodoConfig.mockResolvedValue(null);
+
+    const res = await POST(cronReq());
+    expect(await res.json()).toMatchObject({ errored: 1, failed: 0, stillPending: 0, credited: 0 });
+    expect(getJodoOrder).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
   });
 

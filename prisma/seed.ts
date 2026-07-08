@@ -95,11 +95,11 @@ async function main() {
 
   // --- Categories (+ identifier config) ---
   const categories = [
-    { code: "STU", name: "Student", identifierLabel: "Admission No." },
+    { code: "STU", name: "Student", identifierLabel: "Admission No.", contactRequired: false },
     { code: "EMP", name: "Employee", identifierLabel: "Employee ID" },
     { code: "CON", name: "Contractor", identifierLabel: "Contractor ID" },
-    { code: "GST", name: "Guest", identifierLabel: "Guest ID", identifierRequired: false },
-    { code: "VIS", name: "Visitor", identifierLabel: "Visitor ID", identifierRequired: false },
+    { code: "GST", name: "Guest", identifierLabel: "Guest ID", identifierRequired: false, contactRequired: false },
+    { code: "VIS", name: "Visitor", identifierLabel: "Visitor ID", identifierRequired: false, contactRequired: false },
   ];
   const catId: Record<string, bigint> = {};
   for (const c of categories) {
@@ -111,6 +111,7 @@ async function main() {
         name: c.name,
         identifierLabel: c.identifierLabel,
         identifierRequired: c.identifierRequired ?? true,
+        contactRequired: c.contactRequired ?? true,
       },
     });
     catId[c.code] = cat.id;

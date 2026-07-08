@@ -34,6 +34,29 @@ function parse(formData: FormData) {
   };
 }
 
+/**
+ * Resolve the food item's branch. A scoped admin is forced to their own branch
+ * (they can't create for anyone else). An all-branch actor (Super Admin) picks:
+ * a real branch, or blank = "all branches" (null = offered everywhere).
+ */
+async function resolveBranchId(
+  actorBranchId: string | null,
+  formData: FormData,
+): Promise<{ branchId: bigint | null } | { error: string }> {
+  if (actorBranchId) return { branchId: BigInt(actorBranchId) };
+  const raw = String(formData.get("branchId") ?? "").trim();
+  if (!raw) return { branchId: null };
+  let bid: bigint;
+  try {
+    bid = BigInt(raw);
+  } catch {
+    return { error: "Invalid branch." };
+  }
+  const b = await prisma.branch.findUnique({ where: { id: bid }, select: { id: true } });
+  if (!b) return { error: "Invalid branch." };
+  return { branchId: b.id };
+}
+
 export async function createFoodItemAction(
   _prev: FoodItemFormState,
   formData: FormData,
@@ -43,6 +66,9 @@ export async function createFoodItemAction(
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
   const d = parsed.data;
 
+  const rb = await resolveBranchId(actor.branchId, formData);
+  if ("error" in rb) return rb;
+
   const data = {
     code: d.code,
     name: d.name,
@@ -50,7 +76,7 @@ export async function createFoodItemAction(
     unitPrice: new Prisma.Decimal(d.unitPrice),
     unitVendorPrice: new Prisma.Decimal(d.unitVendorPrice),
     mealTypeId: BigInt(d.mealTypeId),
-    branchId: actor.branchId ? BigInt(actor.branchId) : null, // scoped admin → own branch; super admin → all-branch
+    branchId: rb.branchId, // scoped admin → own branch; super admin → picked branch or all-branch
     active: d.active,
   };
 
@@ -95,6 +121,15 @@ export async function updateFoodItemAction(
     return { error: "Out of your branch scope." };
   }
 
+  // Only an all-branch actor (Super Admin) reassigns the branch; a scoped admin
+  // leaves it as-is (so they can't move an item to/from another branch).
+  let branchId: bigint | null | undefined;
+  if (!actor.branchId) {
+    const rb = await resolveBranchId(actor.branchId, formData);
+    if ("error" in rb) return rb;
+    branchId = rb.branchId;
+  }
+
   try {
     await prisma.$transaction(async (tx) => {
       await tx.foodItem.update({
@@ -107,6 +142,7 @@ export async function updateFoodItemAction(
           unitVendorPrice: new Prisma.Decimal(d.unitVendorPrice),
           mealTypeId: BigInt(d.mealTypeId),
           active: d.active,
+          ...(branchId !== undefined ? { branchId } : {}),
         },
       });
       await writeAudit(

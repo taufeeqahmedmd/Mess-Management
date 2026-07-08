@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getJodoOrder } from "@/lib/jodo";
+import { getJodoOrder, resolveJodoConfig } from "@/lib/jodo";
 import { creditPaymentOrder } from "@/lib/run-online-topup";
 
 /**
@@ -31,7 +31,10 @@ export async function GET(req: Request) {
   // Already credited on a prior callback/refresh → just show success.
   if (record.status === "credited") return back({ paid: "1", code });
 
-  const order = await getJodoOrder(orderId);
+  const cfg = await resolveJodoConfig(record.branchId);
+  if (!cfg) return back({ pay: "error", code });
+
+  const order = await getJodoOrder(cfg, orderId);
   if (!order.ok) return back({ pay: "pending", code });
   if (!order.paid) return back({ pay: "pending", code });
 

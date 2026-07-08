@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
-import { getJodoOrder } from "@/lib/jodo";
+import { getJodoOrder, resolveJodoConfig } from "@/lib/jodo";
 import { creditPaymentOrder } from "@/lib/run-online-topup";
 
 // A pending order younger than this is still "in flight" — the live redirect
@@ -56,7 +56,14 @@ export async function POST(req: Request) {
 
   for (const order of pending) {
     try {
-      const res = await getJodoOrder(order.jodoOrderId);
+      // Verify against the order's own branch gateway (no env fallback). If the
+      // branch is no longer configured, leave the order pending for a later run.
+      const cfg = await resolveJodoConfig(order.branchId);
+      if (!cfg) {
+        errored++;
+        continue;
+      }
+      const res = await getJodoOrder(cfg, order.jodoOrderId);
       if (!res.ok) {
         // Gateway unreachable / errored for this order — leave it pending and
         // let the next run retry. Don't mark it failed on a transient error.

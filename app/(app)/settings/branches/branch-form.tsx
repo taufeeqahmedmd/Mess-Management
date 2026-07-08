@@ -10,23 +10,16 @@ export type BranchData = {
   code: string;
   name: string;
   address: string;
-  collectorCode: string;
   emailEntityId: string; // "" = not mapped
   status: "active" | "inactive";
+  // Read-only Jodo payment config (from `payment_config`, managed in the DB).
+  paymentHasRow: boolean;
+  paymentComplete: boolean; // collector code + url + api key + api secret all set
 };
 
 export type EntityOption = { id: string; name: string };
 
 type Action = (prev: BranchFormState, formData: FormData) => Promise<BranchFormState>;
-
-/** Fixed Jodo collector codes, mapped to their school/branch. The `code` is sent
- *  to the payment gateway; the `label` is what the operator picks. */
-const COLLECTOR_CODES = [
-  { code: "NACHARAM", label: "DPS Nacharam" },
-  { code: "MAHENDRAHILLS", label: "DPS Mahendrahills" },
-  { code: "NADERGUL", label: "DPS Nadergul" },
-  { code: "GANDIPET", label: "PIS Gandipet" },
-] as const;
 
 const inputClass = FORM_INPUT;
 
@@ -61,21 +54,9 @@ export function BranchForm({ action, branch, entities, onCancel }: { action: Act
         </div>
       </div>
 
-      <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
-        <div>
-          <label htmlFor="address" className={FORM_LABEL}>Address <span className={FORM_OPT}>(optional)</span></label>
-          <input id="address" name="address" maxLength={255} defaultValue={branch?.address} placeholder="HQ" className={inputClass} />
-        </div>
-        <div>
-          <label htmlFor="collectorCode" className={FORM_LABEL}>Collector code <span className={FORM_OPT}>(payments)</span></label>
-          <select id="collectorCode" name="collectorCode" defaultValue={branch?.collectorCode ?? ""} className={inputClass}>
-            <option value="">— None —</option>
-            {COLLECTOR_CODES.map((c) => (
-              <option key={c.code} value={c.code}>{c.label} ({c.code})</option>
-            ))}
-          </select>
-          <p className="mt-1.5 text-[11px] text-muted-2">Jodo collector code used for this branch&rsquo;s online payments.</p>
-        </div>
+      <div>
+        <label htmlFor="address" className={FORM_LABEL}>Address <span className={FORM_OPT}>(optional)</span></label>
+        <input id="address" name="address" maxLength={255} defaultValue={branch?.address} placeholder="HQ" className={inputClass} />
       </div>
 
       <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
@@ -96,6 +77,21 @@ export function BranchForm({ action, branch, entities, onCancel }: { action: Act
             <option value="inactive">Inactive</option>
           </select>
         </div>
+      </div>
+
+      <div className="border-t border-line pt-4">
+        <div className="mb-2 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-2">Payment gateway (Jodo)</div>
+        {branch?.paymentHasRow ? (
+          <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-medium ${branch.paymentComplete ? "text-sage-deep" : "text-tomato"}`}>
+            <span className={`size-[7px] rounded-full ${branch.paymentComplete ? "bg-sage" : "bg-tomato"}`} />
+            {branch.paymentComplete ? "Ready — online top-up enabled" : "Incomplete — set the API key & secret in the DB"}
+          </span>
+        ) : (
+          <p className="text-[12px] text-muted-2">
+            Not configured. Online top-up is disabled for this branch until a row is added to the <span className="font-mono">payment_config</span> table.
+          </p>
+        )}
+        <p className="mt-2.5 text-[11px] text-muted-2">Read-only — collector code and API credentials are managed directly in the <span className="font-mono">payment_config</span> database table.</p>
       </div>
 
       <div className="mt-1 flex items-center gap-2.5">

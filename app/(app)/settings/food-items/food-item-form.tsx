@@ -6,6 +6,7 @@ import { BTN_PRIMARY, BTN_GHOST, FORM_LABEL, FORM_INPUT } from "@/components/ui/
 import type { FoodItemFormState } from "./actions";
 
 export type MealOption = { id: string; name: string };
+export type BranchOption = { id: string; name: string };
 export type FoodItemData = {
   id: string;
   code: string;
@@ -14,6 +15,7 @@ export type FoodItemData = {
   unitPrice: string;
   unitVendorPrice: string;
   mealTypeId: string;
+  branchId: string; // "" = all branches
   active: boolean;
 };
 
@@ -29,10 +31,14 @@ const KINDS = [
 export function FoodItemForm({
   action,
   meals,
+  branches,
+  canChooseBranch,
   item,
 }: {
   action: Action;
   meals: MealOption[];
+  branches: BranchOption[];
+  canChooseBranch: boolean; // only an all-branch actor (Super Admin) picks the branch
   item?: FoodItemData;
 }) {
   const isEdit = Boolean(item);
@@ -63,6 +69,18 @@ export function FoodItemForm({
           <label htmlFor="name" className={FORM_LABEL}>Name</label>
           <input id="name" name="name" required maxLength={120} defaultValue={item?.name} placeholder="Coffee" className={FORM_INPUT} />
         </div>
+        {canChooseBranch ? (
+          <div>
+            <label htmlFor="branchId" className={FORM_LABEL}>Branch</label>
+            <select id="branchId" name="branchId" defaultValue={item?.branchId ?? ""} className={FORM_INPUT}>
+              <option value="">All branches</option>
+              {branches.map((b) => (
+                <option key={b.id} value={b.id}>{b.name}</option>
+              ))}
+            </select>
+            <p className="mt-1.5 text-[11px] text-muted-2">&ldquo;All branches&rdquo; = offered everywhere; pick a branch to limit this item to it.</p>
+          </div>
+        ) : null}
         <div>
           <label htmlFor="kind" className={FORM_LABEL}>Kind</label>
           <select id="kind" name="kind" required defaultValue={item?.kind ?? "meal"} className={FORM_INPUT}>

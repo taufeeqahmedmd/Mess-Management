@@ -6,7 +6,7 @@ import { XGlyph } from "@/components/ui/glyphs";
 import { UserForm, type UserData } from "./user-form";
 import { createUserAction, updateUserAction } from "./actions";
 
-type Cat = { id: string; name: string; identifierLabel: string; identifierRequired: boolean };
+type Cat = { id: string; name: string; identifierLabel: string; identifierRequired: boolean; contactRequired: boolean };
 type Option = { id: string; name: string };
 
 /**

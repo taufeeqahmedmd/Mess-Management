@@ -7,7 +7,7 @@ import { publicCodeSchema } from "@/lib/public-schema";
 import { defaultRatesForCategory } from "@/services/pricing";
 import { couponValue } from "@/services/recharge";
 import { localDateValue } from "@/lib/time";
-import { createJodoOrder } from "@/lib/jodo";
+import { createJodoOrder, resolveJodoConfig } from "@/lib/jodo";
 import { normalizePhone, normalizeEmail } from "@/lib/contact";
 
 const schema = z.object({
@@ -41,15 +41,16 @@ export async function POST(req: Request) {
 
   const user = await prisma.user.findFirst({
     where: { code: { equals: parsed.data.code, mode: "insensitive" }, deletedAt: null },
-    include: { branch: { select: { collectorCode: true } } },
   });
   if (!user) return NextResponse.json({ error: "No record found for that ID." }, { status: 404 });
   if (user.status !== "active" || user.validityExpired) {
     return NextResponse.json({ error: "This account can't recharge online right now." }, { status: 422 });
   }
 
-  const collectorCode = user.branch?.collectorCode;
-  if (!collectorCode) {
+  // Per-branch payment config from `payment_config` — collector code + base URL +
+  // API key/secret must all be set for this branch, or there's no online top-up.
+  const cfg = await resolveJodoConfig(user.branchId);
+  if (!cfg) {
     return NextResponse.json({ error: "Online payment isn't set up for your branch yet. Please pay at the mess office." }, { status: 422 });
   }
 
@@ -77,11 +78,11 @@ export async function POST(req: Request) {
   const amountStr = total.toFixed(2);
 
   const appUrl = (process.env.APP_URL ?? new URL(req.url).origin).replace(/\/$/, "");
-  const order = await createJodoOrder({
+  const order = await createJodoOrder(cfg, {
     name: user.fullName,
     phone,
     email,
-    collectorCode,
+    collectorCode: cfg.collectorCode,
     amount: Number(amountStr), // Jodo JSON boundary — exact after toFixed(2)
     callbackUrl: `${appUrl}/api/public/pay/callback`,
   });

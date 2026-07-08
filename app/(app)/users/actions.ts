@@ -14,9 +14,10 @@ import type { Actor } from "@/lib/rbac";
 export type UserFormState = { error?: string };
 
 const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const PHONE = /^\d{10}$/;
 
 const userSchema = z.object({
-  code: z.string().trim().max(40),
+  code: z.string().trim().max(40).regex(/^\S*$/, "ID cannot contain spaces."),
   fullName: z.string().trim().min(1, "Name is required.").max(150),
   categoryId: z.string().min(1, "Category is required."),
   departmentId: z.string(),
@@ -53,26 +54,41 @@ async function validateCommon(
   const parsed = userSchema.safeParse(input);
   if (!parsed.success) return { error: parsed.error.issues[0]?.message ?? "Invalid input." };
 
-  if (input.email && !EMAIL.test(input.email)) return { error: "Email is not valid." };
-
   const category = await prisma.category.findUnique({ where: { id: BigInt(input.categoryId) } });
   if (!category) return { error: "Invalid category." };
 
+  // Contact (phone & email): required per-category, but only when CREATING
+  // (codeRequired = create). Editing stays lenient so legacy records still save.
+  // Format is always validated when a value is present.
+  const contactRequired = codeRequired && category.contactRequired;
+  // Phone format is enforced on CREATE only. Editing stays lenient: a legacy
+  // non-10-digit phone (older records had no format rule) must still save.
+  if (input.phone) {
+    if (codeRequired && !PHONE.test(input.phone)) return { error: "Enter a valid 10-digit mobile number." };
+  } else if (contactRequired) {
+    return { error: "Phone is required." };
+  }
+  if (input.email) {
+    if (!EMAIL.test(input.email)) return { error: "Email is not valid." };
+  } else if (contactRequired) {
+    return { error: "Email is required." };
+  }
+
   let code = input.code;
   if (!code) {
-    if (category.identifierRequired) return { error: `${category.identifierLabel} is required.` };
+    if (category.identifierRequired) return { error: "ID is required." };
     code = `${category.code}-${Date.now()}`; // auto-handle when identifier optional
   } else if (category.identifierRegex) {
     try {
       if (!new RegExp(category.identifierRegex).test(code)) {
-        return { error: `${category.identifierLabel} does not match the required format.` };
+        return { error: "ID does not match the required format." };
       }
     } catch {
       /* invalid stored regex — skip */
     }
   }
   if (codeRequired && category.identifierRequired && !code) {
-    return { error: `${category.identifierLabel} is required.` };
+    return { error: "ID is required." };
   }
 
   const branchId = actor.branchId
@@ -155,7 +171,7 @@ export async function createUserAction(
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return { error: "That identifier or card UID is already in use." };
+      return { error: "That ID or card UID is already in use." };
     }
     throw e;
   }
@@ -226,7 +242,7 @@ export async function updateUserAction(
     });
   } catch (e) {
     if (e instanceof Prisma.PrismaClientKnownRequestError && e.code === "P2002") {
-      return { error: "That identifier is already in use." };
+      return { error: "That ID is already in use." };
     }
     throw e;
   }

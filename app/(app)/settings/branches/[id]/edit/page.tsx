@@ -22,7 +22,7 @@ export default async function EditBranchPage({
     notFound();
   }
 
-  const branch = await prisma.branch.findUnique({ where: { id: branchId } });
+  const branch = await prisma.branch.findUnique({ where: { id: branchId }, include: { paymentConfig: true } });
   if (!branch || branch.deletedAt) notFound();
 
   // Active entities for the dropdown — plus this branch's current entity even
@@ -33,14 +33,16 @@ export default async function EditBranchPage({
     select: { id: true, name: true },
   });
 
+  const pc = branch.paymentConfig;
   const branchData: BranchData = {
     id: branch.id.toString(),
     code: branch.code,
     name: branch.name,
     address: branch.address ?? "",
-    collectorCode: branch.collectorCode ?? "",
     emailEntityId: branch.emailEntityId?.toString() ?? "",
     status: branch.status === "inactive" ? "inactive" : "active",
+    paymentHasRow: Boolean(pc),
+    paymentComplete: Boolean(pc?.collectorCode && pc?.url && pc?.apiKey && pc?.apiSecret),
   };
 
   return (

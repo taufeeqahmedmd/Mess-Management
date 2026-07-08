@@ -31,16 +31,20 @@ export async function GET(_req: Request, { params }: { params: Promise<{ entity:
   }
 
   if (entity === "branches") {
-    const b = await prisma.branch.findFirst({ where: { id: bid, deletedAt: null } });
+    const b = await prisma.branch.findFirst({ where: { id: bid, deletedAt: null }, include: { paymentConfig: true } });
     if (!b) return NextResponse.json({ error: "Not found" }, { status: 404 });
+    const pc = b.paymentConfig;
     return NextResponse.json({
       id: b.id.toString(),
       code: b.code,
       name: b.name,
       address: b.address ?? "",
-      collectorCode: b.collectorCode ?? "",
       emailEntityId: b.emailEntityId?.toString() ?? "",
       status: b.status === "inactive" ? "inactive" : "active",
+      // Read-only payment status only — a completeness flag. The collector code,
+      // URL, and API key/secret are NEVER returned to the client.
+      paymentHasRow: Boolean(pc),
+      paymentComplete: Boolean(pc?.collectorCode && pc?.url && pc?.apiKey && pc?.apiSecret),
     });
   }
   if (entity === "categories") {
@@ -54,6 +58,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ entity:
       identifierRegex: c.identifierRegex,
       identifierRequired: c.identifierRequired,
       identifierUnique: c.identifierUnique,
+      contactRequired: c.contactRequired,
       status: c.status === "inactive" ? "inactive" : "active",
     });
   }
