@@ -33,6 +33,7 @@ export default async function EditCategoryPage({
     identifierRegex: cat.identifierRegex,
     identifierRequired: cat.identifierRequired,
     identifierUnique: cat.identifierUnique,
+    contactRequired: cat.contactRequired,
     status: cat.status === "inactive" ? "inactive" : "active",
   };
 

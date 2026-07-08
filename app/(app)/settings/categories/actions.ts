@@ -17,6 +17,7 @@ const categorySchema = z.object({
   identifierRegex: z.string().trim().max(120),
   identifierRequired: z.boolean(),
   identifierUnique: z.boolean(),
+  contactRequired: z.boolean(),
   status: z.enum(["active", "inactive"]),
 });
 
@@ -28,6 +29,7 @@ function parse(formData: FormData) {
     identifierRegex: String(formData.get("identifierRegex") ?? "").trim(),
     identifierRequired: formData.get("identifierRequired") === "on",
     identifierUnique: formData.get("identifierUnique") === "on",
+    contactRequired: formData.get("contactRequired") === "on",
     status: String(formData.get("status") ?? "active"),
   };
 }
@@ -53,6 +55,7 @@ function dataFrom(input: ReturnType<typeof parse>) {
     identifierRegex: input.identifierRegex || null,
     identifierRequired: input.identifierRequired,
     identifierUnique: input.identifierUnique,
+    contactRequired: input.contactRequired,
     status: input.status as CategoryStatus,
   };
 }
@@ -143,6 +146,37 @@ export async function setCategoryStatusAction(formData: FormData): Promise<void>
         entityId: id,
         before: { status: before.status },
         after: { status },
+      },
+      tx,
+    );
+  });
+
+  revalidatePath("/settings/categories");
+}
+
+/**
+ * Inline toggle from the categories list — flips whether phone + email are
+ * mandatory when adding a cardholder of this category. `contactRequired` carries
+ * the target state ("true"/"false"), so a replayed submit is idempotent.
+ */
+export async function setCategoryContactRequiredAction(formData: FormData): Promise<void> {
+  const actor = await requirePermission("categories.manage");
+  const id = BigInt(String(formData.get("id") ?? "0"));
+  const contactRequired = String(formData.get("contactRequired")) === "true";
+
+  const before = await prisma.category.findUnique({ where: { id } });
+  if (!before) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.category.update({ where: { id }, data: { contactRequired } });
+    await writeAudit(
+      {
+        appUserId: BigInt(actor.id),
+        action: "category.contact_required",
+        entity: "category",
+        entityId: id,
+        before: { contactRequired: before.contactRequired },
+        after: { contactRequired },
       },
       tx,
     );

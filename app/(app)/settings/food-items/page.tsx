@@ -18,7 +18,7 @@ export default async function FoodItemsPage() {
   // All-branch (null) items + the actor's branch items (scoped admins).
   const items = await prisma.foodItem.findMany({
     where: actor.branchId ? { OR: [{ branchId: null }, { branchId: BigInt(actor.branchId) }] } : {},
-    include: { mealType: true },
+    include: { mealType: true, branch: true },
     orderBy: [{ kind: "asc" }, { name: "asc" }],
   });
 
@@ -41,6 +41,7 @@ export default async function FoodItemsPage() {
               <tr className="border-b border-line bg-surface-2 text-left">
                 <th className={TH}>Code</th>
                 <th className={TH}>Name</th>
+                <th className={TH}>Branch</th>
                 <th className={TH}>Kind</th>
                 <th className={TH}>Reports under</th>
                 <th className={`${TH} text-right`}>Price</th>
@@ -51,12 +52,13 @@ export default async function FoodItemsPage() {
             </thead>
             <tbody>
               {items.length === 0 ? (
-                <tr><td colSpan={8} className="px-5 py-12 text-center text-muted">No food items yet. Add the first one.</td></tr>
+                <tr><td colSpan={9} className="px-5 py-12 text-center text-muted">No food items yet. Add the first one.</td></tr>
               ) : (
                 items.map((it) => (
                   <tr key={it.id.toString()} className="border-b border-line transition-colors last:border-0 hover:bg-surface-2">
                     <td className={`${TD} font-mono text-muted`}>{it.code}</td>
                     <td className={`${TD} font-medium text-ink`}>{it.name}</td>
+                    <td className={`${TD} text-ink-2`}>{it.branch ? it.branch.name : <span className="text-muted-2">All branches</span>}</td>
                     <td className={`${TD} text-ink-2`}>{KIND_LABEL[it.kind] ?? it.kind}</td>
                     <td className={`${TD} text-ink-2`}>{it.mealType.name}</td>
                     <td className={`${TD} text-right font-mono text-ink`}>{inr(it.unitPrice)}</td>

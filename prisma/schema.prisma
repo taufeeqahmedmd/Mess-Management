@@ -152,7 +152,6 @@ model Branch {
   code      String       @unique @db.VarChar(30)
   name      String       @db.VarChar(150)
   address   String?      @db.VarChar(255)
-  collectorCode String?  @map("collector_code") @db.VarChar(60) // Jodo payment collector code for this branch
   emailEntityId BigInt?  @map("email_entity_id") // sending identity (Pallavi/DPS) for this branch's mail
   status    BranchStatus @default(active)
   createdBy BigInt?      @map("created_by")
@@ -172,8 +171,27 @@ model Branch {
   foodRequests FoodRequest[]
   deliveryLocations DeliveryLocation[]
   emailEntity  EmailEntity?       @relation(fields: [emailEntityId], references: [id])
+  paymentConfig PaymentConfig?
 
   @@map("branches")
+}
+
+// Per-branch Jodo payment config (online top-up). Maps a branch → its collector
+// code + Jodo API (base URL + key/secret). Managed DIRECTLY in the DB; the UI is
+// read-only. A branch transacts only when ALL of collector_code + url + api_key +
+// api_secret are set — no env fallback. Credentials are NEVER returned to the client.
+model PaymentConfig {
+  id            BigInt   @id @default(autoincrement())
+  branchId      BigInt   @unique @map("branch_id")
+  collectorCode String?  @map("collector_code") @db.VarChar(60)
+  url           String?  @db.VarChar(255)
+  apiKey        String?  @map("api_key") @db.VarChar(190)
+  apiSecret     String?  @map("api_secret") @db.VarChar(255)
+  updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
+
+  branch Branch @relation(fields: [branchId], references: [id])
+
+  @@map("payment_config")
 }
 
 model Role {
@@ -275,6 +293,9 @@ model Category {
   identifierRegex    String?        @map("identifier_regex") @db.VarChar(120)
   identifierRequired Boolean        @default(true) @map("identifier_required")
   identifierUnique   Boolean        @default(true) @map("identifier_unique")
+  // When true, phone + email are mandatory when CREATING a cardholder of this
+  // category (e.g. Employee). Editing stays lenient so legacy records still save.
+  contactRequired    Boolean        @default(true) @map("contact_required")
   status             CategoryStatus @default(active)
   createdAt          DateTime       @default(now()) @map("created_at") @db.Timestamptz(6)
 

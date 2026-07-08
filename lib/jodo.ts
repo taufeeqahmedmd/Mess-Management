@@ -1,14 +1,19 @@
 /**
- * Jodo payment gateway. Credentials come from env (JODO_USERNAME / JODO_PASSWORD,
- * HTTP Basic auth) and never touch the client. The `collector_code` identifies
- * the school/branch the payment is collected for, so a cardholder's payment
- * routes to their own branch's account.
+ * Jodo payment gateway. Everything is per-branch and comes from the DB
+ * (`payment_config`, resolved via `resolveJodoConfig`) — NOT env: a branch's
+ * collector code, base URL, and API key/secret. Each branch transacts against its
+ * own Jodo account, and credentials never touch the client. `payment_config` is
+ * managed directly in the DB; the UI only reads it.
  *
- *   createJodoOrder — POST an order, returns its id + hosted payment URL.
- *   getJodoOrder    — GET an order to confirm it was actually paid (docs:
- *                     https://docs.jodo.in/pay/api/get-order/). Crediting only
- *                     happens after this returns status "paid".
+ *   resolveJodoConfig — load a branch's { base, auth, collectorCode }; null unless
+ *                       ALL of collector code + url + key + secret are set.
+ *   createJodoOrder   — POST an order, returns its id + hosted payment URL.
+ *   getJodoOrder      — GET an order to confirm it was actually paid (docs:
+ *                       https://docs.jodo.in/pay/api/get-order/). Crediting only
+ *                       happens after this returns status "paid".
  */
+
+import { prisma } from "@/lib/prisma";
 
 type JodoOrderInput = {
   name: string;
@@ -27,12 +32,23 @@ export type JodoOrderStatus =
   | { ok: true; paid: boolean; orderStatus: string | null; amount: number | null; transactionId: string | null; raw: unknown }
   | { ok: false; error: string; status?: number };
 
-function jodoConfig(): { base: string; auth: string } | null {
-  const base = process.env.JODO_BASE_URL;
-  const user = process.env.JODO_USERNAME;
-  const pass = process.env.JODO_PASSWORD;
-  if (!base || !user || !pass) return null;
-  return { base: base.replace(/\/$/, ""), auth: Buffer.from(`${user}:${pass}`).toString("base64") };
+export type JodoConfig = { base: string; auth: string; collectorCode: string };
+
+/**
+ * Resolve a branch's payment config from `payment_config`. Every field is
+ * per-branch with NO env fallback: collector code + base URL + API key + API
+ * secret must ALL be set for the branch to transact. Returns null otherwise (the
+ * caller surfaces "not set up for your branch"). The Basic auth header is
+ * base64(api_key:api_secret).
+ */
+export async function resolveJodoConfig(branchId: bigint): Promise<JodoConfig | null> {
+  const c = await prisma.paymentConfig.findUnique({ where: { branchId } });
+  if (!c || !c.collectorCode || !c.url || !c.apiKey || !c.apiSecret) return null;
+  return {
+    base: c.url.replace(/\/$/, ""),
+    auth: Buffer.from(`${c.apiKey}:${c.apiSecret}`).toString("base64"),
+    collectorCode: c.collectorCode,
+  };
 }
 
 function obj(v: unknown): Record<string, unknown> {
@@ -60,10 +76,7 @@ function pickOrderId(raw: unknown): string | null {
   return null;
 }
 
-export async function createJodoOrder(input: JodoOrderInput): Promise<JodoOrderResult> {
-  const cfg = jodoConfig();
-  if (!cfg) return { ok: false, error: "Payment gateway is not configured." };
-
+export async function createJodoOrder(cfg: JodoConfig, input: JodoOrderInput): Promise<JodoOrderResult> {
   let res: Response;
   try {
     res = await fetch(`${cfg.base}/api/v1/integrations/pay/orders`, {
@@ -93,10 +106,7 @@ export async function createJodoOrder(input: JodoOrderInput): Promise<JodoOrderR
 }
 
 /** Confirm an order's payment state. `paid` is true only when Jodo reports status "paid". */
-export async function getJodoOrder(orderId: string): Promise<JodoOrderStatus> {
-  const cfg = jodoConfig();
-  if (!cfg) return { ok: false, error: "Payment gateway is not configured." };
-
+export async function getJodoOrder(cfg: JodoConfig, orderId: string): Promise<JodoOrderStatus> {
   let res: Response;
   try {
     res = await fetch(`${cfg.base}/api/v1/integrations/pay/orders/${encodeURIComponent(orderId)}`, {

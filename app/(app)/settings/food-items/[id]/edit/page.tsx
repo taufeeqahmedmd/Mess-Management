@@ -18,9 +18,12 @@ export default async function EditFoodItemPage({ params }: { params: Promise<{ i
     notFound();
   }
 
-  const [item, meals] = await Promise.all([
+  const [item, meals, branches] = await Promise.all([
     prisma.foodItem.findUnique({ where: { id } }),
     prisma.mealType.findMany({ orderBy: { name: "asc" } }),
+    actor.branchId
+      ? Promise.resolve([] as { id: bigint; name: string }[])
+      : prisma.branch.findMany({ where: { deletedAt: null, status: "active" }, orderBy: { name: "asc" }, select: { id: true, name: true } }),
   ]);
   if (!item) notFound();
   if (actor.branchId && item.branchId && item.branchId.toString() !== actor.branchId) notFound();
@@ -36,6 +39,8 @@ export default async function EditFoodItemPage({ params }: { params: Promise<{ i
       <FoodItemForm
         action={updateFoodItemAction}
         meals={meals.map((m) => ({ id: m.id.toString(), name: m.name }))}
+        branches={branches.map((b) => ({ id: b.id.toString(), name: b.name }))}
+        canChooseBranch={!actor.branchId}
         item={{
           id: item.id.toString(),
           code: item.code,
@@ -44,6 +49,7 @@ export default async function EditFoodItemPage({ params }: { params: Promise<{ i
           unitPrice: item.unitPrice.toFixed(2),
           unitVendorPrice: item.unitVendorPrice.toFixed(2),
           mealTypeId: item.mealTypeId.toString(),
+          branchId: item.branchId?.toString() ?? "",
           active: item.active,
         }}
       />

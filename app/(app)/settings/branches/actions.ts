@@ -14,7 +14,6 @@ const branchSchema = z.object({
   code: z.string().trim().min(1, "Code is required.").max(30),
   name: z.string().trim().min(1, "Name is required.").max(150),
   address: z.string().trim().max(255),
-  collectorCode: z.string().trim().max(60),
   emailEntityId: z.string().trim().regex(/^\d*$/, "Invalid email entity."),
   status: z.enum(["active", "inactive"]),
 });
@@ -24,7 +23,6 @@ function parse(formData: FormData) {
     code: String(formData.get("code") ?? "").trim(),
     name: String(formData.get("name") ?? "").trim(),
     address: String(formData.get("address") ?? "").trim(),
-    collectorCode: String(formData.get("collectorCode") ?? "").trim(),
     emailEntityId: String(formData.get("emailEntityId") ?? "").trim(),
     status: String(formData.get("status") ?? "active"),
   };
@@ -39,6 +37,10 @@ async function resolveEmailEntityId(raw: string): Promise<bigint | null | { erro
   if (!entity) return { error: "That email entity doesn't exist." };
   return entity.id;
 }
+
+// NOTE: Jodo payment config (collector code + API key/secret) lives in the
+// `payment_config` table and is managed DIRECTLY in the DB — there is no UI to
+// edit it. The branch form only reads it. So these actions never touch it.
 
 export async function createBranchAction(
   _prev: BranchFormState,
@@ -59,7 +61,6 @@ export async function createBranchAction(
           code: data.code,
           name: data.name,
           address: data.address || null,
-          collectorCode: data.collectorCode || null,
           emailEntityId,
           status: data.status as BranchStatus,
           createdBy: BigInt(actor.id),
@@ -105,7 +106,6 @@ export async function updateBranchAction(
           code: data.code,
           name: data.name,
           address: data.address || null,
-          collectorCode: data.collectorCode || null,
           emailEntityId,
           status: data.status as BranchStatus,
           updatedBy: BigInt(actor.id),

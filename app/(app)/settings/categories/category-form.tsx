@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import Link from "next/link";
 import { useConfirmedAction } from "@/components/ui/use-confirmed-action";
 import { BTN_PRIMARY, BTN_GHOST, FORM_LABEL, FORM_INPUT } from "@/components/ui/controls";
@@ -13,6 +14,7 @@ export type CategoryData = {
   identifierRegex: string | null;
   identifierRequired: boolean;
   identifierUnique: boolean;
+  contactRequired: boolean;
   status: "active" | "inactive";
 };
 
@@ -22,6 +24,44 @@ type Action = (
 ) => Promise<CategoryFormState>;
 
 const inputClass = FORM_INPUT;
+
+/**
+ * Switch-style boolean field. Stays a real checkbox (visually hidden) so it
+ * submits with the form, is keyboard-operable (Space), and is labelled; the
+ * pill/knob is driven by React state with statically-known token classes (the
+ * list toggle uses the same set — safe against Tailwind JIT quirks).
+ */
+function ToggleField({
+  name,
+  defaultChecked,
+  label,
+}: {
+  name: string;
+  defaultChecked: boolean;
+  label: string;
+}) {
+  const [on, setOn] = useState(defaultChecked);
+  const [focused, setFocused] = useState(false);
+  return (
+    <label className="flex cursor-pointer items-center gap-2.5 text-[13px] text-ink-2">
+      <input
+        type="checkbox"
+        name={name}
+        checked={on}
+        onChange={(e) => setOn(e.target.checked)}
+        onFocus={() => setFocused(true)}
+        onBlur={() => setFocused(false)}
+        className="sr-only"
+      />
+      <span
+        className={`relative inline-flex h-[18px] w-8 shrink-0 items-center rounded-full transition-colors ${on ? "bg-gold" : "bg-line-strong"} ${focused ? "ring-3 ring-gold/20" : ""}`}
+      >
+        <span className={`inline-block size-3.5 transform rounded-full bg-surface shadow-sm transition-transform ${on ? "translate-x-4" : "translate-x-0.5"}`} />
+      </span>
+      {label}
+    </label>
+  );
+}
 
 export function CategoryForm({
   action,
@@ -73,15 +113,10 @@ export function CategoryForm({
         <input id="identifierRegex" name="identifierRegex" maxLength={120} defaultValue={category?.identifierRegex ?? ""} placeholder="^\d{6}$" className={`${inputClass} font-mono`} />
       </div>
 
-      <div className="flex flex-wrap gap-5">
-        <label className="flex items-center gap-2 text-[13px] text-ink-2">
-          <input type="checkbox" name="identifierRequired" defaultChecked={category ? category.identifierRequired : true} className="size-4 accent-[var(--gold)]" />
-          Identifier required
-        </label>
-        <label className="flex items-center gap-2 text-[13px] text-ink-2">
-          <input type="checkbox" name="identifierUnique" defaultChecked={category ? category.identifierUnique : true} className="size-4 accent-[var(--gold)]" />
-          Identifier unique
-        </label>
+      <div className="flex flex-wrap gap-x-6 gap-y-3.5">
+        <ToggleField name="identifierRequired" defaultChecked={category ? category.identifierRequired : true} label="Identifier required" />
+        <ToggleField name="identifierUnique" defaultChecked={category ? category.identifierUnique : true} label="Identifier unique" />
+        <ToggleField name="contactRequired" defaultChecked={category ? category.contactRequired : true} label="Contact required (phone & email)" />
       </div>
 
       <div>

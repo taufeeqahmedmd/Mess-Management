@@ -20,7 +20,7 @@ export type UserData = {
   status: "active" | "suspended" | "inactive";
 };
 
-type Cat = { id: string; name: string; identifierLabel: string; identifierRequired: boolean };
+type Cat = { id: string; name: string; identifierLabel: string; identifierRequired: boolean; contactRequired: boolean };
 type Option = { id: string; name: string };
 type Action = (prev: UserFormState, formData: FormData) => Promise<UserFormState>;
 
@@ -28,6 +28,9 @@ const DLABEL = "mb-2 block text-[10.5px] font-bold uppercase tracking-[0.06em] t
 const OPT = "font-medium normal-case tracking-normal text-muted-2";
 const DINPUT =
   "w-full rounded-sm border border-line-strong bg-surface px-3.5 py-2.5 text-[13.5px] text-ink placeholder:text-muted-2 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20";
+// Required-field marker. Visual only (aria-hidden); the input's `required`
+// attribute is what conveys the constraint to assistive tech.
+const REQ = <span aria-hidden="true" className="text-tomato"> *</span>;
 
 /**
  * Cardholder create/edit form (Bhojan Tricolour drawer/page body). Used by the
@@ -63,7 +66,16 @@ export function UserForm({
   });
   const [categoryId, setCategoryId] = useState(user?.categoryId ?? categories[0]?.id ?? "");
   const cat = categories.find((c) => c.id === categoryId);
-  const idLabel = cat?.identifierLabel ?? "Identifier";
+  // The ID must never contain spaces — strip them as the operator types (paste/IME
+  // included). Controlled so the value can't drift from what's shown; the server re-rejects.
+  const [code, setCode] = useState(user?.code ?? "");
+  // Phone: strip non-digits as typed so the field holds a clean 10-digit mobile
+  // (validated `^\d{10}$` on the server too).
+  const [phone, setPhone] = useState(user?.phone ?? "");
+  // Phone + email are mandatory only when CREATING a cardholder of a category
+  // that requires contact info (e.g. Employee). Editing stays lenient (legacy
+  // records). Format is still validated whenever a value is entered.
+  const contactReq = !isEdit && Boolean(cat?.contactRequired);
 
   return (
     <form onSubmit={onSubmit} className="flex w-full flex-col gap-4">
@@ -77,30 +89,51 @@ export function UserForm({
 
       <div className="grid grid-cols-1 gap-x-4 gap-y-4 sm:grid-cols-2">
         <div>
-          <label htmlFor="categoryId" className={DLABEL}>Category</label>
+          <label htmlFor="categoryId" className={DLABEL}>Category{REQ}</label>
           <select id="categoryId" name="categoryId" required value={categoryId} onChange={(e) => setCategoryId(e.target.value)} className={DINPUT}>
             {categories.map((c) => <option key={c.id} value={c.id}>{c.name}</option>)}
           </select>
         </div>
         <div>
           <label htmlFor="code" className={DLABEL}>
-            {idLabel}{cat && !cat.identifierRequired ? <span className={OPT}> (optional)</span> : null}
+            ID{cat && !cat.identifierRequired ? <span className={OPT}> (optional)</span> : REQ}
           </label>
-          <input id="code" name="code" maxLength={40} defaultValue={user?.code} placeholder="STU001" className={`${DINPUT} font-mono`} />
+          <input
+            id="code"
+            name="code"
+            required={cat ? cat.identifierRequired : true}
+            maxLength={40}
+            value={code}
+            onChange={(e) => setCode(e.target.value.replace(/\s/g, ""))}
+            placeholder="STU001"
+            className={`${DINPUT} font-mono`}
+          />
         </div>
 
         <div>
-          <label htmlFor="fullName" className={DLABEL}>Full name</label>
+          <label htmlFor="fullName" className={DLABEL}>Full name{REQ}</label>
           <input id="fullName" name="fullName" required maxLength={150} defaultValue={user?.fullName} placeholder="Jane Doe" className={DINPUT} />
         </div>
         <div>
-          <label htmlFor="phone" className={DLABEL}>Phone</label>
-          <input id="phone" name="phone" inputMode="numeric" maxLength={20} defaultValue={user?.phone} placeholder="9000000000" className={`${DINPUT} font-mono`} />
+          <label htmlFor="phone" className={DLABEL}>Phone{contactReq ? REQ : null}</label>
+          <input
+            id="phone"
+            name="phone"
+            required={contactReq}
+            inputMode="numeric"
+            pattern={isEdit ? undefined : "[0-9]{10}"}
+            maxLength={10}
+            value={phone}
+            onChange={(e) => setPhone(e.target.value.replace(/\D/g, ""))}
+            title="Enter a 10-digit mobile number"
+            placeholder="9000000000"
+            className={`${DINPUT} font-mono`}
+          />
         </div>
 
         <div>
-          <label htmlFor="email" className={DLABEL}>Email</label>
-          <input id="email" name="email" type="email" maxLength={150} defaultValue={user?.email} placeholder="you@example.com" className={DINPUT} />
+          <label htmlFor="email" className={DLABEL}>Email{contactReq ? REQ : null}</label>
+          <input id="email" name="email" type="email" required={contactReq} maxLength={150} defaultValue={user?.email} placeholder="you@example.com" className={DINPUT} />
         </div>
         <div>
           <label htmlFor="departmentId" className={DLABEL}>Department</label>
@@ -111,7 +144,7 @@ export function UserForm({
         </div>
 
         <div>
-          <label htmlFor="branchId" className={DLABEL}>Branch</label>
+          <label htmlFor="branchId" className={DLABEL}>Branch{REQ}</label>
           <select
             id="branchId"
             name="branchId"
@@ -149,7 +182,7 @@ export function UserForm({
       {!isEdit ? (
         <div className="border-t border-line pt-4">
           <div className="mb-3 text-[11px] font-bold uppercase tracking-[0.08em] text-muted-2">Card</div>
-          <label htmlFor="cardUid" className={DLABEL}>RFID card UID</label>
+          <label htmlFor="cardUid" className={DLABEL}>RFID card UID{REQ}</label>
           <div className="flex gap-2.5">
             <input ref={uidRef} id="cardUid" name="cardUid" required maxLength={64} className={`${DINPUT} font-mono`} placeholder="Tap a card to fill" />
             <button type="button" onClick={() => uidRef.current?.focus()} className={`${BTN_GHOST} shrink-0`}>
