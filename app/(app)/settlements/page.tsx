@@ -5,6 +5,8 @@ import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
 import { inr } from "@/lib/format";
+import { settlementStatusLabel } from "@/services/settlement";
+import { PrinterGlyph } from "@/components/ui/glyphs";
 
 const PAGE_SIZE = 20;
 
@@ -79,7 +81,7 @@ export default async function SettlementsPage({
       <div className="flex flex-wrap gap-1.5">
         {tab("All")}
         {tab("Draft", "draft")}
-        {tab("Approved", "approved")}
+        {tab("Invoice Raised", "approved")}
         {tab("Paid", "paid")}
       </div>
 
@@ -93,11 +95,12 @@ export default async function SettlementsPage({
               <th className="px-4 py-3 text-right font-semibold">Meals</th>
               <th className="px-4 py-3 text-right font-semibold">Payable</th>
               <th className="px-4 py-3 font-semibold">Status</th>
+              <th className="px-4 py-3 text-right font-semibold">Invoice</th>
             </tr>
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={6} className="px-4 py-10 text-center text-ink-2">No settlements yet.</td></tr>
+              <tr><td colSpan={7} className="px-4 py-10 text-center text-ink-2">No settlements yet.</td></tr>
             ) : (
               rows.map((s) => (
                 <tr key={s.id.toString()} className="border-t border-line">
@@ -114,8 +117,24 @@ export default async function SettlementsPage({
                   <td className="px-4 py-3">
                     <span className="inline-flex items-center gap-1.5 text-ink-2">
                       <span className={`size-2 rounded-pill ${statusDot(s.status)}`} />
-                      {s.status[0].toUpperCase() + s.status.slice(1)}
+                      {settlementStatusLabel(s.status)}
                     </span>
+                  </td>
+                  <td className="px-4 py-3 text-right">
+                    {s.status !== "draft" ? (
+                      <a
+                        href={`/settlements/${s.id}/invoice`}
+                        target="_blank"
+                        rel="noopener"
+                        className="inline-flex items-center gap-1.5 rounded-sm border border-line-strong bg-surface-2 px-2.5 py-1.5 text-xs font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep"
+                        aria-label={`Print invoice for ${s.vendor.name}, ${s.periodStart.toISOString().slice(0, 10)} to ${s.periodEnd.toISOString().slice(0, 10)}`}
+                      >
+                        <PrinterGlyph className="size-[13px]" />
+                        Print
+                      </a>
+                    ) : (
+                      <span className="text-xs text-muted">—</span>
+                    )}
                   </td>
                 </tr>
               ))

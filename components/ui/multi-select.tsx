@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useLayoutEffect, useRef, useState } from "react";
 import { useDismiss } from "@/components/shell/hooks";
 import { CheckSquare } from "./check-square";
 
@@ -10,7 +10,9 @@ type Option = { value: string; label: string };
  * Themed multi-select dropdown (the native <select multiple> open list can't be
  * styled). Controlled: parent owns `selected`. Selection is returned in option
  * order. Modern look: selected values show as chips in the trigger; the menu
- * uses square checkboxes with hover/selected states.
+ * uses square checkboxes with hover/selected states. `fixed` renders the menu
+ * position:fixed (anchored to the trigger) so it escapes overflow-clipping
+ * ancestors like the date-range popover; it then closes on scroll/resize.
  */
 export function MultiSelect({
   options,
@@ -18,15 +20,19 @@ export function MultiSelect({
   onChange,
   ariaLabel,
   placeholder = "Select…",
+  fixed = false,
 }: {
   options: Option[];
   selected: string[];
   onChange: (next: string[]) => void;
   ariaLabel: string;
   placeholder?: string;
+  fixed?: boolean;
 }) {
   const [open, setOpen] = useState(false);
+  const [coords, setCoords] = useState<{ top: number; left: number; width: number } | null>(null);
   const ref = useDismiss<HTMLDivElement>(open, () => setOpen(false));
+  const btnRef = useRef<HTMLButtonElement>(null);
   const set = new Set(selected);
   const chosen = options.filter((o) => set.has(o.value));
 
@@ -37,14 +43,34 @@ export function MultiSelect({
     onChange(options.map((o) => o.value).filter((v) => next.has(v)));
   }
 
+  function openMenu() {
+    if (fixed) {
+      const r = btnRef.current?.getBoundingClientRect();
+      if (r) setCoords({ top: r.bottom + 6, left: r.left, width: Math.max(r.width, 208) });
+    }
+    setOpen(true);
+  }
+
+  useLayoutEffect(() => {
+    if (!open || !fixed) return;
+    const close = () => setOpen(false);
+    window.addEventListener("scroll", close, true);
+    window.addEventListener("resize", close);
+    return () => {
+      window.removeEventListener("scroll", close, true);
+      window.removeEventListener("resize", close);
+    };
+  }, [open, fixed]);
+
   return (
     <div ref={ref} className="relative">
       <button
+        ref={btnRef}
         type="button"
         aria-haspopup="listbox"
         aria-expanded={open}
         aria-label={ariaLabel}
-        onClick={() => setOpen((v) => !v)}
+        onClick={() => (open ? setOpen(false) : openMenu())}
         className="flex min-h-10 w-full min-w-48 items-center justify-between gap-2 rounded-md border border-line-strong bg-surface-2 px-2.5 py-1.5 text-left text-sm transition-colors hover:border-gold/60 focus:border-gold focus:outline-none focus-visible:ring-3 focus-visible:ring-gold/20"
       >
         {chosen.length === 0 ? (
@@ -72,12 +98,17 @@ export function MultiSelect({
         </svg>
       </button>
 
-      {open ? (
+      {open && (!fixed || coords) ? (
         <div
           role="listbox"
           aria-multiselectable="true"
           aria-label={ariaLabel}
-          className="absolute z-50 mt-1.5 w-full min-w-52 overflow-hidden rounded-md border border-line bg-surface p-1 shadow-lg"
+          style={fixed && coords ? { position: "fixed", top: coords.top, left: coords.left, width: coords.width } : undefined}
+          className={
+            fixed
+              ? "z-[100] max-h-72 overflow-auto rounded-md border border-line bg-surface p-1 shadow-lg"
+              : "absolute z-50 mt-1.5 w-full min-w-52 overflow-hidden rounded-md border border-line bg-surface p-1 shadow-lg"
+          }
         >
           {options.map((o) => {
             const on = set.has(o.value);

@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { resolvePeriod, parseDay } from "@/services/settlement";
+import { Prisma, type PrismaClient } from "@prisma/client";
+import { resolvePeriod, parseDay, invoiceStatusTotals } from "@/services/settlement";
 
 describe("parseDay", () => {
   it("parses YYYY-MM-DD to local midnight", () => {
@@ -43,5 +44,32 @@ describe("resolvePeriod", () => {
   it("rejects missing/invalid dates", () => {
     expect(resolvePeriod(undefined, "2026-06-01").ok).toBe(false);
     expect(resolvePeriod("2026-06-01", "bad").ok).toBe(false);
+  });
+});
+
+describe("invoiceStatusTotals", () => {
+  const dbWith = (groups: unknown[]) =>
+    ({ vendorSettlement: { groupBy: async () => groups } }) as unknown as PrismaClient;
+
+  it("splits grouped rows into pending (approved) and paid totals", async () => {
+    const t = await invoiceStatusTotals(
+      dbWith([
+        { status: "approved", _count: { _all: 2 }, _sum: { grossAmount: new Prisma.Decimal("116736.00") } },
+        { status: "paid", _count: { _all: 1 }, _sum: { grossAmount: new Prisma.Decimal("58128.00") } },
+      ]),
+      null,
+    );
+    expect(t.pending.count).toBe(2);
+    expect(t.pending.amount.toFixed(2)).toBe("116736.00");
+    expect(t.paid.count).toBe(1);
+    expect(t.paid.amount.toFixed(2)).toBe("58128.00");
+  });
+
+  it("returns zero totals when no invoices exist", async () => {
+    const t = await invoiceStatusTotals(dbWith([]), null);
+    expect(t.pending.count).toBe(0);
+    expect(t.pending.amount.isZero()).toBe(true);
+    expect(t.paid.count).toBe(0);
+    expect(t.paid.amount.isZero()).toBe(true);
   });
 });

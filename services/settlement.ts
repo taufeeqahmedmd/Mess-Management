@@ -30,6 +30,13 @@ export function parseDay(s: string | undefined | null): Date | null {
   return d;
 }
 
+/** Display label for a settlement status. The `approved` state reads as
+ *  "Invoice Raised" in the UI; the stored enum value is unchanged. */
+export function settlementStatusLabel(status: string): string {
+  if (status === "approved") return "Invoice Raised";
+  return status.length > 0 ? status[0].toUpperCase() + status.slice(1) : status;
+}
+
 export type Period = { start: Date; end: Date; toExclusive: Date };
 
 /**
@@ -47,6 +54,33 @@ export function resolvePeriod(
   if (start.getTime() > end.getTime()) return { ok: false, error: "Start date must be on or before end date." };
   const toExclusive = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
   return { ok: true, period: { start, end, toExclusive } };
+}
+
+export type InvoiceTotals = { count: number; amount: Prisma.Decimal };
+
+/**
+ * All-time invoice totals for the dashboard card, branch-scoped: `pending` =
+ * raised invoices awaiting payment (status `approved`), `paid` = settled ones.
+ * Draft settlements are not invoices yet and are excluded.
+ */
+export async function invoiceStatusTotals(
+  db: Db,
+  branchId: bigint | null,
+): Promise<{ pending: InvoiceTotals; paid: InvoiceTotals }> {
+  const groups = await db.vendorSettlement.groupBy({
+    by: ["status"],
+    where: { status: { in: ["approved", "paid"] }, ...(branchId ? { branchId } : {}) },
+    _count: { _all: true },
+    _sum: { grossAmount: true },
+  });
+  const zero: InvoiceTotals = { count: 0, amount: new Prisma.Decimal(0) };
+  const totals = { pending: zero, paid: zero };
+  for (const g of groups) {
+    const t = { count: g._count._all, amount: g._sum.grossAmount ?? new Prisma.Decimal(0) };
+    if (g.status === "approved") totals.pending = t;
+    else if (g.status === "paid") totals.paid = t;
+  }
+  return totals;
 }
 
 /** Meal count + gross payable for a branch over a period (Σ vendorAmount). */

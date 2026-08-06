@@ -194,7 +194,10 @@ export async function createFoodRequestAction(
     throw e;
   }
 
-  await emitFoodRequestEvent("foodRequest.raised", newId);
+  // The `raised` event's audience is the VENDOR — emit it only when the request
+  // is actually vendor-visible. A `pending_approval` request notifies the vendor
+  // when an approver releases it (see approveFoodRequestAction), not before.
+  if (status === "raised") await emitFoodRequestEvent("foodRequest.raised", newId);
   revalidatePath("/food-requests");
   redirect(`/food-requests/${newId}?flash=created`);
 }
@@ -311,6 +314,9 @@ export async function approveFoodRequestAction(formData: FormData): Promise<void
     );
   });
 
+  // Approval is the moment the order becomes vendor-actionable — this is where
+  // the vendor-audience "raised" notification fires for held-back requests.
+  await emitFoodRequestEvent("foodRequest.raised", id);
   revalidatePath("/food-requests");
   revalidatePath(`/food-requests/${id}`);
 }

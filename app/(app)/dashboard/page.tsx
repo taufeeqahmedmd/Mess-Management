@@ -8,6 +8,8 @@ import { CountUp } from "@/components/ui/count-up";
 import { DateRangeForm } from "@/components/reports/date-range-form";
 import { BreakdownTableInner } from "@/components/reports/breakdown-table";
 import { UsageBreakdownTabs } from "@/components/reports/usage-breakdown-tabs";
+import { InvoiceStatusCard } from "@/components/reports/invoice-status-card";
+import { invoiceStatusTotals } from "@/services/settlement";
 import { ProfitAreaChart } from "@/components/reports/profit-area-chart";
 import { UsersIcon, ReceiptIcon, BagIcon, TrendingUpIcon, BanknoteIcon, CoinStackIcon, ChefHatIcon, BankIcon } from "@/components/reports/stat-icons";
 import {
@@ -53,6 +55,8 @@ export default async function DashboardPage({
       usageByCounter(prisma, f),
     ]);
   const mealColors = await mealColorMap(prisma);
+  // Invoice card only for staff who can see settlements — deny by default.
+  const invoices = can(actor, "settlements.view") ? await invoiceStatusTotals(prisma, branchId) : null;
 
   const plPositive = !consumption.pl.isNegative();
   const operatingRevenue = overallColl.minus(overallVendor);
@@ -75,7 +79,7 @@ export default async function DashboardPage({
           • desktop → KPIs row, collection cards row, then [usage tabs | chart] */}
       <div className="grid grid-cols-1 items-stretch gap-4 xl:grid-cols-2">
         {/* Profit trend — first on mobile, right column on desktop */}
-        <div className="order-1 xl:order-4">
+        <div className="order-1 xl:order-5">
           <ProfitAreaChart points={trend} rangeLabel={`${range.fromStr} → ${range.toStr}`} />
         </div>
 
@@ -107,9 +111,16 @@ export default async function DashboardPage({
           />
         </section>
 
+        {/* Vendor invoices — compact full-width strip (pending vs paid) */}
+        {invoices ? (
+          <div className="order-4 xl:order-3 xl:col-span-2">
+            <InvoiceStatusCard pending={invoices.pending} paid={invoices.paid} />
+          </div>
+        ) : null}
+
         {/* Usage breakdown tabs — left column on desktop */}
         <UsageBreakdownTabs
-          className="order-4 xl:order-3"
+          className="order-5 xl:order-4"
           taps={consumption.count}
           sale={consumption.sale.toNumber()}
           tabs={[

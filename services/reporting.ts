@@ -351,6 +351,70 @@ async function usageBy(db: Db, dim: Dimension, f: ConsumptionFilter): Promise<Br
     .sort((a, b) => b.count - a.count);
 }
 
+export type DayMealCell = { count: number; cost: Prisma.Decimal };
+
+export type DayUsageRow = {
+  date: string; // YYYY-MM-DD (local day of the tap)
+  count: number;
+  cost: Prisma.Decimal;
+  byMeal: Record<string, DayMealCell>; // keyed by mealTypeId ("" = no meal recorded)
+};
+
+export type DayUsage = {
+  meals: { id: string; label: string }[]; // meals present in the window, creation order
+  days: DayUsageRow[]; // ascending by date; days without activity are omitted
+};
+
+/** Bucket posted redemptions into per-day totals with a per-meal split. Pure — testable. */
+export function bucketRedemptionsByDay(
+  rows: { redeemedAt: Date; vendorAmount: Prisma.Decimal; mealTypeId: bigint | null }[],
+): { days: DayUsageRow[]; mealIds: string[] } {
+  const byDay = new Map<string, DayUsageRow>();
+  const mealIds = new Set<string>();
+  for (const r of rows) {
+    const date = fmt(r.redeemedAt);
+    let day = byDay.get(date);
+    if (!day) {
+      day = { date, count: 0, cost: ZERO, byMeal: {} };
+      byDay.set(date, day);
+    }
+    day.count += 1;
+    day.cost = day.cost.plus(r.vendorAmount);
+    const mid = r.mealTypeId?.toString() ?? "";
+    mealIds.add(mid);
+    const cell = day.byMeal[mid] ?? { count: 0, cost: ZERO };
+    cell.count += 1;
+    cell.cost = cell.cost.plus(r.vendorAmount);
+    day.byMeal[mid] = cell;
+  }
+  return {
+    days: [...byDay.values()].sort((a, b) => (a.date < b.date ? -1 : 1)),
+    mealIds: [...mealIds],
+  };
+}
+
+/**
+ * Day-wise vendor payable across the filter window, each day split by meal —
+ * drives the settlement detail's day-wise table so a payable can be verified
+ * against the vendor's own daily service register.
+ */
+export async function usageByDay(db: Db, f: ConsumptionFilter): Promise<DayUsage> {
+  const rows = await db.redemption.findMany({
+    where: redemptionWhere(f),
+    select: { redeemedAt: true, vendorAmount: true, mealTypeId: true },
+  });
+  const { days, mealIds } = bucketRedemptionsByDay(rows);
+
+  const numericIds = mealIds.filter((id) => id !== "").map((id) => BigInt(id));
+  const meals: { id: string; label: string }[] = [];
+  if (numericIds.length > 0) {
+    for (const m of await db.mealType.findMany({ where: { id: { in: numericIds } }, orderBy: { id: "asc" }, select: { id: true, name: true } }))
+      meals.push({ id: m.id.toString(), label: m.name });
+  }
+  if (mealIds.includes("")) meals.push({ id: "", label: "—" });
+  return { meals, days };
+}
+
 export const usageByMeal = (db: Db, f: ConsumptionFilter) => usageBy(db, "mealTypeId", f);
 export const usageByCounter = (db: Db, f: ConsumptionFilter) => usageBy(db, "counterId", f);
 export const usageByCategory = (db: Db, f: ConsumptionFilter) => usageBy(db, "categoryId", f);

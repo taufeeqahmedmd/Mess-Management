@@ -6,8 +6,10 @@ import { can, canAccessBranch } from "@/lib/rbac";
 import { inr } from "@/lib/format";
 import { StatCard } from "@/components/ui/stat-card";
 import { BreakdownTable } from "@/components/reports/breakdown-table";
+import { DayBreakdownTable } from "@/components/reports/day-breakdown-table";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
-import { usageByMeal } from "@/services/reporting";
+import { usageByDay, usageByMeal } from "@/services/reporting";
+import { settlementStatusLabel } from "@/services/settlement";
 import { recomputeSettlementAction, setSettlementStatusAction, deleteSettlementAction } from "../actions";
 
 function statusDot(status: string) {
@@ -31,7 +33,8 @@ export default async function SettlementDetailPage({ params }: { params: Promise
   if (!s || !canAccessBranch(actor, s.branchId.toString())) notFound();
 
   const toExclusive = new Date(s.periodEnd.getFullYear(), s.periodEnd.getMonth(), s.periodEnd.getDate() + 1);
-  const breakdown = await usageByMeal(prisma, { branchId: s.branchId, from: s.periodStart, toExclusive });
+  const filter = { branchId: s.branchId, from: s.periodStart, toExclusive };
+  const [breakdown, dayUsage] = await Promise.all([usageByMeal(prisma, filter), usageByDay(prisma, filter)]);
 
   const isDraft = s.status === "draft";
   const isApproved = s.status === "approved";
@@ -50,11 +53,21 @@ export default async function SettlementDetailPage({ params }: { params: Promise
         <div className="flex items-center gap-3">
           <span className="inline-flex items-center gap-1.5 rounded-pill bg-surface-2 px-3 py-1.5 text-sm text-ink-2">
             <span className={`size-2 rounded-pill ${statusDot(s.status)}`} />
-            {s.status[0].toUpperCase() + s.status.slice(1)}
+            {settlementStatusLabel(s.status)}
           </span>
           <a href={`/api/settlements/${s.id}`} className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep">
             Export CSV
           </a>
+          {!isDraft ? (
+            <a
+              href={`/settlements/${s.id}/invoice`}
+              target="_blank"
+              rel="noopener"
+              className="rounded-sm border border-line-strong bg-surface-2 px-4 py-2 text-sm font-medium text-ink-2 transition-colors hover:border-gold hover:text-gold-deep"
+            >
+              Print invoice
+            </a>
+          ) : null}
         </div>
       </div>
 
@@ -80,11 +93,11 @@ export default async function SettlementDetailPage({ params }: { params: Promise
             <ConfirmActionForm
               action={setSettlementStatusAction}
               fields={{ id: s.id.toString(), transition: "approve" }}
-              confirm={{ title: "Approve settlement", message: "Approve this settlement? It freezes the snapshot and can then be marked paid.", confirmLabel: "Yes, approve" }}
-              successMessage="Settlement approved."
+              confirm={{ title: "Raise invoice", message: "Raise the invoice for this settlement? It freezes the snapshot and can then be marked paid.", confirmLabel: "Yes, raise invoice" }}
+              successMessage="Invoice raised."
               buttonClassName="rounded-sm bg-gold px-4 py-2 text-sm font-semibold text-ink shadow-gold transition-colors hover:bg-gold-deep"
             >
-              Approve
+              Raise invoice
             </ConfirmActionForm>
           ) : null}
           {isApproved ? (
@@ -117,6 +130,13 @@ export default async function SettlementDetailPage({ params }: { params: Promise
           Breakdown by meal {s.status !== "draft" ? <span className="text-xs font-normal text-muted">(live — snapshot above is frozen)</span> : null}
         </h2>
         <BreakdownTable title="Vendor payable by meal" unit="Meal" rows={breakdown} mode="vendor" />
+      </div>
+
+      <div>
+        <h2 className="mb-2 font-display text-base font-semibold text-ink">
+          Breakdown by day {s.status !== "draft" ? <span className="text-xs font-normal text-muted">(live — snapshot above is frozen)</span> : null}
+        </h2>
+        <DayBreakdownTable title="Vendor payable by day" data={dayUsage} />
       </div>
     </div>
   );
