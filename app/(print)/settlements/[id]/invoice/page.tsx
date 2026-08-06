@@ -64,7 +64,18 @@ export default async function SettlementInvoicePage({ params }: { params: Promis
 
   return (
     <div className="mx-auto flex w-full max-w-[880px] flex-col gap-6 px-6 py-6 print:max-w-none print:gap-5 print:p-0">
-      <style>{`@media print { @page { size: A4; margin: 12mm; } tr { break-inside: avoid; } section { break-inside: avoid; } }`}</style>
+      {/* Long tables must FLOW across pages (a blanket section/table
+          break-inside:avoid pushes a taller-than-page table to the next sheet,
+          leaving page 1 blank). Keep only rows atomic and repeat table headers
+          on every printed page. */}
+      <style>{`@media print {
+        @page { size: A4; margin: 12mm; }
+        tr { break-inside: avoid; }
+        thead { display: table-header-group; }
+        tfoot { break-inside: avoid; }
+        h2 { break-after: avoid; }
+        .print-keep { break-inside: avoid; }
+      }`}</style>
       <PrintToolbar backHref={`/settlements/${s.id}`} />
 
       <header className="flex flex-wrap items-start justify-between gap-4 border-b-2 border-line-strong pb-5">
@@ -163,7 +174,7 @@ export default async function SettlementInvoicePage({ params }: { params: Promis
         <SummaryTable heading="Summary by category" unit="Category" rows={byCategory} />
       </section>
 
-      <footer className="mt-6 grid grid-cols-2 gap-10 print:mt-10">
+      <footer className="print-keep mt-6 grid grid-cols-2 gap-10 print:mt-10">
         <div className="border-t border-line-strong pt-2 text-sm text-ink-2">For {s.vendor.name}</div>
         <div className="border-t border-line-strong pt-2 text-right text-sm text-ink-2">For {s.branch.name}</div>
       </footer>
@@ -204,7 +215,7 @@ function SummaryTable({
   const totalCount = rows.reduce((n, r) => n + r.count, 0);
   const totalCost = rows.reduce((sum, r) => sum.plus(r.cost), ZERO);
   return (
-    <div>
+    <div className="print-keep">
       <h2 className="mb-2 font-display text-base font-bold text-ink">{heading}</h2>
       <table className="w-full border-collapse">
         <thead>
