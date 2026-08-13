@@ -6,7 +6,7 @@ import { can, canAccessBranch } from "@/lib/rbac";
 import { inr } from "@/lib/format";
 import { formatDateTimeInZone } from "@/lib/time";
 import { usageByDay, usageByMeal, usageByCategory } from "@/services/reporting";
-import { settlementStatusLabel } from "@/services/settlement";
+import { settlementStatusLabel, storedPeriod } from "@/services/settlement";
 import { PrintToolbar } from "./print-toolbar";
 
 const ZERO = new Prisma.Decimal(0);
@@ -43,8 +43,8 @@ export default async function SettlementInvoicePage({ params }: { params: Promis
   if (!s || !canAccessBranch(actor, s.branchId.toString())) notFound();
   if (s.status === "draft") redirect(`/settlements/${s.id}`); // no invoice until it's raised
 
-  const toExclusive = new Date(s.periodEnd.getFullYear(), s.periodEnd.getMonth(), s.periodEnd.getDate() + 1);
-  const filter = { branchId: s.branchId, from: s.periodStart, toExclusive };
+  const period = storedPeriod(s.periodStart, s.periodEnd);
+  const filter = { branchId: s.branchId, from: period.start, toExclusive: period.toExclusive };
   const [byDay, byMeal, byCategory] = await Promise.all([
     usageByDay(prisma, filter),
     usageByMeal(prisma, filter),

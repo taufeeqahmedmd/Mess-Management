@@ -4,6 +4,7 @@ import { getActor } from "@/lib/session";
 import { can, canAccessBranch } from "@/lib/rbac";
 import { toCsv } from "@/lib/csv";
 import { usageByMeal } from "@/services/reporting";
+import { storedPeriod } from "@/services/settlement";
 
 /** GET /api/settlements/:id — per-meal vendor-payable breakdown CSV for a settlement. */
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
@@ -22,8 +23,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
   const s = await prisma.vendorSettlement.findUnique({ where: { id }, include: { vendor: true, branch: true } });
   if (!s || !canAccessBranch(actor, s.branchId.toString())) return new NextResponse("Not found", { status: 404 });
 
-  const toExclusive = new Date(s.periodEnd.getFullYear(), s.periodEnd.getMonth(), s.periodEnd.getDate() + 1);
-  const rows = await usageByMeal(prisma, { branchId: s.branchId, from: s.periodStart, toExclusive });
+  const p = storedPeriod(s.periodStart, s.periodEnd);
+  const rows = await usageByMeal(prisma, { branchId: s.branchId, from: p.start, toExclusive: p.toExclusive });
 
   const header = ["meal", "meals", "vendorPayable"];
   const body = rows.map((r) => [r.label, String(r.count), r.cost.toFixed(2)]);

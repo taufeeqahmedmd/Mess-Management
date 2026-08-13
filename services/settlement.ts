@@ -37,7 +37,26 @@ export function settlementStatusLabel(status: string): string {
   return status.length > 0 ? status[0].toUpperCase() + status.slice(1) : status;
 }
 
-export type Period = { start: Date; end: Date; toExclusive: Date };
+export type Period = {
+  /** Local midnight of the first day — lower bound for timestamptz queries. */
+  start: Date;
+  /** Local midnight of the last day (inclusive). */
+  end: Date;
+  /** Local midnight of the day after `end` — exclusive upper bound. */
+  toExclusive: Date;
+  /** UTC midnight of the first day — the value to persist in the DATE columns.
+   *  Storing the local-midnight `start` instead shifts the date back a day in
+   *  any timezone ahead of UTC (IST): Prisma sends the UTC instant and Postgres
+   *  truncates it to a DATE. */
+  startDay: Date;
+  /** UTC midnight of the last day — DATE-column counterpart of `end`. */
+  endDay: Date;
+};
+
+/** The same calendar day as a local-midnight Date, at UTC midnight. */
+function utcDay(d: Date): Date {
+  return new Date(Date.UTC(d.getFullYear(), d.getMonth(), d.getDate()));
+}
 
 /**
  * Validate an inclusive [start, end] settlement period. Returns the period with
@@ -53,7 +72,19 @@ export function resolvePeriod(
   if (!start || !end) return { ok: false, error: "Enter a valid start and end date." };
   if (start.getTime() > end.getTime()) return { ok: false, error: "Start date must be on or before end date." };
   const toExclusive = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
-  return { ok: true, period: { start, end, toExclusive } };
+  return { ok: true, period: { start, end, toExclusive, startDay: utcDay(start), endDay: utcDay(end) } };
+}
+
+/**
+ * Rebuild a full Period from the persisted DATE columns, which Prisma reads
+ * back as UTC midnight. Reconstructs the local-midnight query bounds so live
+ * breakdowns/recomputes cover the same local days the snapshot was built from.
+ */
+export function storedPeriod(periodStart: Date, periodEnd: Date): Period {
+  const start = new Date(periodStart.getUTCFullYear(), periodStart.getUTCMonth(), periodStart.getUTCDate());
+  const end = new Date(periodEnd.getUTCFullYear(), periodEnd.getUTCMonth(), periodEnd.getUTCDate());
+  const toExclusive = new Date(end.getFullYear(), end.getMonth(), end.getDate() + 1);
+  return { start, end, toExclusive, startDay: periodStart, endDay: periodEnd };
 }
 
 export type InvoiceTotals = { count: number; amount: Prisma.Decimal };
@@ -96,12 +127,15 @@ export async function overlappingSettlement(
   branchId: bigint,
   period: Period,
 ): Promise<{ id: bigint; periodStart: Date; periodEnd: Date; status: string } | null> {
+  // Compare with the UTC-midnight day values — the DATE columns read back as
+  // UTC midnight, so comparing against local midnights would miss same-day
+  // boundary overlaps in timezones ahead of UTC.
   return db.vendorSettlement.findFirst({
     where: {
       vendorId,
       branchId,
-      periodStart: { lte: period.end },
-      periodEnd: { gte: period.start },
+      periodStart: { lte: period.endDay },
+      periodEnd: { gte: period.startDay },
     },
     select: { id: true, periodStart: true, periodEnd: true, status: true },
     orderBy: { id: "desc" },

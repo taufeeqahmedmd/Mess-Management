@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { resolvePeriod, parseDay, invoiceStatusTotals, overlappingSettlement } from "@/services/settlement";
+import { resolvePeriod, parseDay, storedPeriod, invoiceStatusTotals, overlappingSettlement } from "@/services/settlement";
 
 describe("parseDay", () => {
   it("parses YYYY-MM-DD to local midnight", () => {
@@ -30,6 +30,17 @@ describe("resolvePeriod", () => {
     }
   });
 
+  it("exposes UTC-midnight day values for the DATE columns, immune to server timezone", () => {
+    const r = resolvePeriod("2026-06-30", "2026-07-31");
+    expect(r.ok).toBe(true);
+    if (r.ok) {
+      // local-midnight `start`/`end` would round to the previous day when cast
+      // to a DATE in a timezone ahead of UTC — startDay/endDay must not.
+      expect(r.period.startDay.toISOString()).toBe("2026-06-30T00:00:00.000Z");
+      expect(r.period.endDay.toISOString()).toBe("2026-07-31T00:00:00.000Z");
+    }
+  });
+
   it("allows a single-day period", () => {
     const r = resolvePeriod("2026-06-09", "2026-06-09");
     expect(r.ok).toBe(true);
@@ -44,6 +55,25 @@ describe("resolvePeriod", () => {
   it("rejects missing/invalid dates", () => {
     expect(resolvePeriod(undefined, "2026-06-01").ok).toBe(false);
     expect(resolvePeriod("2026-06-01", "bad").ok).toBe(false);
+  });
+});
+
+describe("storedPeriod", () => {
+  it("rebuilds local-midnight query bounds from the UTC-midnight DATE values", () => {
+    const p = storedPeriod(new Date("2026-06-30T00:00:00.000Z"), new Date("2026-07-31T00:00:00.000Z"));
+    // local calendar days match the stored dates regardless of server timezone
+    expect(p.start.getFullYear()).toBe(2026);
+    expect(p.start.getMonth()).toBe(5);
+    expect(p.start.getDate()).toBe(30);
+    expect(p.start.getHours()).toBe(0);
+    expect(p.end.getMonth()).toBe(6);
+    expect(p.end.getDate()).toBe(31);
+    // exclusive bound is the day after `end` → Aug 1
+    expect(p.toExclusive.getMonth()).toBe(7);
+    expect(p.toExclusive.getDate()).toBe(1);
+    // day values pass through unchanged
+    expect(p.startDay.toISOString()).toBe("2026-06-30T00:00:00.000Z");
+    expect(p.endDay.toISOString()).toBe("2026-07-31T00:00:00.000Z");
   });
 });
 
@@ -98,9 +128,10 @@ describe("overlappingSettlement", () => {
     const where = (calls[0] as { where: Record<string, unknown> }).where;
     expect(where.vendorId).toBe(BigInt(1));
     expect(where.branchId).toBe(BigInt(2));
-    // existing.start <= new.end AND existing.end >= new.start → touching periods clash too
-    expect(where.periodStart).toEqual({ lte: period.end });
-    expect(where.periodEnd).toEqual({ gte: period.start });
+    // existing.start <= new.end AND existing.end >= new.start → touching periods
+    // clash too. Compared as UTC-midnight day values to match the DATE columns.
+    expect(where.periodStart).toEqual({ lte: period.endDay });
+    expect(where.periodEnd).toEqual({ gte: period.startDay });
   });
 
   it("returns null when no settlement overlaps", async () => {

@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { canAccessBranch, type Actor } from "@/lib/rbac";
 import { writeAudit } from "@/lib/audit";
-import { resolvePeriod, settlementTotals, overlappingSettlement, settlementStatusLabel } from "@/services/settlement";
+import { resolvePeriod, storedPeriod, settlementTotals, overlappingSettlement, settlementStatusLabel } from "@/services/settlement";
 
 export type VendorFormState = { error?: string };
 export type SettlementFormState = { error?: string };
@@ -187,8 +187,10 @@ export async function generateSettlementAction(
       data: {
         vendorId,
         branchId,
-        periodStart: period.period.start,
-        periodEnd: period.period.end,
+        // UTC-midnight day values: storing local midnight shifts the DATE
+        // column back a day in timezones ahead of UTC.
+        periodStart: period.period.startDay,
+        periodEnd: period.period.endDay,
         mealCount: totals.mealCount,
         grossAmount: totals.grossAmount,
         status: "draft",
@@ -204,8 +206,8 @@ export async function generateSettlementAction(
         after: {
           vendorId: vendorId.toString(),
           branchId: branchId.toString(),
-          periodStart: period.period.start.toISOString().slice(0, 10),
-          periodEnd: period.period.end.toISOString().slice(0, 10),
+          periodStart: period.period.startDay.toISOString().slice(0, 10),
+          periodEnd: period.period.endDay.toISOString().slice(0, 10),
           mealCount: totals.mealCount,
           grossAmount: totals.grossAmount.toFixed(2),
         },
@@ -232,9 +234,9 @@ export async function recomputeSettlementAction(formData: FormData): Promise<voi
   const s = await loadScopedSettlement(actor, id);
   if (!s || s.status !== "draft") return; // only drafts recompute; approved/paid are frozen
 
-  const toExclusive = new Date(s.periodEnd.getFullYear(), s.periodEnd.getMonth(), s.periodEnd.getDate() + 1);
+  const period = storedPeriod(s.periodStart, s.periodEnd);
   await prisma.$transaction(async (tx) => {
-    const totals = await settlementTotals(tx, s.branchId, { start: s.periodStart, end: s.periodEnd, toExclusive });
+    const totals = await settlementTotals(tx, s.branchId, period);
     await tx.vendorSettlement.update({
       where: { id },
       data: { mealCount: totals.mealCount, grossAmount: totals.grossAmount },

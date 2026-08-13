@@ -9,7 +9,7 @@ import { BreakdownTable } from "@/components/reports/breakdown-table";
 import { DayBreakdownTable } from "@/components/reports/day-breakdown-table";
 import { ConfirmActionForm } from "@/components/ui/confirm-action-form";
 import { usageByDay, usageByMeal } from "@/services/reporting";
-import { settlementStatusLabel } from "@/services/settlement";
+import { settlementStatusLabel, storedPeriod } from "@/services/settlement";
 import { recomputeSettlementAction, setSettlementStatusAction, deleteSettlementAction } from "../actions";
 
 function statusDot(status: string) {
@@ -32,8 +32,8 @@ export default async function SettlementDetailPage({ params }: { params: Promise
   const s = await prisma.vendorSettlement.findUnique({ where: { id }, include: { vendor: true, branch: true } });
   if (!s || !canAccessBranch(actor, s.branchId.toString())) notFound();
 
-  const toExclusive = new Date(s.periodEnd.getFullYear(), s.periodEnd.getMonth(), s.periodEnd.getDate() + 1);
-  const filter = { branchId: s.branchId, from: s.periodStart, toExclusive };
+  const period = storedPeriod(s.periodStart, s.periodEnd);
+  const filter = { branchId: s.branchId, from: period.start, toExclusive: period.toExclusive };
   const [breakdown, dayUsage] = await Promise.all([usageByMeal(prisma, filter), usageByDay(prisma, filter)]);
 
   const isDraft = s.status === "draft";
