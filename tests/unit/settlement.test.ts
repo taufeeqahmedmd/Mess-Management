@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { Prisma, type PrismaClient } from "@prisma/client";
-import { resolvePeriod, parseDay, invoiceStatusTotals } from "@/services/settlement";
+import { resolvePeriod, parseDay, invoiceStatusTotals, overlappingSettlement } from "@/services/settlement";
 
 describe("parseDay", () => {
   it("parses YYYY-MM-DD to local midnight", () => {
@@ -71,5 +71,40 @@ describe("invoiceStatusTotals", () => {
     expect(t.pending.amount.isZero()).toBe(true);
     expect(t.paid.count).toBe(0);
     expect(t.paid.amount.isZero()).toBe(true);
+  });
+});
+
+describe("overlappingSettlement", () => {
+  const period = (resolvePeriod("2026-07-01", "2026-07-31") as { ok: true; period: import("@/services/settlement").Period }).period;
+
+  function dbCapturing(result: unknown) {
+    const calls: unknown[] = [];
+    const db = {
+      vendorSettlement: {
+        findFirst: async (args: unknown) => {
+          calls.push(args);
+          return result;
+        },
+      },
+    } as unknown as PrismaClient;
+    return { db, calls };
+  }
+
+  it("queries an inclusive overlap for the vendor + branch and returns the clash", async () => {
+    const row = { id: BigInt(7), periodStart: new Date(2026, 6, 15), periodEnd: new Date(2026, 7, 14), status: "approved" };
+    const { db, calls } = dbCapturing(row);
+    const clash = await overlappingSettlement(db, BigInt(1), BigInt(2), period);
+    expect(clash).toBe(row);
+    const where = (calls[0] as { where: Record<string, unknown> }).where;
+    expect(where.vendorId).toBe(BigInt(1));
+    expect(where.branchId).toBe(BigInt(2));
+    // existing.start <= new.end AND existing.end >= new.start → touching periods clash too
+    expect(where.periodStart).toEqual({ lte: period.end });
+    expect(where.periodEnd).toEqual({ gte: period.start });
+  });
+
+  it("returns null when no settlement overlaps", async () => {
+    const { db } = dbCapturing(null);
+    expect(await overlappingSettlement(db, BigInt(1), BigInt(2), period)).toBeNull();
   });
 });

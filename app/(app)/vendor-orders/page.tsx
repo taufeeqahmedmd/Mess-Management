@@ -27,6 +27,7 @@ function SummaryCard({ label, value, tone }: { label: string; value: number; ton
 type OrderRow = {
   id: string;
   code: string;
+  raisedBy: string; // cardholder the request is for
   items: number;
   vendorAmount: string;
   requestedFor: string;
@@ -40,10 +41,11 @@ function OrderTable({ rows, empty }: { rows: OrderRow[]; empty: string }) {
   return (
     <div className={PANEL}>
       <div className="overflow-x-auto">
-        <table className="w-full min-w-[720px]">
+        <table className="w-full min-w-[840px]">
           <thead>
             <tr className="border-b border-line bg-surface-2 text-left">
               <th className={TH}>Ref</th>
+              <th className={TH}>Raised by</th>
               <th className={`${TH} text-right`}>Items</th>
               <th className={`${TH} text-right`}>Payable</th>
               <th className={TH}>Delivery</th>
@@ -54,7 +56,7 @@ function OrderTable({ rows, empty }: { rows: OrderRow[]; empty: string }) {
           </thead>
           <tbody>
             {rows.length === 0 ? (
-              <tr><td colSpan={7} className="px-5 py-10 text-center text-muted">{empty}</td></tr>
+              <tr><td colSpan={8} className="px-5 py-10 text-center text-muted">{empty}</td></tr>
             ) : (
               rows.map((r) => {
                 const meta = FOOD_REQUEST_STATUS_META[r.status];
@@ -63,6 +65,7 @@ function OrderTable({ rows, empty }: { rows: OrderRow[]; empty: string }) {
                     <td className={`${TD} whitespace-nowrap`}>
                       <Link href={`/vendor-orders/${r.id}`} className="font-mono text-[12.5px] font-medium text-ink transition-colors hover:text-gold-deep">{r.code}</Link>
                     </td>
+                    <td className={`${TD} text-ink`}>{r.raisedBy}</td>
                     <td className={`${TD} text-right font-mono text-ink-2`}>{r.items}</td>
                     <td className={`${TD} text-right font-mono font-semibold text-ink`}>{r.vendorAmount}</td>
                     <td className={`${TD} whitespace-nowrap text-ink-2`}>{r.requestedFor}</td>
@@ -112,17 +115,17 @@ export default async function VendorOrdersPage() {
   const [actionable, inProgress, recent, cancelled, todaysCount, upcomingCount] = await Promise.all([
     prisma.foodRequest.findMany({
       where: { vendorId: vendor.id, status: { in: [...VENDOR_ACTIONABLE] } },
-      include: { _count: { select: { items: true } } },
+      include: { _count: { select: { items: true } }, user: { select: { fullName: true } } },
       orderBy: { requestedFor: "asc" },
     }),
     prisma.foodRequest.findMany({
       where: { vendorId: vendor.id, status: { in: [...VENDOR_IN_PROGRESS] } },
-      include: { _count: { select: { items: true } } },
+      include: { _count: { select: { items: true } }, user: { select: { fullName: true } } },
       orderBy: { requestedFor: "asc" },
     }),
     prisma.foodRequest.findMany({
       where: { vendorId: vendor.id, status: { in: ["delivered", "rejected"] } },
-      include: { _count: { select: { items: true } } },
+      include: { _count: { select: { items: true } }, user: { select: { fullName: true } } },
       orderBy: { id: "desc" },
       take: 10,
     }),
@@ -132,6 +135,7 @@ export default async function VendorOrdersPage() {
       where: { vendorId: vendor.id, status: "cancelled" },
       include: {
         _count: { select: { items: true } },
+        user: { select: { fullName: true } },
         events: {
           where: { toStatus: "cancelled" },
           orderBy: { id: "desc" },
@@ -153,6 +157,7 @@ export default async function VendorOrdersPage() {
   const toRow = (r: (typeof actionable)[number]): OrderRow => ({
     id: r.id.toString(),
     code: r.code,
+    raisedBy: r.user.fullName,
     items: r._count.items,
     vendorAmount: inr(r.vendorAmount),
     requestedFor: r.requestedFor.toLocaleString("en-IN", { dateStyle: "medium", timeStyle: "short" }),

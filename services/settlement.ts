@@ -83,6 +83,31 @@ export async function invoiceStatusTotals(
   return totals;
 }
 
+/**
+ * The existing settlement (any status) for this vendor + branch whose period
+ * overlaps [period.start, period.end], or null. Every live settlement blocks —
+ * a cancelled/rejected settlement is a DELETED draft, so it no longer exists
+ * and doesn't block re-raising the period. Overlap: existing.start <= new.end
+ * AND existing.end >= new.start.
+ */
+export async function overlappingSettlement(
+  db: Db,
+  vendorId: bigint,
+  branchId: bigint,
+  period: Period,
+): Promise<{ id: bigint; periodStart: Date; periodEnd: Date; status: string } | null> {
+  return db.vendorSettlement.findFirst({
+    where: {
+      vendorId,
+      branchId,
+      periodStart: { lte: period.end },
+      periodEnd: { gte: period.start },
+    },
+    select: { id: true, periodStart: true, periodEnd: true, status: true },
+    orderBy: { id: "desc" },
+  });
+}
+
 /** Meal count + gross payable for a branch over a period (Σ vendorAmount). */
 export async function settlementTotals(
   db: Db,

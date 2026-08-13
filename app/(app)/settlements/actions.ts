@@ -8,7 +8,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { canAccessBranch, type Actor } from "@/lib/rbac";
 import { writeAudit } from "@/lib/audit";
-import { resolvePeriod, settlementTotals } from "@/services/settlement";
+import { resolvePeriod, settlementTotals, overlappingSettlement, settlementStatusLabel } from "@/services/settlement";
 
 export type VendorFormState = { error?: string };
 export type SettlementFormState = { error?: string };
@@ -165,8 +165,23 @@ export async function generateSettlementAction(
   if (!vendor) return { error: "Vendor not found or inactive." };
   if (!branch) return { error: "Branch not found." };
 
-  let newId: bigint;
+  let newId: bigint | undefined;
+  let clashError: string | undefined;
   await prisma.$transaction(async (tx) => {
+    // One settlement per period: block any overlap with an existing settlement
+    // for this vendor + branch. Deleted (cancelled) settlements no longer exist,
+    // so a cancelled period can be re-raised. Checked inside the transaction so
+    // two concurrent submits can't both pass.
+    const clash = await overlappingSettlement(tx, vendorId, branchId, period.period);
+    if (clash) {
+      clashError =
+        `A settlement for this vendor already covers ` +
+        `${clash.periodStart.toISOString().slice(0, 10)} → ${clash.periodEnd.toISOString().slice(0, 10)} ` +
+        `(${settlementStatusLabel(clash.status)}). Overlapping periods aren't allowed — ` +
+        `delete that draft first if it was raised by mistake.`;
+      return;
+    }
+
     const totals = await settlementTotals(tx, branchId, period.period);
     const created = await tx.vendorSettlement.create({
       data: {
@@ -198,6 +213,7 @@ export async function generateSettlementAction(
       tx,
     );
   });
+  if (clashError) return { error: clashError };
 
   revalidatePath("/settlements");
   redirect(`/settlements/${newId!}?flash=created`);
