@@ -14,7 +14,7 @@ export type BranchData = {
   status: "active" | "inactive";
   // Read-only Jodo payment config (from `payment_config`, managed in the DB).
   paymentHasRow: boolean;
-  paymentComplete: boolean; // collector code + url + api key + api secret all set
+  paymentComplete: boolean; // collector code + url + credentials (auth header, or api key + secret) all set
 };
 
 export type EntityOption = { id: string; name: string };
@@ -84,7 +84,7 @@ export function BranchForm({ action, branch, entities, onCancel }: { action: Act
         {branch?.paymentHasRow ? (
           <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-medium ${branch.paymentComplete ? "text-sage-deep" : "text-tomato"}`}>
             <span className={`size-[7px] rounded-full ${branch.paymentComplete ? "bg-sage" : "bg-tomato"}`} />
-            {branch.paymentComplete ? "Ready — online top-up enabled" : "Incomplete — set the API key & secret in the DB"}
+            {branch.paymentComplete ? "Ready — online top-up enabled" : "Incomplete — set the API key & secret (or auth header) in the DB"}
           </span>
         ) : (
           <p className="text-[12px] text-muted-2">

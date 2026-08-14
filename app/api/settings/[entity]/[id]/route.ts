@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { isPaymentConfigComplete } from "@/lib/jodo";
 
 /**
  * GET /api/settings/{branches|categories|meals}/[id] — current values for the
@@ -42,9 +43,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ entity:
       emailEntityId: b.emailEntityId?.toString() ?? "",
       status: b.status === "inactive" ? "inactive" : "active",
       // Read-only payment status only — a completeness flag. The collector code,
-      // URL, and API key/secret are NEVER returned to the client.
+      // URL, and API credentials are NEVER returned to the client.
       paymentHasRow: Boolean(pc),
-      paymentComplete: Boolean(pc?.collectorCode && pc?.url && pc?.apiKey && pc?.apiSecret),
+      paymentComplete: isPaymentConfigComplete(pc),
     });
   }
   if (entity === "categories") {

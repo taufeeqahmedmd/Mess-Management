@@ -82,7 +82,9 @@ digest), a template manager, and a send log:
 
 **Payments (Jodo gateway)**
 - Each **branch** has its own Jodo account, configured in the `payment_config` table:
-  collector code + API base URL + API key/secret. This is **DB-managed only** — there is no
+  collector code + API base URL + API key/secret. An optional `auth_header` column stores a
+  pre-built Authorization header value that overrides the one computed from the key/secret
+  (bare tokens are sent as `Basic <token>`). This is **DB-managed only** — there is no
   environment-variable fallback and no UI to edit the credentials (the branch settings screen
   shows read-only status: configured / incomplete). A branch can't take online payments until its
   row is fully populated. Credentials are never sent to the browser.

@@ -3,6 +3,7 @@ import { notFound, redirect } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { requireActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
+import { isPaymentConfigComplete } from "@/lib/jodo";
 import { BranchForm, type BranchData } from "../../branch-form";
 import { updateBranchAction } from "../../actions";
 
@@ -42,7 +43,7 @@ export default async function EditBranchPage({
     emailEntityId: branch.emailEntityId?.toString() ?? "",
     status: branch.status === "inactive" ? "inactive" : "active",
     paymentHasRow: Boolean(pc),
-    paymentComplete: Boolean(pc?.collectorCode && pc?.url && pc?.apiKey && pc?.apiSecret),
+    paymentComplete: isPaymentConfigComplete(pc),
   };
 
   return (
