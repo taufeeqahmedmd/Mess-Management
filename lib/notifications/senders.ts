@@ -124,8 +124,12 @@ export async function sendWhatsApp(p: {
     };
   }
   try {
+    // Campaign API v2 payload (backend.api-wa.co/campaign/smartping/api/v2).
+    // Our templateParams are already-resolved literals, so the personalization
+    // containers (media/buttons/carouselCards/location/attributes/
+    // paramsFallbackValue) are sent empty as the API shape expects.
     const base = env("SMARTPING_BASE_URL").replace(/\/$/, "");
-    const res = await fetch(`${base}/`, {
+    const res = await fetch(base, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -133,8 +137,14 @@ export async function sendWhatsApp(p: {
         campaignName: p.templateName,
         destination: msisdn(p.phone),
         userName: p.userName || "Customer",
-        source: "mess-management",
         templateParams: p.params,
+        source: "mess-management",
+        media: {},
+        buttons: [],
+        carouselCards: [],
+        location: {},
+        attributes: {},
+        paramsFallbackValue: {},
       }),
     });
     if (!res.ok) {
