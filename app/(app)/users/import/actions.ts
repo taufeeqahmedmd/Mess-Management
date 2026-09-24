@@ -7,6 +7,7 @@ import { requirePermission } from "@/lib/session";
 import { writeAudit } from "@/lib/audit";
 import { parseCsv } from "@/lib/csv";
 import { ensureCouponBalances, activeMealTypeIds } from "@/services/coupon-balance";
+import { isValidEmail } from "@/lib/contact";
 
 export type ImportReport = {
   error?: string;
@@ -15,7 +16,6 @@ export type ImportReport = {
   failures?: { row: number; message: string }[];
 };
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const MAX_BYTES = 2_000_000;
 const STATUSES = new Set(["active", "suspended", "inactive"]);
 
@@ -102,7 +102,7 @@ export async function importUsersAction(
         if (!ok) throw new Error(`${category.identifierLabel} does not match the required format`);
       }
 
-      if (email && !EMAIL.test(email)) throw new Error("invalid email");
+      if (email && !isValidEmail(email)) throw new Error("invalid email");
       if (seenCodes.has(code.toLowerCase())) throw new Error("duplicate identifier within the file");
       if (cardUid && seenUids.has(cardUid.toLowerCase())) throw new Error("duplicate card UID within the file");
 

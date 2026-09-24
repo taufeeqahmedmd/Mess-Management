@@ -17,6 +17,7 @@
     "db:seed": "tsx prisma/seed.ts",
     "db:sync-permissions": "tsx prisma/sync-permissions.ts",
     "db:sync-entities": "tsx prisma/sync-entities.ts",
+    "db:scan-emails": "tsx prisma/scan-invalid-emails.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {

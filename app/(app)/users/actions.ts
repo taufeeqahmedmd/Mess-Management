@@ -10,10 +10,10 @@ import { writeAudit } from "@/lib/audit";
 import { emitNotification } from "@/lib/notifications/notify";
 import { ensureCouponBalances, activeMealTypeIds } from "@/services/coupon-balance";
 import type { Actor } from "@/lib/rbac";
+import { isValidEmail } from "@/lib/contact";
 
 export type UserFormState = { error?: string };
 
-const EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 const PHONE = /^\d{10}$/;
 
 const userSchema = z.object({
@@ -69,7 +69,7 @@ async function validateCommon(
     return { error: "Phone is required." };
   }
   if (input.email) {
-    if (!EMAIL.test(input.email)) return { error: "Email is not valid." };
+    if (!isValidEmail(input.email)) return { error: "Email is not valid." };
   } else if (contactRequired) {
     return { error: "Email is required." };
   }

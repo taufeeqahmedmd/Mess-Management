@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
-import { resolveAuthHeader, isPaymentConfigComplete } from "@/lib/jodo";
+import { resolveAuthHeader, isPaymentConfigComplete, describeJodoError, pickFieldErrors } from "@/lib/jodo";
 
 describe("resolveAuthHeader", () => {
   it("computes Basic base64(api_key:api_secret) when no auth_header is set", () => {
@@ -58,5 +58,36 @@ describe("isPaymentConfigComplete", () => {
     expect(isPaymentConfigComplete({ collectorCode: base.collectorCode, authHeader: "Basic abc" })).toBe(false);
     expect(isPaymentConfigComplete(null)).toBe(false);
     expect(isPaymentConfigComplete(undefined)).toBe(false);
+  });
+});
+
+describe("describeJodoError", () => {
+  const body = {
+    message: "Invalid payload!",
+    status: "error",
+    error_type: "BadRequestError",
+    code: "E0000",
+    errors: [{ key: "email", message: "value is not a valid email address" }],
+  };
+
+  it("surfaces field-level errors instead of the generic 'Invalid payload!'", () => {
+    const d = describeJodoError(body, 400);
+    expect(d.error).toBe("Payment gateway rejected: email (value is not a valid email address).");
+    expect(d.fieldErrors).toEqual([{ key: "email", message: "value is not a valid email address" }]);
+  });
+
+  it("names a credentials problem on 401/403", () => {
+    expect(describeJodoError({ message: "Unauthorized" }, 401).error).toMatch(/credentials/);
+    expect(describeJodoError({ message: "Forbidden" }, 403).fieldErrors).toEqual([]);
+  });
+
+  it("falls back to the gateway message, then to a status line", () => {
+    expect(describeJodoError({ message: "Collector not found" }, 404).error).toBe("Collector not found");
+    expect(describeJodoError(null, 500).error).toBe("Payment gateway error (500).");
+  });
+
+  it("ignores malformed error entries", () => {
+    expect(pickFieldErrors({ errors: [{ message: "no key" }, "str", { key: "phone" }] })).toEqual([{ key: "phone", message: "is invalid" }]);
+    expect(pickFieldErrors({ errors: "nope" })).toEqual([]);
   });
 });

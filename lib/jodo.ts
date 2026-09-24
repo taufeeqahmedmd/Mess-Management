@@ -25,9 +25,12 @@ type JodoOrderInput = {
   callbackUrl: string;
 };
 
+/** One field-level validation error from Jodo's `errors: [{key, message}]`. */
+export type JodoFieldError = { key: string; message: string };
+
 export type JodoOrderResult =
   | { ok: true; orderId: string | null; paymentUrl: string | null; raw: unknown }
-  | { ok: false; error: string; status?: number; raw?: unknown };
+  | { ok: false; error: string; status?: number; raw?: unknown; fieldErrors?: JodoFieldError[] };
 
 export type JodoOrderStatus =
   | { ok: true; paid: boolean; orderStatus: string | null; amount: number | null; transactionId: string | null; raw: unknown }
@@ -82,6 +85,35 @@ function obj(v: unknown): Record<string, unknown> {
   return v && typeof v === "object" ? (v as Record<string, unknown>) : {};
 }
 
+/** Extract Jodo's `errors: [{key, message}]` list from an error body, if any. */
+export function pickFieldErrors(raw: unknown): JodoFieldError[] {
+  const errs = obj(raw).errors;
+  if (!Array.isArray(errs)) return [];
+  return errs
+    .map((e) => obj(e))
+    .filter((e) => typeof e.key === "string" && e.key)
+    .map((e) => ({ key: String(e.key), message: typeof e.message === "string" ? e.message : "is invalid" }));
+}
+
+/**
+ * Turn a Jodo error body into a message that says *what* was wrong. Jodo's
+ * top-level `message` is just "Invalid payload!" — on its own it sent payers
+ * straight back to the Pay button, so the field list (when present) is what
+ * gets surfaced: "Payment gateway rejected: email (value is not a valid email
+ * address)."
+ */
+export function describeJodoError(raw: unknown, status: number): { error: string; fieldErrors: JodoFieldError[] } {
+  const r = obj(raw);
+  const fieldErrors = pickFieldErrors(raw);
+  if (fieldErrors.length) {
+    return { error: `Payment gateway rejected: ${fieldErrors.map((e) => `${e.key} (${e.message})`).join("; ")}.`, fieldErrors };
+  }
+  if (status === 401 || status === 403) {
+    return { error: "Payment gateway rejected our credentials. Please contact the mess office.", fieldErrors };
+  }
+  return { error: String(r.message || r.error || `Payment gateway error (${status}).`), fieldErrors };
+}
+
 function pickPaymentUrl(raw: unknown): string | null {
   const r = obj(raw);
   const data = obj(r.data);
@@ -125,8 +157,8 @@ export async function createJodoOrder(cfg: JodoConfig, input: JodoOrderInput): P
 
   const raw = await res.json().catch(() => null);
   if (!res.ok) {
-    const r = obj(raw);
-    return { ok: false, error: String(r.message || r.error || `Payment gateway error (${res.status}).`), status: res.status, raw };
+    const { error, fieldErrors } = describeJodoError(raw, res.status);
+    return { ok: false, error, status: res.status, raw, fieldErrors };
   }
 
   return { ok: true, orderId: pickOrderId(raw), paymentUrl: pickPaymentUrl(raw), raw };

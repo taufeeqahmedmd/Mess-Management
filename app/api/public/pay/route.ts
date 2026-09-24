@@ -88,7 +88,26 @@ export async function POST(req: Request) {
   });
 
   if (!order.ok) {
-    console.error("Jodo order failed:", order.error, order.raw);
+    console.error("Jodo order failed:", { code: user.code, status: order.status, error: order.error, raw: order.raw });
+    // Jodo rejected a contact field: tell the payer which one so they can fix
+    // it instead of retrying the same payload (422, not a gateway fault).
+    const contact = order.fieldErrors?.find((e) => e.key === "email" || e.key === "phone");
+    if (contact) {
+      return NextResponse.json(
+        {
+          error:
+            contact.key === "email"
+              ? "The payment gateway did not accept the email address on file. Please contact the mess office to correct it."
+              : "The payment gateway did not accept the phone number on file. Please contact the mess office to correct it.",
+          field: contact.key,
+        },
+        { status: 422 },
+      );
+    }
+    // Credentials wrong for this branch: not retryable by the payer.
+    if (order.status === 401 || order.status === 403) {
+      return NextResponse.json({ error: order.error }, { status: 422 });
+    }
     return NextResponse.json({ error: order.error }, { status: 502 });
   }
   if (!order.orderId) {

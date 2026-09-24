@@ -2,6 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from "react";
 import { publicCodeSchema } from "@/lib/public-schema";
+import { isValidEmail } from "@/lib/contact";
 import { Logo } from "@/components/shell/icons";
 import type { PublicBalance, PublicRechargeOptions } from "@/services/public-lookup";
 
@@ -147,7 +148,7 @@ export function LookupClient() {
       setError("Enter a valid 10-digit phone number.");
       return;
     }
-    if (!options.hasEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+    if (!options.hasEmail && !isValidEmail(email)) {
       setError("Enter a valid email address.");
       return;
     }
