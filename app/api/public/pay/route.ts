@@ -77,6 +77,10 @@ export async function POST(req: Request) {
   if (total.lte(0)) return NextResponse.json({ error: "Add at least one coupon to continue." }, { status: 422 });
   const amountStr = total.toFixed(2);
 
+  // Our order reference, minted up front so it can ride in the callback URL path:
+  // the callback finds the order by it, independent of what params Jodo appends
+  // to the redirect (undocumented). Also the credited recharge's idempotency key.
+  const clientUuid = crypto.randomUUID();
   const appUrl = (process.env.APP_URL ?? new URL(req.url).origin).replace(/\/$/, "");
   const order = await createJodoOrder(cfg, {
     name: user.fullName,
@@ -84,7 +88,7 @@ export async function POST(req: Request) {
     email,
     collectorCode: cfg.collectorCode,
     amount: Number(amountStr), // Jodo JSON boundary — exact after toFixed(2)
-    callbackUrl: `${appUrl}/api/public/pay/callback`,
+    callbackUrl: `${appUrl}/api/public/pay/callback/${clientUuid}`,
   });
 
   if (!order.ok) {
@@ -119,7 +123,7 @@ export async function POST(req: Request) {
   await prisma.paymentOrder.create({
     data: {
       jodoOrderId: order.orderId,
-      clientUuid: crypto.randomUUID(),
+      clientUuid,
       userId: user.id,
       branchId: user.branchId,
       amount: new Prisma.Decimal(amountStr),
