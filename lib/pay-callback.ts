@@ -51,7 +51,10 @@ export async function settlePayCallback(req: Request, ref: string | null): Promi
 
   // Verify the order we stored, not an id taken from the (untrusted) redirect.
   const order = await getJodoOrder(cfg, record.jodoOrderId);
-  if (!order.ok) return back({ pay: "pending", code });
+  if (!order.ok) {
+    console.error("Jodo callback: get-order failed", record.jodoOrderId, order.status ?? "unreachable", order.error);
+    return back({ pay: "pending", code });
+  }
   if (!order.paid) return back({ pay: "pending", code });
 
   const result = await creditPaymentOrder(record, order.transactionId);

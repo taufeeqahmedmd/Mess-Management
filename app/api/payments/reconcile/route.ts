@@ -52,7 +52,14 @@ export async function POST(req: Request) {
   let alreadyCredited = 0;
   let stillPending = 0;
   let failed = 0;
-  let errored = 0;
+  // Each errored order stays pending and is retried next run. The reason is
+  // logged and returned (payment-order id + gateway status/message — no
+  // credentials) so a stuck order is diagnosable from the cron log alone.
+  const errors: { id: string; reason: string }[] = [];
+  const fail = (order: { id: bigint; jodoOrderId: string }, reason: string) => {
+    errors.push({ id: order.id.toString(), reason });
+    console.error("reconcile error:", order.jodoOrderId, reason);
+  };
 
   for (const order of pending) {
     try {
@@ -60,14 +67,14 @@ export async function POST(req: Request) {
       // branch is no longer configured, leave the order pending for a later run.
       const cfg = await resolveJodoConfig(order.branchId);
       if (!cfg) {
-        errored++;
+        fail(order, `branch ${order.branchId} has no complete payment config`);
         continue;
       }
       const res = await getJodoOrder(cfg, order.jodoOrderId);
       if (!res.ok) {
         // Gateway unreachable / errored for this order — leave it pending and
         // let the next run retry. Don't mark it failed on a transient error.
-        errored++;
+        fail(order, `get-order ${res.status ?? "unreachable"}: ${res.error}`);
         continue;
       }
 
@@ -79,8 +86,7 @@ export async function POST(req: Request) {
         } else {
           // Paid but couldn't credit (e.g. a meal lost its current rate) — keep
           // it pending so a later run retries once the config is fixed.
-          errored++;
-          console.error("reconcile credit failed:", order.jodoOrderId, credit.error);
+          fail(order, `paid but credit failed: ${credit.error}`);
         }
         continue;
       }
@@ -95,10 +101,17 @@ export async function POST(req: Request) {
         stillPending++;
       }
     } catch (e) {
-      errored++;
-      console.error("reconcile error:", order.jodoOrderId, e);
+      fail(order, `exception: ${e instanceof Error ? e.message : String(e)}`);
     }
   }
 
-  return NextResponse.json({ checked: pending.length, credited, alreadyCredited, stillPending, failed, errored });
+  return NextResponse.json({
+    checked: pending.length,
+    credited,
+    alreadyCredited,
+    stillPending,
+    failed,
+    errored: errors.length,
+    errors,
+  });
 }

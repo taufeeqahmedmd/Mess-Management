@@ -133,7 +133,13 @@ describe("POST /api/payments/reconcile — settlement", () => {
     resolveJodoConfig.mockResolvedValue(null);
 
     const res = await POST(cronReq());
-    expect(await res.json()).toMatchObject({ errored: 1, failed: 0, stillPending: 0, credited: 0 });
+    expect(await res.json()).toMatchObject({
+      errored: 1,
+      failed: 0,
+      stillPending: 0,
+      credited: 0,
+      errors: [{ id: "1", reason: "branch 1 has no complete payment config" }],
+    });
     expect(getJodoOrder).not.toHaveBeenCalled();
     expect(update).not.toHaveBeenCalled();
   });
@@ -143,8 +149,39 @@ describe("POST /api/payments/reconcile — settlement", () => {
     getJodoOrder.mockResolvedValue({ ok: false, error: "gateway down" });
 
     const res = await POST(cronReq());
-    expect(await res.json()).toMatchObject({ errored: 1, failed: 0, stillPending: 0 });
+    expect(await res.json()).toMatchObject({
+      errored: 1,
+      failed: 0,
+      stillPending: 0,
+      errors: [{ id: "1", reason: "get-order unreachable: gateway down" }],
+    });
     expect(update).not.toHaveBeenCalled();
+  });
+
+  it("reports the gateway's HTTP status and message for a rejected get-order", async () => {
+    findMany.mockResolvedValue([order()]);
+    getJodoOrder.mockResolvedValue({ ok: false, status: 404, error: "Order not found" });
+
+    const res = await POST(cronReq());
+    expect(await res.json()).toMatchObject({
+      errored: 1,
+      errors: [{ id: "1", reason: "get-order 404: Order not found" }],
+    });
+  });
+
+  it("reports an unexpected exception as an errored order and keeps going", async () => {
+    findMany.mockResolvedValue([order(), order({ id: BigInt(2), jodoOrderId: "JODO-2" })]);
+    getJodoOrder
+      .mockRejectedValueOnce(new Error("boom"))
+      .mockResolvedValueOnce({ ok: true, paid: true, orderStatus: "paid", amount: 60, transactionId: "TXN2", raw: {} });
+
+    const res = await POST(cronReq());
+    expect(await res.json()).toMatchObject({
+      checked: 2,
+      credited: 1,
+      errored: 1,
+      errors: [{ id: "1", reason: "exception: boom" }],
+    });
   });
 
   it("keeps a paid order pending when crediting fails (e.g. a lapsed rate) for a later retry", async () => {
@@ -153,7 +190,11 @@ describe("POST /api/payments/reconcile — settlement", () => {
     creditPaymentOrder.mockResolvedValue({ ok: false, error: "A meal has no current rate." });
 
     const res = await POST(cronReq());
-    expect(await res.json()).toMatchObject({ credited: 0, errored: 1 });
+    expect(await res.json()).toMatchObject({
+      credited: 0,
+      errored: 1,
+      errors: [{ id: "1", reason: "paid but credit failed: A meal has no current rate." }],
+    });
     expect(update).not.toHaveBeenCalled(); // stays pending
   });
 });
