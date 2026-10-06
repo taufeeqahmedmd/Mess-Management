@@ -25,10 +25,8 @@ vi.mock("@/lib/prisma", () => ({
 vi.mock("@/lib/session", () => ({ getActor: (...a: unknown[]) => getActor(...a) }));
 vi.mock("@/lib/rbac", () => ({ can: (...a: unknown[]) => can(...a) }));
 const pause = vi.fn<(ms: number) => Promise<void>>(async () => {});
-// `getJodoOrder` stands in for the backoff-wrapped call (its retry loop is
-// covered in jodo.test.ts); here it returns the final answer after backoff.
 vi.mock("@/lib/jodo", () => ({
-  getJodoOrderWithBackoff: (...a: unknown[]) => getJodoOrder(...a),
+  getJodoOrder: (...a: unknown[]) => getJodoOrder(...a),
   pause: (ms: number) => pause(ms),
   resolveJodoConfig: (...a: unknown[]) => resolveJodoConfig(...a),
 }));
@@ -210,31 +208,43 @@ describe("POST /api/payments/reconcile — gateway rate limit (429)", () => {
 
   afterEach(() => vi.restoreAllMocks());
 
-  it("paces gateway calls with a pause between each and passes the backoff schedule", async () => {
+  it("paces gateway calls with a pause between each", async () => {
     findMany.mockResolvedValue(orders(3));
     getJodoOrder.mockResolvedValue(unpaid);
 
     const res = await POST(cronReq());
-    expect(await res.json()).toMatchObject({ checked: 3, stillPending: 3, deferred: 0, rateLimited: false });
-    expect(pause.mock.calls.map((c) => c[0])).toEqual([1000, 1000]); // between calls, not before the first
-    expect(getJodoOrder).toHaveBeenCalledWith(expect.anything(), "JODO-1", [2000, 5000]);
+    expect(await res.json()).toMatchObject({ checked: 3, stillPending: 3, deferred: 0 });
+    expect(pause.mock.calls.map((c) => c[0])).toEqual([500, 500]); // between calls, not before the first
   });
 
-  it("stops the run when Jodo is still rate-limiting after backoff, deferring the rest", async () => {
-    findMany.mockResolvedValue(orders(4));
-    getJodoOrder.mockResolvedValueOnce(unpaid).mockResolvedValueOnce(limited).mockResolvedValue(unpaid);
+  it("skips only a throttled order — the orders behind it are still checked and credited", async () => {
+    // Production pattern: the newest pending order is throttled, older ones aren't.
+    findMany.mockResolvedValue(orders(3));
+    getJodoOrder
+      .mockResolvedValueOnce(limited)
+      .mockResolvedValueOnce({ ok: true, paid: true, orderStatus: "paid", amount: 60, transactionId: "TXN2", raw: {} })
+      .mockResolvedValueOnce(unpaid);
 
     const res = await POST(cronReq());
     expect(await res.json()).toMatchObject({
-      checked: 1,
+      checked: 3,
+      credited: 1,
       stillPending: 1,
-      errored: 0,
-      deferred: 3, // the 429'd order and the two after it
-      rateLimited: true,
-      errors: [],
+      errored: 1,
+      deferred: 0,
+      errors: [{ id: "1", reason: "get-order 429: Too many requests." }],
     });
-    expect(getJodoOrder).toHaveBeenCalledTimes(2); // never hammers the remaining orders
+    expect(getJodoOrder).toHaveBeenCalledTimes(3); // one call per order — no retry hammering
     expect(update).not.toHaveBeenCalled(); // a 429 never marks anything failed
+  });
+
+  it("never marks a throttled order failed, even past the stale cutoff", async () => {
+    findMany.mockResolvedValue([order({ createdAt: new Date(Date.now() - 30 * 60 * 60_000) })]); // 30h old
+    getJodoOrder.mockResolvedValue(limited);
+
+    const res = await POST(cronReq());
+    expect(await res.json()).toMatchObject({ errored: 1, failed: 0 });
+    expect(update).not.toHaveBeenCalled(); // may be paid — must stay pending until Jodo answers
   });
 
   it("defers what's left once the run's time budget is spent", async () => {
@@ -247,7 +257,7 @@ describe("POST /api/payments/reconcile — gateway rate limit (429)", () => {
       .mockReturnValue(t0 + 41_000); // later checks: budget (40s) exceeded
 
     const res = await POST(cronReq());
-    expect(await res.json()).toMatchObject({ checked: 1, stillPending: 1, deferred: 2, rateLimited: false });
+    expect(await res.json()).toMatchObject({ checked: 1, stillPending: 1, deferred: 2 });
     expect(getJodoOrder).toHaveBeenCalledTimes(1);
   });
 });

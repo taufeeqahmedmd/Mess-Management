@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
-import { getJodoOrderWithBackoff, pause, resolveJodoConfig } from "@/lib/jodo";
+import { getJodoOrder, pause, resolveJodoConfig } from "@/lib/jodo";
 import { creditPaymentOrder } from "@/lib/run-online-topup";
 
 // A pending order younger than this is still "in flight" — the live redirect
@@ -17,13 +17,12 @@ const STALE_MS = 24 * 60 * 60_000; // 24 hours
 const BATCH = 200;
 // Gateway states that mean the order will never be paid.
 const TERMINAL_FAIL = new Set(["failed", "expired", "cancelled", "canceled", "declined", "voided"]);
-// Jodo rate-limits bursts (HTTP 429, no published limit), and the limit is
-// shared with live payers' callbacks — an unpaced sweep 429s itself AND the
-// callbacks, which strands more orders pending and makes the next sweep bigger.
-// So: pause between gateway calls, back off on a 429, and if it persists stop
-// the run and leave the rest for the next one.
-const GAP_MS = 1_000;
-const BACKOFF_MS = [2_000, 5_000];
+// Jodo answers get-order with 429 (TooManyRequestsError, no Retry-After) —
+// observed PER ORDER: the same orders are refused run after run while others
+// in the same sweep succeed. So a 429 skips only that order (the next run is
+// its backoff) and never stops the sweep, or one throttled order would starve
+// every order behind it. Calls are still paced so the sweep is never a burst.
+const GAP_MS = 500;
 // Stop starting new checks after this long, so a run finishes inside nginx's
 // 60s proxy_read_timeout (the cron calls through nginx). The rest wait for the
 // next run.
@@ -73,10 +72,9 @@ export async function POST(req: Request) {
     console.error("reconcile error:", order.jodoOrderId, reason);
   };
 
-  // Orders not examined this run (time budget spent, or Jodo kept rate-limiting).
-  // They stay pending and are picked up by the next run.
+  // Orders not examined this run (time budget spent). They stay pending and are
+  // picked up by the next run.
   let deferred = 0;
-  let rateLimited = false;
   let gatewayCalls = 0;
 
   for (let i = 0; i < pending.length; i++) {
@@ -94,14 +92,7 @@ export async function POST(req: Request) {
         continue;
       }
       if (gatewayCalls++ > 0) await pause(GAP_MS);
-      const res = await getJodoOrderWithBackoff(cfg, order.jodoOrderId, BACKOFF_MS);
-      if (!res.ok && res.status === 429) {
-        // Still rate-limited after backing off: stop calling Jodo this run.
-        rateLimited = true;
-        deferred = pending.length - i;
-        console.error(`reconcile: Jodo still rate-limiting (429); deferring ${deferred} order(s) to the next run`);
-        break;
-      }
+      const res = await getJodoOrder(cfg, order.jodoOrderId);
       if (!res.ok) {
         // Gateway unreachable / errored for this order — leave it pending and
         // let the next run retry. Don't mark it failed on a transient error.
@@ -144,7 +135,6 @@ export async function POST(req: Request) {
     failed,
     errored: errors.length,
     deferred,
-    rateLimited,
     errors,
   });
 }
