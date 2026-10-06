@@ -12,6 +12,7 @@
  *   getJodoOrder      — GET an order to confirm it was actually paid (docs:
  *                       https://docs.jodo.in/pay/api/get-order/). Crediting only
  *                       happens after this returns status "paid".
+ *   getJodoOrderWithBackoff — getJodoOrder, retried while Jodo rate-limits (429).
  */
 
 import { prisma } from "@/lib/prisma";
@@ -194,4 +195,31 @@ export async function getJodoOrder(cfg: JodoConfig, orderId: string): Promise<Jo
     transactionId: typeof data.transaction_id === "string" ? data.transaction_id : null,
     raw,
   };
+}
+
+/** Wait `ms` — the pacing primitive for gateway calls. */
+export function pause(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
+/**
+ * getJodoOrder, retried after each wait in `waitsMs` while Jodo answers 429.
+ * Jodo rate-limits bursts with no published limit and says to "retry with
+ * exponential backoff" (docs.jodo.in/getting-started/api-structure). Returns
+ * the last result — still a 429 after the final wait means the caller should
+ * back off entirely rather than keep calling.
+ */
+export async function getJodoOrderWithBackoff(
+  cfg: JodoConfig,
+  orderId: string,
+  waitsMs: number[],
+  sleep: (ms: number) => Promise<void> = pause,
+): Promise<JodoOrderStatus> {
+  let res = await getJodoOrder(cfg, orderId);
+  for (const ms of waitsMs) {
+    if (res.ok || res.status !== 429) break;
+    await sleep(ms);
+    res = await getJodoOrder(cfg, orderId);
+  }
+  return res;
 }

@@ -1,9 +1,12 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { getJodoOrder, resolveJodoConfig } from "@/lib/jodo";
+import { getJodoOrderWithBackoff, resolveJodoConfig } from "@/lib/jodo";
 import { creditPaymentOrder } from "@/lib/run-online-topup";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+// If Jodo rate-limits (429) the payer's status check, retry after these waits
+// (≤3s extra on the redirect) rather than strand a paid order as "pending".
+const BACKOFF_MS = [1_000, 2_000];
 
 /**
  * Settle a payer's return from Jodo checkout. `ref` is OUR order reference
@@ -50,7 +53,7 @@ export async function settlePayCallback(req: Request, ref: string | null): Promi
   if (!cfg) return back({ pay: "error", code });
 
   // Verify the order we stored, not an id taken from the (untrusted) redirect.
-  const order = await getJodoOrder(cfg, record.jodoOrderId);
+  const order = await getJodoOrderWithBackoff(cfg, record.jodoOrderId, BACKOFF_MS);
   if (!order.ok) {
     console.error("Jodo callback: get-order failed", record.jodoOrderId, order.status ?? "unreachable", order.error);
     return back({ pay: "pending", code });

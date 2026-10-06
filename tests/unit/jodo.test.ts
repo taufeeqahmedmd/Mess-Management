@@ -1,8 +1,14 @@
-import { describe, expect, it, vi } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 vi.mock("@/lib/prisma", () => ({ prisma: {} }));
 
-import { resolveAuthHeader, isPaymentConfigComplete, describeJodoError, pickFieldErrors } from "@/lib/jodo";
+import {
+  resolveAuthHeader,
+  isPaymentConfigComplete,
+  describeJodoError,
+  pickFieldErrors,
+  getJodoOrderWithBackoff,
+} from "@/lib/jodo";
 
 describe("resolveAuthHeader", () => {
   it("computes Basic base64(api_key:api_secret) when no auth_header is set", () => {
@@ -89,5 +95,60 @@ describe("describeJodoError", () => {
   it("ignores malformed error entries", () => {
     expect(pickFieldErrors({ errors: [{ message: "no key" }, "str", { key: "phone" }] })).toEqual([{ key: "phone", message: "is invalid" }]);
     expect(pickFieldErrors({ errors: "nope" })).toEqual([]);
+  });
+});
+
+describe("getJodoOrderWithBackoff", () => {
+  const cfg = { base: "https://ext.jodo.in", auth: "Basic x", collectorCode: "C" };
+  const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
+  const paid = () => reply(200, { status: "success", data: { status: "paid", transaction_id: "TXN1", details: [] } });
+  const limited = () => reply(429, { message: "Too many requests." });
+
+  function stubFetch(...responses: Response[]) {
+    const fetchMock = vi.fn();
+    for (const r of responses) fetchMock.mockResolvedValueOnce(r);
+    vi.stubGlobal("fetch", fetchMock);
+    return fetchMock;
+  }
+  const noSleep = () => vi.fn<(ms: number) => Promise<void>>(async () => {});
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("returns the first answer without waiting when Jodo isn't rate-limiting", async () => {
+    const fetchMock = stubFetch(paid());
+    const sleep = noSleep();
+
+    const res = await getJodoOrderWithBackoff(cfg, "ORD", [1000, 2000], sleep);
+    expect(res).toMatchObject({ ok: true, paid: true, transactionId: "TXN1" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
+  });
+
+  it("waits and retries on 429 until the gateway answers", async () => {
+    const fetchMock = stubFetch(limited(), limited(), paid());
+    const sleep = noSleep();
+
+    const res = await getJodoOrderWithBackoff(cfg, "ORD", [1000, 2000], sleep);
+    expect(res).toMatchObject({ ok: true, paid: true });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+    expect(sleep.mock.calls.map((c) => c[0])).toEqual([1000, 2000]);
+  });
+
+  it("returns the 429 once every wait is used up, so the caller can back off", async () => {
+    const fetchMock = stubFetch(limited(), limited(), limited());
+    const sleep = noSleep();
+
+    const res = await getJodoOrderWithBackoff(cfg, "ORD", [1000, 2000], sleep);
+    expect(res).toEqual({ ok: false, status: 429, error: "Too many requests." });
+    expect(fetchMock).toHaveBeenCalledTimes(3);
+  });
+
+  it("does not retry other gateway errors", async () => {
+    const fetchMock = stubFetch(reply(404, { message: "Order not found" }));
+    const sleep = noSleep();
+
+    const res = await getJodoOrderWithBackoff(cfg, "ORD", [1000, 2000], sleep);
+    expect(res).toEqual({ ok: false, status: 404, error: "Order not found" });
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    expect(sleep).not.toHaveBeenCalled();
   });
 });

@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { getActor } from "@/lib/session";
 import { can } from "@/lib/rbac";
-import { getJodoOrder, resolveJodoConfig } from "@/lib/jodo";
+import { getJodoOrderWithBackoff, pause, resolveJodoConfig } from "@/lib/jodo";
 import { creditPaymentOrder } from "@/lib/run-online-topup";
 
 // A pending order younger than this is still "in flight" — the live redirect
@@ -17,6 +17,17 @@ const STALE_MS = 24 * 60 * 60_000; // 24 hours
 const BATCH = 200;
 // Gateway states that mean the order will never be paid.
 const TERMINAL_FAIL = new Set(["failed", "expired", "cancelled", "canceled", "declined", "voided"]);
+// Jodo rate-limits bursts (HTTP 429, no published limit), and the limit is
+// shared with live payers' callbacks — an unpaced sweep 429s itself AND the
+// callbacks, which strands more orders pending and makes the next sweep bigger.
+// So: pause between gateway calls, back off on a 429, and if it persists stop
+// the run and leave the rest for the next one.
+const GAP_MS = 1_000;
+const BACKOFF_MS = [2_000, 5_000];
+// Stop starting new checks after this long, so a run finishes inside nginx's
+// 60s proxy_read_timeout (the cron calls through nginx). The rest wait for the
+// next run.
+const RUN_BUDGET_MS = 40_000;
 
 /**
  * POST /api/payments/reconcile — settle online top-ups whose redirect callback
@@ -41,7 +52,8 @@ export async function POST(req: Request) {
     if (!can(actor, "recharge.create")) return NextResponse.json({ error: "Forbidden" }, { status: 403 });
   }
 
-  const now = Date.now();
+  const startedAt = Date.now();
+  const now = startedAt;
   const pending = await prisma.paymentOrder.findMany({
     where: { status: "pending", createdAt: { lte: new Date(now - MIN_AGE_MS) } },
     orderBy: { createdAt: "desc" },
@@ -61,7 +73,18 @@ export async function POST(req: Request) {
     console.error("reconcile error:", order.jodoOrderId, reason);
   };
 
-  for (const order of pending) {
+  // Orders not examined this run (time budget spent, or Jodo kept rate-limiting).
+  // They stay pending and are picked up by the next run.
+  let deferred = 0;
+  let rateLimited = false;
+  let gatewayCalls = 0;
+
+  for (let i = 0; i < pending.length; i++) {
+    const order = pending[i];
+    if (Date.now() - startedAt > RUN_BUDGET_MS) {
+      deferred = pending.length - i;
+      break;
+    }
     try {
       // Verify against the order's own branch gateway (no env fallback). If the
       // branch is no longer configured, leave the order pending for a later run.
@@ -70,7 +93,15 @@ export async function POST(req: Request) {
         fail(order, `branch ${order.branchId} has no complete payment config`);
         continue;
       }
-      const res = await getJodoOrder(cfg, order.jodoOrderId);
+      if (gatewayCalls++ > 0) await pause(GAP_MS);
+      const res = await getJodoOrderWithBackoff(cfg, order.jodoOrderId, BACKOFF_MS);
+      if (!res.ok && res.status === 429) {
+        // Still rate-limited after backing off: stop calling Jodo this run.
+        rateLimited = true;
+        deferred = pending.length - i;
+        console.error(`reconcile: Jodo still rate-limiting (429); deferring ${deferred} order(s) to the next run`);
+        break;
+      }
       if (!res.ok) {
         // Gateway unreachable / errored for this order — leave it pending and
         // let the next run retry. Don't mark it failed on a transient error.
@@ -106,12 +137,14 @@ export async function POST(req: Request) {
   }
 
   return NextResponse.json({
-    checked: pending.length,
+    checked: pending.length - deferred,
     credited,
     alreadyCredited,
     stillPending,
     failed,
     errored: errors.length,
+    deferred,
+    rateLimited,
     errors,
   });
 }

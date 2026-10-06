@@ -1,4 +1,4 @@
-import { describe, it, expect, vi, beforeEach } from "vitest";
+import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
 
 /**
  * Payment reconciliation (`app/api/payments/reconcile`) — the safety net that
@@ -24,8 +24,12 @@ vi.mock("@/lib/prisma", () => ({
 }));
 vi.mock("@/lib/session", () => ({ getActor: (...a: unknown[]) => getActor(...a) }));
 vi.mock("@/lib/rbac", () => ({ can: (...a: unknown[]) => can(...a) }));
+const pause = vi.fn<(ms: number) => Promise<void>>(async () => {});
+// `getJodoOrder` stands in for the backoff-wrapped call (its retry loop is
+// covered in jodo.test.ts); here it returns the final answer after backoff.
 vi.mock("@/lib/jodo", () => ({
-  getJodoOrder: (...a: unknown[]) => getJodoOrder(...a),
+  getJodoOrderWithBackoff: (...a: unknown[]) => getJodoOrder(...a),
+  pause: (ms: number) => pause(ms),
   resolveJodoConfig: (...a: unknown[]) => resolveJodoConfig(...a),
 }));
 vi.mock("@/lib/run-online-topup", () => ({ creditPaymentOrder: (...a: unknown[]) => creditPaymentOrder(...a) }));
@@ -196,5 +200,54 @@ describe("POST /api/payments/reconcile — settlement", () => {
       errors: [{ id: "1", reason: "paid but credit failed: A meal has no current rate." }],
     });
     expect(update).not.toHaveBeenCalled(); // stays pending
+  });
+});
+
+describe("POST /api/payments/reconcile — gateway rate limit (429)", () => {
+  const unpaid = { ok: true, paid: false, orderStatus: "unpaid", amount: 60, transactionId: null, raw: {} };
+  const limited = { ok: false, status: 429, error: "Too many requests." };
+  const orders = (n: number) => Array.from({ length: n }, (_, i) => order({ id: BigInt(i + 1), jodoOrderId: `JODO-${i + 1}` }));
+
+  afterEach(() => vi.restoreAllMocks());
+
+  it("paces gateway calls with a pause between each and passes the backoff schedule", async () => {
+    findMany.mockResolvedValue(orders(3));
+    getJodoOrder.mockResolvedValue(unpaid);
+
+    const res = await POST(cronReq());
+    expect(await res.json()).toMatchObject({ checked: 3, stillPending: 3, deferred: 0, rateLimited: false });
+    expect(pause.mock.calls.map((c) => c[0])).toEqual([1000, 1000]); // between calls, not before the first
+    expect(getJodoOrder).toHaveBeenCalledWith(expect.anything(), "JODO-1", [2000, 5000]);
+  });
+
+  it("stops the run when Jodo is still rate-limiting after backoff, deferring the rest", async () => {
+    findMany.mockResolvedValue(orders(4));
+    getJodoOrder.mockResolvedValueOnce(unpaid).mockResolvedValueOnce(limited).mockResolvedValue(unpaid);
+
+    const res = await POST(cronReq());
+    expect(await res.json()).toMatchObject({
+      checked: 1,
+      stillPending: 1,
+      errored: 0,
+      deferred: 3, // the 429'd order and the two after it
+      rateLimited: true,
+      errors: [],
+    });
+    expect(getJodoOrder).toHaveBeenCalledTimes(2); // never hammers the remaining orders
+    expect(update).not.toHaveBeenCalled(); // a 429 never marks anything failed
+  });
+
+  it("defers what's left once the run's time budget is spent", async () => {
+    findMany.mockResolvedValue(orders(3));
+    getJodoOrder.mockResolvedValue(unpaid);
+    const t0 = Date.now();
+    vi.spyOn(Date, "now")
+      .mockReturnValueOnce(t0) // run start
+      .mockReturnValueOnce(t0) // budget check, order 1
+      .mockReturnValue(t0 + 41_000); // later checks: budget (40s) exceeded
+
+    const res = await POST(cronReq());
+    expect(await res.json()).toMatchObject({ checked: 1, stillPending: 1, deferred: 2, rateLimited: false });
+    expect(getJodoOrder).toHaveBeenCalledTimes(1);
   });
 });

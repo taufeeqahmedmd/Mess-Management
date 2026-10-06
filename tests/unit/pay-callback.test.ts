@@ -34,7 +34,7 @@ vi.mock("@/lib/prisma", () => ({
   },
 }));
 vi.mock("@/lib/jodo", () => ({
-  getJodoOrder: (...a: unknown[]) => getJodoOrder(...a),
+  getJodoOrderWithBackoff: (...a: unknown[]) => getJodoOrder(...a),
   createJodoOrder: (...a: unknown[]) => createJodoOrder(...a),
   resolveJodoConfig: (...a: unknown[]) => resolveJodoConfig(...a),
 }));
@@ -86,7 +86,7 @@ describe("GET /api/public/pay/callback/[ref]", () => {
     const res = await viaRef(REF);
 
     expect(orderFindUnique).toHaveBeenCalledWith({ where: { clientUuid: REF } });
-    expect(getJodoOrder).toHaveBeenCalledWith(CFG, "JODO-1");
+    expect(getJodoOrder).toHaveBeenCalledWith(CFG, "JODO-1", [1000, 2000]);
     expect(creditPaymentOrder).toHaveBeenCalledWith(record(), "TXN9");
     expect(landing(res)).toEqual({ paid: "1", code: "EMP001" });
   });
@@ -95,7 +95,7 @@ describe("GET /api/public/pay/callback/[ref]", () => {
     await viaRef(REF, "?order_id=SOMEONE-ELSES-ORDER");
 
     expect(orderFindUnique).toHaveBeenCalledWith({ where: { clientUuid: REF } });
-    expect(getJodoOrder).toHaveBeenCalledWith(CFG, "JODO-1");
+    expect(getJodoOrder).toHaveBeenCalledWith(CFG, "JODO-1", [1000, 2000]);
   });
 
   it("rejects a malformed ref without querying the DB", async () => {
@@ -133,6 +133,14 @@ describe("GET /api/public/pay/callback/[ref]", () => {
 
   it("leaves the order pending when the gateway can't be reached", async () => {
     getJodoOrder.mockResolvedValue({ ok: false, error: "down" });
+    const res = await viaRef(REF);
+
+    expect(creditPaymentOrder).not.toHaveBeenCalled();
+    expect(landing(res)).toEqual({ pay: "pending", code: "EMP001" });
+  });
+
+  it("leaves the order pending (for reconcile) when Jodo still rate-limits after backoff", async () => {
+    getJodoOrder.mockResolvedValue({ ok: false, status: 429, error: "Too many requests." });
     const res = await viaRef(REF);
 
     expect(creditPaymentOrder).not.toHaveBeenCalled();
