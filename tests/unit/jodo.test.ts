@@ -169,7 +169,8 @@ describe("webhook management APIs", () => {
     vi.stubGlobal("fetch", fetchMock);
     expect(await listJodoWebhooks(cfg)).toMatchObject({ ok: true, webhooks: [{ id: "wh1", eventCode: "x", url: "u", failureEmail: "e" }] });
     expect(await disableJodoWebhook(cfg, "wh1")).toEqual({ ok: true });
-    expect((fetchMock.mock.calls[1] as [string, RequestInit])[0]).toBe("https://ext.jodo.in/api/v1/integrations/erp/webhooks/wh1");
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe("https://ext.jodo.in/api/v1/integrations/erp/webhooks?collector_code=C");
+    expect((fetchMock.mock.calls[1] as [string, RequestInit])[0]).toBe("https://ext.jodo.in/api/v1/integrations/erp/webhooks/wh1?collector_code=C");
     expect((fetchMock.mock.calls[1] as [string, RequestInit])[1].method).toBe("DELETE");
   });
 });

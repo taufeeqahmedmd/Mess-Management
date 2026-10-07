@@ -287,7 +287,11 @@ export async function addJodoWebhook(
 export async function listJodoWebhooks(cfg: JodoConfig): Promise<{ ok: true; webhooks: JodoWebhook[]; raw: unknown } | { ok: false; error: string }> {
   let res: Response;
   try {
-    res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks`, { headers: { Authorization: cfg.auth }, cache: "no-store" });
+    // collector_code is required here too (live API; undocumented) — as a query param on GET.
+    res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks?collector_code=${encodeURIComponent(cfg.collectorCode)}`, {
+      headers: { Authorization: cfg.auth },
+      cache: "no-store",
+    });
   } catch {
     return { ok: false, error: "Couldn't reach the payment gateway." };
   }
@@ -302,11 +306,14 @@ export async function listJodoWebhooks(cfg: JodoConfig): Promise<{ ok: true; web
 export async function disableJodoWebhook(cfg: JodoConfig, webhookId: string): Promise<{ ok: boolean; error?: string }> {
   let res: Response;
   try {
-    res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks/${encodeURIComponent(webhookId)}`, {
-      method: "DELETE",
-      headers: { Authorization: cfg.auth },
-      cache: "no-store",
-    });
+    res = await fetch(
+      `${cfg.base}/api/v1/integrations/erp/webhooks/${encodeURIComponent(webhookId)}?collector_code=${encodeURIComponent(cfg.collectorCode)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: cfg.auth },
+        cache: "no-store",
+      },
+    );
   } catch {
     return { ok: false, error: "Couldn't reach the payment gateway." };
   }
