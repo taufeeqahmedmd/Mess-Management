@@ -263,6 +263,9 @@ export async function addJodoWebhook(
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: cfg.auth },
       body: JSON.stringify({
+        // Required by the live API (not in the docs' field list): subscriptions
+        // are scoped to the collector the branch transacts under.
+        collector_code: cfg.collectorCode,
         event_code: input.eventCode,
         url: input.url,
         secret_key: input.secretKey,
