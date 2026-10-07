@@ -3,6 +3,11 @@
  * signing secret in `payment_config` — the one operational step that turns on
  * webhook-driven crediting for that branch.
  *
+ * A subscription belongs to a COLLECTOR, not a branch: branches that share a
+ * collector code + gateway URL (e.g. NH/MH/NG on DPSPAY) get ONE registration,
+ * and the secret + ids are stored on every one of those branches so the
+ * receiver can verify an event for any of their orders.
+ *
  * What it does, in order (so a half-run never leaves a dangling state):
  *   1. generate a fresh 32-byte secret;
  *   2. add two subscriptions on the branch's Jodo account (order.payment.debited,
@@ -15,6 +20,7 @@
  *
  * Usage (on the server, with the production DATABASE_URL + APP_URL in .env):
  *   npx tsx prisma/register-jodo-webhook.ts --branch <id|code> --email ops@example.com
+ *     (run ONCE per collector — any branch on it will do; all of them get the secret)
  *   npx tsx prisma/register-jodo-webhook.ts --branch <id|code> --list       # show Jodo's view
  *   npx tsx prisma/register-jodo-webhook.ts --branch <id|code> --disable-all # turn webhooks off
  */
@@ -43,6 +49,14 @@ async function main() {
   const cfg = await resolveJodoConfig(branch.id);
   if (!cfg) throw new Error(`Branch ${branch.code} has no complete payment_config (collector code + url + credentials).`);
   const stored = (branch.paymentConfig?.webhookIds as StoredIds | null) ?? [];
+  // Every branch on the same collector (+ URL) shares this subscription.
+  const siblings = await prisma.paymentConfig.findMany({
+    where: { collectorCode: branch.paymentConfig?.collectorCode ?? "", url: branch.paymentConfig?.url ?? "" },
+    include: { branch: { select: { code: true } } },
+  });
+  const siblingIds = siblings.map((s) => s.branchId);
+  const siblingCodes = siblings.map((s) => s.branch.code).join(", ");
+  console.log(`Collector ${cfg.collectorCode} — branches: ${siblingCodes}`);
 
   if (flag("list")) {
     const res = await listJodoWebhooks(cfg);
@@ -60,8 +74,8 @@ async function main() {
       const r = await disableJodoWebhook(cfg, s.id);
       console.log(`disable ${s.id} (${s.eventCode}): ${r.ok ? "ok" : r.error}`);
     }
-    await prisma.paymentConfig.update({ where: { branchId: branch.id }, data: { webhookIds: [], webhookSecret: null } });
-    console.log("Webhook secret cleared; branch is back to polling-only.");
+    await prisma.paymentConfig.updateMany({ where: { branchId: { in: siblingIds } }, data: { webhookIds: [], webhookSecret: null } });
+    console.log(`Webhook secret cleared on ${siblingCodes}; collector is back to polling-only.`);
     return;
   }
 
@@ -84,11 +98,11 @@ async function main() {
     console.log(`added ${r.webhook.id}  ${eventCode}  → ${url}`);
   }
 
-  await prisma.paymentConfig.update({
-    where: { branchId: branch.id },
+  await prisma.paymentConfig.updateMany({
+    where: { branchId: { in: siblingIds } },
     data: { webhookSecret: secret, webhookIds: added },
   });
-  console.log(`Stored webhook secret + ids for branch ${branch.code}.`);
+  console.log(`Stored webhook secret + ids on ${siblingCodes} (collector ${cfg.collectorCode}).`);
 
   for (const s of stored) {
     const r = await disableJodoWebhook(cfg, s.id);
