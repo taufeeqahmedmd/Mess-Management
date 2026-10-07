@@ -50,6 +50,8 @@ async function main() {
     console.log(`Jodo subscriptions for ${branch.code}:`);
     for (const w of res.webhooks) console.log(`  ${w.id}  ${w.eventCode}  ${w.url}${stored.some((s) => s.id === w.id) ? "  (stored)" : ""}`);
     console.log(`Stored secret: ${branch.paymentConfig?.webhookSecret ? "yes" : "no"}`);
+    // Raw response too — Jodo may carry status/activation fields the summary drops.
+    console.log("Raw:", JSON.stringify(res.raw, null, 2));
     return;
   }
 

@@ -284,7 +284,7 @@ export async function addJodoWebhook(
 }
 
 /** List the account's webhook subscriptions (docs.jodo.in/configuration/api/list-webhooks). */
-export async function listJodoWebhooks(cfg: JodoConfig): Promise<{ ok: true; webhooks: JodoWebhook[] } | { ok: false; error: string }> {
+export async function listJodoWebhooks(cfg: JodoConfig): Promise<{ ok: true; webhooks: JodoWebhook[]; raw: unknown } | { ok: false; error: string }> {
   let res: Response;
   try {
     res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks`, { headers: { Authorization: cfg.auth }, cache: "no-store" });
@@ -295,7 +295,7 @@ export async function listJodoWebhooks(cfg: JodoConfig): Promise<{ ok: true; web
   if (!res.ok) return { ok: false, error: describeJodoError(raw, res.status).error };
   const data = obj(raw).data;
   const webhooks = Array.isArray(data) ? data.map(toWebhook).filter((w): w is JodoWebhook => w !== null) : [];
-  return { ok: true, webhooks };
+  return { ok: true, webhooks, raw };
 }
 
 /** Disable a webhook subscription (docs.jodo.in/configuration/api/disable-webhook). */

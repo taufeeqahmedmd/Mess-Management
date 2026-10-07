@@ -13,13 +13,22 @@ const ALERT_COOLDOWN_MS = 6 * 60 * 60_000;
  * Notifications Management. Best-effort: never throws, never blocks the sweep.
  * Returns true when an alert was actually emitted this call.
  */
+// In-process cooldown as well: the outbox only has rows when a rule is enabled,
+// and the sweep must not log the same finding every 5 minutes before that.
+let lastRaisedAt = 0;
+
 export async function raisePaymentAlert(alert: PaymentAlert, health: PaymentHealth): Promise<boolean> {
   try {
+    if (Date.now() - lastRaisedAt < ALERT_COOLDOWN_MS) return false;
     const recent = await prisma.notificationLog.findFirst({
       where: { eventCode: PAYMENT_ALERT_EVENT, createdAt: { gte: new Date(Date.now() - ALERT_COOLDOWN_MS) } },
       select: { id: true },
     });
-    if (recent) return false;
+    if (recent) {
+      lastRaisedAt = Date.now();
+      return false;
+    }
+    lastRaisedAt = Date.now();
     await emitNotification(PAYMENT_ALERT_EVENT, {
       vars: {
         reason: alert.reason,
