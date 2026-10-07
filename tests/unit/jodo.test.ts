@@ -7,7 +7,13 @@ import {
   isPaymentConfigComplete,
   describeJodoError,
   pickFieldErrors,
-  getJodoOrderWithBackoff,
+  jodoSignature,
+  verifyJodoSignature,
+  createJodoOrder,
+  addJodoWebhook,
+  listJodoWebhooks,
+  disableJodoWebhook,
+  JODO_NOTE_REF_KEY,
 } from "@/lib/jodo";
 
 describe("resolveAuthHeader", () => {
@@ -98,57 +104,66 @@ describe("describeJodoError", () => {
   });
 });
 
-describe("getJodoOrderWithBackoff", () => {
-  const cfg = { base: "https://ext.jodo.in", auth: "Basic x", collectorCode: "C" };
-  const reply = (status: number, body: unknown) => new Response(JSON.stringify(body), { status });
-  const paid = () => reply(200, { status: "success", data: { status: "paid", transaction_id: "TXN1", details: [] } });
-  const limited = () => reply(429, { message: "Too many requests." });
+describe("webhook signature", () => {
+  const raw = '{"event_id":"e1","event":"order.payment.debited"}';
+  it("is hex HMAC-SHA256 of the raw body with the shared secret", () => {
+    const sig = jodoSignature("my-secret-key", raw);
+    expect(sig).toMatch(/^[0-9a-f]{64}$/);
+    expect(verifyJodoSignature("my-secret-key", raw, sig)).toBe(true);
+    expect(verifyJodoSignature("my-secret-key", raw, sig.toUpperCase())).toBe(true); // header case-insensitive
+  });
+  it("rejects a wrong secret, a tampered body, or a missing/short header", () => {
+    const sig = jodoSignature("my-secret-key", raw);
+    expect(verifyJodoSignature("other", raw, sig)).toBe(false);
+    expect(verifyJodoSignature("my-secret-key", raw + " ", sig)).toBe(false);
+    expect(verifyJodoSignature("my-secret-key", raw, null)).toBe(false);
+    expect(verifyJodoSignature("my-secret-key", raw, "abc")).toBe(false);
+    expect(verifyJodoSignature("", raw, sig)).toBe(false);
+  });
+});
 
-  function stubFetch(...responses: Response[]) {
-    const fetchMock = vi.fn();
-    for (const r of responses) fetchMock.mockResolvedValueOnce(r);
-    vi.stubGlobal("fetch", fetchMock);
-    return fetchMock;
-  }
-  const noSleep = () => vi.fn<(ms: number) => Promise<void>>(async () => {});
+describe("createJodoOrder — notes", () => {
+  const cfg = { base: "https://ext.jodo.in", auth: "Basic x", collectorCode: "C" };
   afterEach(() => vi.unstubAllGlobals());
 
-  it("returns the first answer without waiting when Jodo isn't rate-limiting", async () => {
-    const fetchMock = stubFetch(paid());
-    const sleep = noSleep();
+  it("sends `notes` (our order ref) so Jodo echoes it back in webhooks", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: "success", data: { order_id: "o1", redirect_url: "https://pay.jodo.in/p" } }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
 
-    const res = await getJodoOrderWithBackoff(cfg, "ORD", [1000, 2000], sleep);
-    expect(res).toMatchObject({ ok: true, paid: true, transactionId: "TXN1" });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(sleep).not.toHaveBeenCalled();
+    const r = await createJodoOrder(cfg, {
+      name: "A", phone: "9876543210", email: "a@b.co", collectorCode: "C", amount: 60, callbackUrl: "https://app/cb",
+      notes: [{ key: JODO_NOTE_REF_KEY, value: "ref-1" }],
+    });
+    expect(r).toMatchObject({ ok: true, orderId: "o1", paymentUrl: "https://pay.jodo.in/p" });
+    const body = JSON.parse((fetchMock.mock.calls[0][1] as RequestInit).body as string);
+    expect(body.notes).toEqual([{ key: "mess_ref", value: "ref-1" }]);
+    expect(body.callback_url).toBe("https://app/cb");
+  });
+});
+
+describe("webhook management APIs", () => {
+  const cfg = { base: "https://ext.jodo.in", auth: "Basic x", collectorCode: "C" };
+  afterEach(() => vi.unstubAllGlobals());
+
+  it("adds a subscription with event, url, secret and failure email", async () => {
+    const fetchMock = vi.fn().mockResolvedValue(new Response(JSON.stringify({ status: "success", data: { id: "wh1", event_code: "order.payment.debited", url: "https://app/w" } }), { status: 201 }));
+    vi.stubGlobal("fetch", fetchMock);
+    const r = await addJodoWebhook(cfg, { eventCode: "order.payment.debited", url: "https://app/w", secretKey: "s", failureEmail: "ops@x.y" });
+    expect(r).toEqual({ ok: true, webhook: { id: "wh1", eventCode: "order.payment.debited", url: "https://app/w", failureEmail: null } });
+    const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
+    expect(url).toBe("https://ext.jodo.in/api/v1/integrations/erp/webhooks");
+    expect(JSON.parse(init.body as string)).toEqual({ event_code: "order.payment.debited", url: "https://app/w", secret_key: "s", failure_notification_email: "ops@x.y" });
   });
 
-  it("waits and retries on 429 until the gateway answers", async () => {
-    const fetchMock = stubFetch(limited(), limited(), paid());
-    const sleep = noSleep();
-
-    const res = await getJodoOrderWithBackoff(cfg, "ORD", [1000, 2000], sleep);
-    expect(res).toMatchObject({ ok: true, paid: true });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-    expect(sleep.mock.calls.map((c) => c[0])).toEqual([1000, 2000]);
-  });
-
-  it("returns the 429 once every wait is used up, so the caller can back off", async () => {
-    const fetchMock = stubFetch(limited(), limited(), limited());
-    const sleep = noSleep();
-
-    const res = await getJodoOrderWithBackoff(cfg, "ORD", [1000, 2000], sleep);
-    expect(res).toEqual({ ok: false, status: 429, error: "Too many requests." });
-    expect(fetchMock).toHaveBeenCalledTimes(3);
-  });
-
-  it("does not retry other gateway errors", async () => {
-    const fetchMock = stubFetch(reply(404, { message: "Order not found" }));
-    const sleep = noSleep();
-
-    const res = await getJodoOrderWithBackoff(cfg, "ORD", [1000, 2000], sleep);
-    expect(res).toEqual({ ok: false, status: 404, error: "Order not found" });
-    expect(fetchMock).toHaveBeenCalledTimes(1);
-    expect(sleep).not.toHaveBeenCalled();
+  it("lists and disables subscriptions", async () => {
+    const fetchMock = vi
+      .fn()
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "success", data: [{ id: "wh1", event_code: "x", url: "u", failure_notification_email: "e" }, { bad: 1 }] }), { status: 200 }))
+      .mockResolvedValueOnce(new Response(JSON.stringify({ status: "success" }), { status: 200 }));
+    vi.stubGlobal("fetch", fetchMock);
+    expect(await listJodoWebhooks(cfg)).toEqual({ ok: true, webhooks: [{ id: "wh1", eventCode: "x", url: "u", failureEmail: "e" }] });
+    expect(await disableJodoWebhook(cfg, "wh1")).toEqual({ ok: true });
+    expect((fetchMock.mock.calls[1] as [string, RequestInit])[0]).toBe("https://ext.jodo.in/api/v1/integrations/erp/webhooks/wh1");
+    expect((fetchMock.mock.calls[1] as [string, RequestInit])[1].method).toBe("DELETE");
   });
 });

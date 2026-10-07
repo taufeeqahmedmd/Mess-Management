@@ -125,4 +125,20 @@ describe("creditPaymentOrder", () => {
     const r = await creditPaymentOrder(order(), null);
     expect(r).toEqual({ ok: false, error: "Cardholder not found." });
   });
+  it("records the gateway paid_at on the order and clears the safety-net schedule", async () => {
+    const paidAt = new Date("2026-10-07T04:00:00Z");
+    const r = await creditPaymentOrder(order(), null, { paidAt });
+    expect(r).toEqual({ ok: true, already: false });
+    const upd = paymentOrderUpdate.mock.calls[0][0] as { data: Record<string, unknown> };
+    expect(upd.data).toMatchObject({ status: "credited", rechargeId: BigInt(77), paidAt, nextCheckAt: null });
+  });
+  it("records who verified a manual (dashboard-verified) credit on the recharge remark and audit", async () => {
+    const r = await creditPaymentOrder(order(), null, { manual: { by: "Taufeeq" } });
+    expect(r).toEqual({ ok: true, already: false });
+    const p = applyRecharge.mock.calls[0][1] as { remarks: string; clientUuid: string };
+    expect(p.remarks).toBe("Online top-up (Jodo) — credited manually by Taufeeq after dashboard verification");
+    expect(p.clientUuid).toBe("11111111-1111-4111-8111-111111111111"); // same idempotency key as any other path
+    const audit = writeAudit.mock.calls[0][0] as { after: Record<string, unknown> };
+    expect(audit.after).toMatchObject({ manual: true, verifiedBy: "Taufeeq", paymentOrderId: "11" });
+  });
 });

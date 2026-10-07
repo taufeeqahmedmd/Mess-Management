@@ -507,6 +507,40 @@ CREATE TABLE reversals (
 
 ---
 
+## 8.5 Online payments (Jodo) 🆕
+
+Self-service top-ups on `/top-up`. One `payment_orders` row per checkout; coupons are
+granted through the normal `recharges` path (`applyRecharge`) once Jodo confirms payment.
+
+### payment_config (per branch)
+`branch_id` (unique), `collector_code`, `url`, `api_key`, `api_secret`, optional `auth_header`
+(pre-built Authorization value, wins over key/secret), **`webhook_secret`** (HMAC-SHA256 key
+for `X-Jodo-Signature`), **`webhook_ids`** (JSONB `[{id, eventCode}]` of the live Jodo
+subscriptions). DB-managed; never sent to the browser. Written by
+`prisma/register-jodo-webhook.ts`.
+
+### payment_orders
+`jodo_order_id` (unique), `client_uuid` (unique — our ref: in the callback URL path, echoed
+back by Jodo in webhook `notes.mess_ref`, and reused as the credited recharge's idempotency
+key), `user_id`, `branch_id`, `amount` DECIMAL(12,2) (recomputed server-side from rates),
+`items` JSONB, `status` `pending|credited|failed`, `recharge_id` (unique FK → recharges —
+the authoritative "this recharge is an online top-up" marker; edit/reverse are blocked on
+it), `paid_at`, `settlement_utr` (from `order.payment.settled`), `next_check_at` +
+`check_count` (safety-net polling schedule: 15m → 1h → 6h → 24h, failed after 3 days).
+Index `(status, next_check_at)`.
+
+### payment_webhook_events 🆕 (append-only audit of accepted deliveries)
+`event_id` (unique — Jodo's stable id, makes retries a no-op), `event_code`,
+`jodo_order_id`, `payment_order_id` FK, `payload` JSONB (raw, signature-verified),
+`received_at`, `processed_at`, `outcome` `credited|already_credited|settled|ignored|error`,
+`error`. Rows are never updated except to set `processed_at`/`outcome`.
+
+**Flow:** `POST /api/public/pay` creates the Jodo order (+ our `notes.mess_ref`) and the
+`payment_orders` row → payer pays → Jodo POSTs `order.payment.debited` to
+`/api/public/pay/webhook` (verify HMAC + IP → store event → `creditPaymentOrder`, idempotent
+on order status + `client_uuid` → 200) → the return page polls `/api/public/pay/status`
+(our DB only) and shows success. `/api/payments/reconcile` is the backed-off safety net.
+
 ## 9. Vendor settlement (kept — optional module)
 
 ```sql

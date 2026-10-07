@@ -138,10 +138,11 @@ crontab -e
 Two endpoints are designed to be hit by the server's scheduler and authenticate
 via the `CRON_SECRET` env var (set it in `.env`, then `sudo systemctl restart mess`):
 
-- `POST /api/payments/reconcile` — settles online top-ups whose Jodo redirect
-  callback never fired (payer closed the tab / gateway settlement lag). Without
-  this, a paid order can sit `pending` forever and its coupons are never
-  credited. Idempotent — safe to run every few minutes.
+- `POST /api/payments/reconcile` — the **safety net** behind Jodo's webhooks
+  (§10). Credits any online top-up whose webhook never arrived, polling Jodo
+  per order with exponential backoff (15m → 1h → 6h → 24h, failed after 3 days),
+  and reports webhook health (`health.webhookEventsLast24h`,
+  `health.pendingPastFirstCheck`). Idempotent — safe to run every few minutes.
 - `POST /api/notifications/digest` — sends the pending notification digest.
 
 ```bash
@@ -150,8 +151,62 @@ crontab -e
 #   0 8 * * *    curl -s -X POST -H "x-cron-secret: <CRON_SECRET>" https://<subdomain>/api/notifications/digest > /dev/null 2>&1
 ```
 
-Each reconcile run logs one JSON line (`{"checked":…,"credited":…}`) — a cheap
-audit trail that the sweep is alive. Verify once with `tail /var/log/mess-reconcile.log`.
+Each reconcile run logs one JSON line (`{"checked":…,"credited":…,"health":{…}}`) — a
+cheap audit trail that the sweep is alive. Verify once with `tail /var/log/mess-reconcile.log`.
+**If `health.webhookEventsLast24h` is 0 on a day with online payments, the webhook
+subscription is dead** (Jodo auto-disables after 100 consecutive failures) — re-run the
+registration in §10. The sweep also raises the `payments.webhook_alert` notification event
+for this and for missed/stuck orders (at most one per 6 h): in the app, go to
+**Notifications → Rules**, add a rule for *Online payments need attention* (email and/or push
+to the Admin role) so a human is told without reading this log.
+
+---
+
+## 10. Jodo webhooks (how online top-ups are confirmed)
+
+Coupons for an online top-up are credited when **Jodo's signed webhook**
+(`order.payment.debited`) reaches `POST /api/public/pay/webhook` — not by polling.
+The payer's return page polls *our* order status until the webhook lands (normally
+1–5 s). Each branch has its own Jodo account, so each branch registers its own
+subscriptions with its own signing secret.
+
+Prerequisites: the branch's `payment_config` row is complete (see Payments in README),
+`APP_URL` is the public **https** URL, and nginx proxies `/api/public/pay/webhook`
+like any other route (it already does — no change).
+
+```bash
+cd /home/ubuntu/Mess-Management
+# Register (safe to re-run: adds new subscriptions, stores the secret, then
+# disables the previous ones — Jodo has no "update" API). `--email` is where Jodo
+# sends delivery-failure notices; use a monitored mailbox.
+npm run jodo:webhook -- --branch <branch id or code> --email ops@example.com
+
+npm run jodo:webhook -- --branch <id|code> --list          # what Jodo has on file
+npm run jodo:webhook -- --branch <id|code> --disable-all   # back to polling-only
+```
+
+Then make one small test payment on `/top-up`; a row must appear in
+`payment_webhook_events` and the order must be `credited` within seconds:
+
+```bash
+docker exec -it mess-postgres psql -U mess -d mess_management -c "select event_code, outcome, received_at from payment_webhook_events order by id desc limit 5;"
+```
+
+**Gateway won't answer for specific orders** (e.g. get-order 429s them for days) but the
+dashboard shows them paid: credit them *as orders*, never as manual recharges — a manual
+recharge leaves the order `pending`, and reconcile would credit it again later.
+
+```bash
+npm run jodo:credit -- --ids 2884,2878 --by "Your Name"            # dry run: lists what would be credited
+npm run jodo:credit -- --ids 2884,2878 --by "Your Name" --confirm  # credits once; order → credited
+```
+
+Security: every delivery is verified with HMAC-SHA256 (`X-Jodo-Signature`, per-branch
+secret) **and** the source IP must be one of Jodo's documented production IPs
+(`3.6.234.242, 3.111.80.40, 13.232.24.175, 43.204.202.190`). If Jodo changes IPs, set
+`JODO_WEBHOOK_IP_ALLOWLIST` in `.env` (comma-separated; `any` disables the IP check —
+the signature check always applies) and restart. Rotate a secret by re-running the
+registration command.
 
 ---
 

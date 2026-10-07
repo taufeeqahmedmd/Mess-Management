@@ -33,6 +33,7 @@ export default async function RechargeReceiptPage({
       paymentMode: true,
       appUser: true,
       coupons: { include: { mealType: true } },
+      paymentOrder: { select: { paidAt: true, settlementUtr: true, jodoOrderId: true } },
     },
   });
   if (!r) notFound();
@@ -70,7 +71,10 @@ export default async function RechargeReceiptPage({
           <Field label="Branch" value={r.user.branch.name} />
           <Field label="Payment mode" value={r.paymentMode.name} />
           <Field label="Operator" value={r.appUser?.name ?? "Self Recharge"} />
+          {r.paymentOrder ? <Field label="Source" value="Online (Jodo)" /> : null}
           {r.transactionId ? <Field label="Transaction ID" value={r.transactionId} mono /> : null}
+          {r.paymentOrder?.paidAt ? <Field label="Paid at (gateway)" value={r.paymentOrder.paidAt.toLocaleString("en-IN")} mono /> : null}
+          {r.paymentOrder?.settlementUtr ? <Field label="Settlement UTR" value={r.paymentOrder.settlementUtr} mono /> : null}
         </div>
 
         <div className="grid grid-cols-2 gap-4 border-t border-line py-4">

@@ -7,6 +7,7 @@ import { BalanceReport } from "./balance-report";
 import { AuditReport } from "./audit-report";
 import { FoodRequestReport } from "./food-request-report";
 import { RechargeReport } from "./recharge-report";
+import { OnlinePaymentsReport } from "./online-payments-report";
 
 // Each tab is gated by its own permission — recharge management lives here now,
 // so a recharge-only user reaches it via this shell too.
@@ -14,6 +15,7 @@ const ALL_TABS = [
   { key: "consumption", label: "Consumption report", perm: "reports.view" },
   { key: "foodRequests", label: "Food requests", perm: "reports.view" },
   { key: "recharges", label: "Recharges", perm: "recharge.view" },
+  { key: "onlinePayments", label: "Online payments", perm: "recharge.view" },
   { key: "balances", label: "Balance report", perm: "reports.view" },
   { key: "audit", label: "Audit log", perm: "reports.view" },
 ] as const satisfies readonly { key: string; label: string; perm: Permission }[];
@@ -83,6 +85,8 @@ export default async function ReportsPage({
         <FoodRequestReport actor={actor} sp={sp} />
       ) : tab === "recharges" ? (
         <RechargeReport actor={actor} sp={sp} />
+      ) : tab === "onlinePayments" ? (
+        <OnlinePaymentsReport actor={actor} sp={sp} />
       ) : tab === "balances" ? (
         <BalanceReport actor={actor} sp={sp} />
       ) : (

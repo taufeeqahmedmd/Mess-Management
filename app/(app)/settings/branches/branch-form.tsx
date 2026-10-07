@@ -15,6 +15,7 @@ export type BranchData = {
   // Read-only Jodo payment config (from `payment_config`, managed in the DB).
   paymentHasRow: boolean;
   paymentComplete: boolean; // collector code + url + credentials (auth header, or api key + secret) all set
+  webhookConfigured: boolean; // Jodo webhook secret stored (prisma/register-jodo-webhook.ts)
 };
 
 export type EntityOption = { id: string; name: string };
@@ -91,6 +92,16 @@ export function BranchForm({ action, branch, entities, onCancel }: { action: Act
             Not configured. Online top-up is disabled for this branch until a row is added to the <span className="font-mono">payment_config</span> table.
           </p>
         )}
+        {branch?.paymentHasRow ? (
+          <div className="mt-2">
+            <span className={`inline-flex items-center gap-1.5 text-[12.5px] font-medium ${branch.webhookConfigured ? "text-sage-deep" : "text-tomato"}`}>
+              <span className={`size-[7px] rounded-full ${branch.webhookConfigured ? "bg-sage" : "bg-tomato"}`} />
+              {branch.webhookConfigured
+                ? "Webhook registered — payments are confirmed instantly"
+                : "Webhook not registered — run register-jodo-webhook (payments confirm via the slower safety net)"}
+            </span>
+          </div>
+        ) : null}
         <p className="mt-2.5 text-[11px] text-muted-2">Read-only — collector code and API credentials are managed directly in the <span className="font-mono">payment_config</span> database table.</p>
       </div>
 

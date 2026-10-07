@@ -119,8 +119,8 @@ export function rechargeWhere(f: RechargeFilter): Prisma.RechargeWhereInput {
   if (f.from && f.toExclusive) where.rechargedAt = { gte: f.from, lt: f.toExclusive };
   if (f.status) where.status = f.status;
   if (f.paymentModeId) where.paymentModeId = f.paymentModeId;
-  if (f.source === "online") where.transactionId = { not: null };
-  if (f.source === "manual") where.transactionId = null;
+  if (f.source === "online") where.paymentOrder = { isNot: null };
+  if (f.source === "manual") where.paymentOrder = { is: null };
   if (f.operator === "self") where.appUserId = null;
   else if (f.operator) where.appUserId = f.operator;
   if (f.q) {

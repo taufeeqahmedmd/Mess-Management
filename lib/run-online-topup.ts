@@ -35,7 +35,16 @@ export type CreditResult = { ok: true; already: boolean } | { ok: false; error: 
  * the recharge is keyed on the order's `clientUuid` (unique) so a race can't
  * double-credit. Amount is recomputed from the catalog — never trusted from input.
  */
-export async function creditPaymentOrder(order: PaymentOrderRow, transactionId: string | null): Promise<CreditResult> {
+export async function creditPaymentOrder(
+  order: PaymentOrderRow,
+  transactionId: string | null,
+  opts: {
+    paidAt?: Date | null;
+    /** Set when an operator credits the order after verifying payment in the
+     *  Jodo dashboard (gateway unreachable) — recorded on the recharge + audit. */
+    manual?: { by: string };
+  } = {},
+): Promise<CreditResult> {
   if (order.status === "credited") return { ok: true, already: true };
 
   const rawItems = Array.isArray(order.items) ? (order.items as Array<{ mealTypeId?: unknown; qty?: unknown }>) : [];
@@ -71,16 +80,28 @@ export async function creditPaymentOrder(order: PaymentOrderRow, transactionId: 
         paymentModeId,
         counterId: null,
         appUserId: null, // self-service — no operator
-        remarks: "Online top-up (Jodo)",
+        remarks: opts.manual ? `Online top-up (Jodo) — credited manually by ${opts.manual.by} after dashboard verification` : "Online top-up (Jodo)",
         clientUuid: order.clientUuid,
         transactionId,
       });
       await tx.paymentOrder.update({
         where: { id: order.id },
-        data: { status: "credited", rechargeId: r.id, creditedAt: new Date() },
+        data: { status: "credited", rechargeId: r.id, creditedAt: new Date(), paidAt: opts.paidAt ?? null, nextCheckAt: null },
       });
       await writeAudit(
-        { appUserId: null, action: "recharge.online", entity: "recharge", entityId: r.id, after: { userId: order.userId.toString(), amount: amount.toFixed(2), coupons: coupons.length } },
+        {
+          appUserId: null,
+          action: "recharge.online",
+          entity: "recharge",
+          entityId: r.id,
+          after: {
+            userId: order.userId.toString(),
+            amount: amount.toFixed(2),
+            coupons: coupons.length,
+            paymentOrderId: order.id.toString(),
+            ...(opts.manual ? { manual: true, verifiedBy: opts.manual.by } : {}),
+          },
+        },
         tx,
       );
     });

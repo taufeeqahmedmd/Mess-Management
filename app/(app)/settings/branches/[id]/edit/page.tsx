@@ -44,6 +44,7 @@ export default async function EditBranchPage({
     status: branch.status === "inactive" ? "inactive" : "active",
     paymentHasRow: Boolean(pc),
     paymentComplete: isPaymentConfigComplete(pc),
+    webhookConfigured: Boolean(pc?.webhookSecret),
   };
 
   return (

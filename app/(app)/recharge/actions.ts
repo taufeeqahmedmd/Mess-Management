@@ -7,6 +7,7 @@ import { prisma } from "@/lib/prisma";
 import { requirePermission } from "@/lib/session";
 import { readClientUuid } from "@/lib/idempotency";
 import { writeAudit } from "@/lib/audit";
+import { creditPaymentOrder } from "@/lib/run-online-topup";
 import { applyRecharge, reverseRechargeRemaining } from "@/services/recharge-ledger";
 import { emitNotification } from "@/lib/notifications/notify";
 import { couponValue } from "@/services/recharge";
@@ -177,10 +178,10 @@ export async function editRechargeAction(
   if (coupons.length === 0) return { error: "Enter at least one coupon count." };
   if (!paymentModeId) return { error: "Select a payment mode." };
 
-  const old = await prisma.recharge.findUnique({ where: { id: oldId }, include: { user: true } });
+  const old = await prisma.recharge.findUnique({ where: { id: oldId }, include: { user: true, paymentOrder: { select: { id: true } } } });
   if (!old) return { error: "Recharge not found." };
   if (old.status !== "posted") return { error: "Only posted recharges can be edited." };
-  if (old.transactionId) return { error: "Online (Jodo) payments can't be edited." };
+  if (old.paymentOrder) return { error: "Online (Jodo) payments can't be edited." };
   if (old.userId !== userId) return { error: "Cardholder mismatch." };
   if (actor.branchId && old.user.branchId.toString() !== actor.branchId) {
     return { error: "Out of your branch scope." };
@@ -244,11 +245,11 @@ export async function reverseRechargeAction(formData: FormData): Promise<void> {
     return;
   }
 
-  const recharge = await prisma.recharge.findUnique({ where: { id }, include: { user: true } });
+  const recharge = await prisma.recharge.findUnique({ where: { id }, include: { user: true, paymentOrder: { select: { id: true } } } });
   if (!recharge) return;
   if (actor.branchId && recharge.user.branchId.toString() !== actor.branchId) return;
   // Online (Jodo) payments can't be reversed in-app — refunds go through the gateway.
-  if (recharge.transactionId) return;
+  if (recharge.paymentOrder) return;
 
   await prisma.$transaction(async (tx) => {
     const ok = await reverseRechargeRemaining(tx, id, "reversal", BigInt(actor.id));
@@ -285,4 +286,64 @@ export async function runExpiryAction(): Promise<ExpiryState> {
     success: true,
     message: `Expired ${recharges} recharge(s) and ${validities} validit${validities === 1 ? "y" : "ies"}.`,
   };
+}
+
+// ------------------------------------------------------------ online payment orders
+// Manual outs for when Jodo won't confirm an order (gateway throttling, lost
+// webhook). Both act on the ORDER through the same idempotent credit path as the
+// webhook/safety net, so an order can never be credited twice — unlike a loose
+// manual recharge, which would leave the order pending for reconcile to credit
+// again later.
+
+/** Credit a pending online order the operator has verified as PAID in the Jodo dashboard. */
+export async function creditPaymentOrderAction(formData: FormData): Promise<void> {
+  const actor = await requirePermission("recharge.create");
+  let id: bigint;
+  try {
+    id = BigInt(String(formData.get("id") ?? ""));
+  } catch {
+    return;
+  }
+  const order = await prisma.paymentOrder.findUnique({ where: { id } });
+  if (!order || order.status !== "pending") return;
+  if (actor.branchId && order.branchId.toString() !== actor.branchId) return;
+
+  const operator = await prisma.appUser.findUnique({ where: { id: BigInt(actor.id) }, select: { name: true } });
+  const result = await creditPaymentOrder(order, null, { manual: { by: operator?.name ?? `staff #${actor.id}` } });
+  if (!result.ok) throw new Error(result.error);
+  // creditPaymentOrder writes its own audit row (recharge.online, manual: true).
+
+  revalidatePath("/reports");
+  revalidatePath(`/users/${order.userId}`);
+}
+
+/** Mark a pending online order as not paid (dashboard shows no payment) so the safety net stops polling it. */
+export async function failPaymentOrderAction(formData: FormData): Promise<void> {
+  const actor = await requirePermission("recharge.edit");
+  let id: bigint;
+  try {
+    id = BigInt(String(formData.get("id") ?? ""));
+  } catch {
+    return;
+  }
+  const order = await prisma.paymentOrder.findUnique({ where: { id } });
+  if (!order || order.status !== "pending") return;
+  if (actor.branchId && order.branchId.toString() !== actor.branchId) return;
+
+  await prisma.$transaction(async (tx) => {
+    await tx.paymentOrder.update({ where: { id }, data: { status: "failed", nextCheckAt: null } });
+    await writeAudit(
+      {
+        appUserId: BigInt(actor.id),
+        action: "payment_order.fail",
+        entity: "payment_order",
+        entityId: id,
+        before: { status: "pending" },
+        after: { status: "failed", userId: order.userId.toString(), amount: order.amount.toFixed(2) },
+      },
+      tx,
+    );
+  });
+
+  revalidatePath("/reports");
 }
