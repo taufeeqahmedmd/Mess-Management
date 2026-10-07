@@ -69,7 +69,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
       recharges: {
         orderBy: { id: "desc" },
         take: 100,
-        include: { paymentMode: true, appUser: true, coupons: { include: { mealType: true } } },
+        include: { paymentMode: true, appUser: true, coupons: { include: { mealType: true } }, paymentOrder: { select: { id: true } } },
       },
       redemptions: { orderBy: { redeemedAt: "desc" }, take: 100, include: { mealType: true, counter: true } },
     },
@@ -138,10 +138,10 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                   {canEditRecharge || canReverseRecharge ? (
                     <td className={TD}>
                       <div className="flex items-center justify-end gap-1.5">
-                        {r.status === "posted" && !r.transactionId && canEditRecharge ? (
+                        {r.status === "posted" && !r.paymentOrder && canEditRecharge ? (
                           <button type="button" data-edit-recharge={r.id.toString()} className={LINK_ACT_GOLD}>Edit</button>
                         ) : null}
-                        {r.status === "posted" && !r.transactionId && canReverseRecharge ? (
+                        {r.status === "posted" && !r.paymentOrder && canReverseRecharge ? (
                           <ConfirmActionForm
                             action={reverseRechargeAction}
                             className="inline"
@@ -158,7 +158,7 @@ export default async function UserDetailPage({ params }: { params: Promise<{ id:
                             Reverse
                           </ConfirmActionForm>
                         ) : null}
-                        {r.status !== "posted" || r.transactionId ? <span className="text-[12.5px] text-muted-2">—</span> : null}
+                        {r.status !== "posted" || r.paymentOrder ? <span className="text-[12.5px] text-muted-2">—</span> : null}
                       </div>
                     </td>
                   ) : null}

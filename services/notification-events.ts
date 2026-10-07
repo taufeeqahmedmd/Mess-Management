@@ -84,6 +84,16 @@ export const NOTIFICATION_EVENTS: readonly NotificationEventDef[] = [
     audience: AUD({ cardholder: true }),
   },
   {
+    code: "payments.webhook_alert",
+    module: "Payments",
+    label: "Online payments need attention",
+    description:
+      "Raised by the payments safety net when Jodo webhooks look dead (new orders but no deliveries in 24h), a paid order had to be credited by polling (a webhook was missed), or orders can't be verified with Jodo for hours. Staff only; at most one alert per 6 hours.",
+    variables: ["reason", "ordersLast24h", "webhookEventsLast24h", "creditedBySafetyNet", "stuckOrders", "link"],
+    waParams: ["reason"],
+    audience: AUD(),
+  },
+  {
     code: "foodRequest.raised",
     module: "Food Requests",
     label: "Food request raised",

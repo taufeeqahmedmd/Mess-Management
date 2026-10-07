@@ -191,6 +191,11 @@ model PaymentConfig {
   // (bare tokens get a "Basic " prefix) and takes precedence over the header
   // computed from api_key/api_secret.
   authHeader    String?  @map("auth_header") @db.VarChar(500)
+  // Jodo webhook subscription for this branch's account: the shared secret that
+  // signs `X-Jodo-Signature` (HMAC-SHA256 over the raw body) and the subscription
+  // ids Jodo returned ([{ id, eventCode }]). Written by prisma/register-jodo-webhook.ts.
+  webhookSecret String?  @map("webhook_secret") @db.VarChar(255)
+  webhookIds    Json?    @map("webhook_ids")
   updatedAt     DateTime @updatedAt @map("updated_at") @db.Timestamptz(6)
 
   branch Branch @relation(fields: [branchId], references: [id])
@@ -611,6 +616,9 @@ model Recharge {
   counter     Counter?         @relation(fields: [counterId], references: [id])
   appUser     AppUser?         @relation(fields: [appUserId], references: [id])
   coupons     RechargeCoupon[]
+  // Set only for online (Jodo) top-ups — the authoritative "this recharge was paid
+  // through the gateway" marker (edit/reverse are blocked; refunds go via Jodo).
+  paymentOrder PaymentOrder?
 
   @@index([userId, rechargedAt])
   @@map("recharges")
@@ -790,12 +798,47 @@ model PaymentOrder {
   amount      Decimal   @db.Decimal(12, 2)
   items       Json
   status      String    @default("pending") @db.VarChar(20) // pending | credited | failed
-  rechargeId  BigInt?   @map("recharge_id")
+  rechargeId  BigInt?   @unique @map("recharge_id")
   createdAt   DateTime  @default(now()) @map("created_at") @db.Timestamptz(6)
   creditedAt  DateTime? @map("credited_at") @db.Timestamptz(6)
+  // From the gateway (webhook or get-order): when the payer was debited, and the
+  // settlement UTR once Jodo disburses to the branch's bank (order.payment.settled).
+  paidAt        DateTime? @map("paid_at") @db.Timestamptz(6)
+  settlementUtr String?   @map("settlement_utr") @db.VarChar(120)
+  // Safety-net polling schedule (webhooks are the primary path): reconcile only
+  // asks Jodo about a pending order once `next_check_at` has passed, and backs
+  // off exponentially per order via `check_count`. NULL = legacy row, due now.
+  nextCheckAt DateTime? @map("next_check_at") @db.Timestamptz(6)
+  checkCount  Int       @default(0) @map("check_count")
+
+  recharge Recharge?             @relation(fields: [rechargeId], references: [id])
+  events   PaymentWebhookEvent[]
 
   @@index([userId])
+  @@index([status, nextCheckAt])
   @@map("payment_orders")
+}
+
+/// Every Jodo webhook delivery we accepted (signature verified), stored before
+/// it is acted on — the audit/replay trail Jodo's integration guide asks for.
+/// `event_id` is Jodo's stable id, so a retried delivery is a no-op.
+model PaymentWebhookEvent {
+  id             BigInt    @id @default(autoincrement())
+  eventId        String    @unique @map("event_id") @db.VarChar(64)
+  eventCode      String    @map("event_code") @db.VarChar(60) // order.payment.debited | order.payment.settled | …
+  jodoOrderId    String    @map("jodo_order_id") @db.VarChar(512)
+  paymentOrderId BigInt?   @map("payment_order_id")
+  payload        Json
+  receivedAt     DateTime  @default(now()) @map("received_at") @db.Timestamptz(6)
+  processedAt    DateTime? @map("processed_at") @db.Timestamptz(6)
+  outcome        String?   @db.VarChar(30) // credited | already_credited | settled | ignored | error
+  error          String?   @db.VarChar(500)
+
+  paymentOrder PaymentOrder? @relation(fields: [paymentOrderId], references: [id])
+
+  @@index([jodoOrderId])
+  @@index([receivedAt])
+  @@map("payment_webhook_events")
 }
 
 // ---------- Admin food requests (plan.md §15) ----------

@@ -71,7 +71,7 @@ export async function RechargeReport({ actor, sp }: { actor: Actor; sp: Recharge
   const [recharges, total, paymentModes, operators] = await Promise.all([
     prisma.recharge.findMany({
       where,
-      include: { user: true, paymentMode: true, appUser: true, coupons: true },
+      include: { user: true, paymentMode: true, appUser: true, coupons: true, paymentOrder: { select: { id: true } } },
       orderBy: { id: "desc" },
       skip: (page - 1) * pageSize,
       take: pageSize,
@@ -199,10 +199,10 @@ export async function RechargeReport({ actor, sp }: { actor: Actor; sp: Recharge
                       </td>
                       <td className={TD}>
                         <div className="flex items-center justify-end gap-1.5">
-                          {r.status === "posted" && !r.transactionId && canEdit ? (
+                          {r.status === "posted" && !r.paymentOrder && canEdit ? (
                             <button type="button" data-edit-recharge={r.id.toString()} className={LINK_ACT_GOLD}>Edit</button>
                           ) : null}
-                          {r.status === "posted" && !r.transactionId && canReverse ? (
+                          {r.status === "posted" && !r.paymentOrder && canReverse ? (
                             <ConfirmActionForm
                               action={reverseRechargeAction}
                               className="inline"
@@ -219,7 +219,7 @@ export async function RechargeReport({ actor, sp }: { actor: Actor; sp: Recharge
                               Reverse
                             </ConfirmActionForm>
                           ) : null}
-                          {r.status !== "posted" || r.transactionId || (!canEdit && !canReverse) ? (
+                          {r.status !== "posted" || r.paymentOrder || (!canEdit && !canReverse) ? (
                             <span className="text-[12.5px] text-muted-2">—</span>
                           ) : null}
                         </div>

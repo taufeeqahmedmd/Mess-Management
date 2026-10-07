@@ -46,6 +46,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ entity:
       // URL, and API credentials are NEVER returned to the client.
       paymentHasRow: Boolean(pc),
       paymentComplete: isPaymentConfigComplete(pc),
+      webhookConfigured: Boolean(pc?.webhookSecret),
     });
   }
   if (entity === "categories") {

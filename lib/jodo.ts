@@ -12,9 +12,9 @@
  *   getJodoOrder      — GET an order to confirm it was actually paid (docs:
  *                       https://docs.jodo.in/pay/api/get-order/). Crediting only
  *                       happens after this returns status "paid".
- *   getJodoOrderWithBackoff — getJodoOrder, retried while Jodo rate-limits (429).
  */
 
+import { createHmac, timingSafeEqual } from "node:crypto";
 import { prisma } from "@/lib/prisma";
 
 type JodoOrderInput = {
@@ -24,7 +24,13 @@ type JodoOrderInput = {
   collectorCode: string;
   amount: number; // rupees, 2dp
   callbackUrl: string;
+  /** Key/value metadata Jodo echoes back in every webhook for the order
+   *  (docs: "for example ERP reference IDs") — we send our own order ref. */
+  notes?: { key: string; value: string }[];
 };
+
+/** The `notes` key under which we send our payment_orders.client_uuid. */
+export const JODO_NOTE_REF_KEY = "mess_ref";
 
 /** One field-level validation error from Jodo's `errors: [{key, message}]`. */
 export type JodoFieldError = { key: string; message: string };
@@ -149,6 +155,7 @@ export async function createJodoOrder(cfg: JodoConfig, input: JodoOrderInput): P
         collector_code: input.collectorCode,
         details: [{ component_type: "Payable Amount", amount: input.amount }],
         callback_url: input.callbackUrl,
+        ...(input.notes?.length ? { notes: input.notes } : {}),
       }),
       cache: "no-store",
     });
@@ -202,24 +209,105 @@ export function pause(ms: number): Promise<void> {
   return new Promise((resolve) => setTimeout(resolve, ms));
 }
 
+// ---------------------------------------------------------------- webhooks
+
 /**
- * getJodoOrder, retried after each wait in `waitsMs` while Jodo answers 429.
- * Jodo rate-limits bursts with no published limit and says to "retry with
- * exponential backoff" (docs.jodo.in/getting-started/api-structure). Returns
- * the last result — still a 429 after the final wait means the caller should
- * back off entirely rather than keep calling.
+ * Jodo's documented production webhook source IPs
+ * (docs.jodo.in/webhooks/security). Overridable via JODO_WEBHOOK_IP_ALLOWLIST
+ * (comma-separated; "any" disables the check — signature verification still
+ * applies) so an IP change on Jodo's side is a config edit, not a deploy.
  */
-export async function getJodoOrderWithBackoff(
+export const JODO_WEBHOOK_PRODUCTION_IPS = ["3.6.234.242", "3.111.80.40", "13.232.24.175", "43.204.202.190"];
+
+/** Webhook event codes for checkout (Pay Order) payments. */
+export const JODO_EVENT_DEBITED = "order.payment.debited";
+export const JODO_EVENT_SETTLED = "order.payment.settled";
+
+/**
+ * Compute the `X-Jodo-Signature` value for a raw body: hex HMAC-SHA256 with the
+ * subscription's shared secret (docs.jodo.in/webhooks/security).
+ */
+export function jodoSignature(secret: string, rawBody: string): string {
+  return createHmac("sha256", secret).update(rawBody, "utf8").digest("hex");
+}
+
+/** Constant-time check of a received `X-Jodo-Signature` against the raw body. */
+export function verifyJodoSignature(secret: string, rawBody: string, received: string | null | undefined): boolean {
+  if (!secret || !received) return false;
+  const expected = Buffer.from(jodoSignature(secret, rawBody), "utf8");
+  const got = Buffer.from(received.trim().toLowerCase(), "utf8");
+  return expected.length === got.length && timingSafeEqual(expected, got);
+}
+
+export type JodoWebhook = { id: string; eventCode: string; url: string; failureEmail: string | null };
+
+function toWebhook(v: unknown): JodoWebhook | null {
+  const w = obj(v);
+  if (typeof w.id !== "string" || typeof w.event_code !== "string") return null;
+  return {
+    id: w.id,
+    eventCode: w.event_code,
+    url: typeof w.url === "string" ? w.url : "",
+    failureEmail: typeof w.failure_notification_email === "string" ? w.failure_notification_email : null,
+  };
+}
+
+/** Register a webhook subscription (docs.jodo.in/configuration/api/add-webhook). */
+export async function addJodoWebhook(
   cfg: JodoConfig,
-  orderId: string,
-  waitsMs: number[],
-  sleep: (ms: number) => Promise<void> = pause,
-): Promise<JodoOrderStatus> {
-  let res = await getJodoOrder(cfg, orderId);
-  for (const ms of waitsMs) {
-    if (res.ok || res.status !== 429) break;
-    await sleep(ms);
-    res = await getJodoOrder(cfg, orderId);
+  input: { eventCode: string; url: string; secretKey: string; failureEmail: string },
+): Promise<{ ok: true; webhook: JodoWebhook } | { ok: false; error: string; status?: number }> {
+  let res: Response;
+  try {
+    res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", Authorization: cfg.auth },
+      body: JSON.stringify({
+        event_code: input.eventCode,
+        url: input.url,
+        secret_key: input.secretKey,
+        failure_notification_email: input.failureEmail,
+      }),
+      cache: "no-store",
+    });
+  } catch {
+    return { ok: false, error: "Couldn't reach the payment gateway." };
   }
-  return res;
+  const raw = await res.json().catch(() => null);
+  if (!res.ok) return { ok: false, error: describeJodoError(raw, res.status).error, status: res.status };
+  const webhook = toWebhook(obj(raw).data);
+  if (!webhook) return { ok: false, error: "Gateway returned no webhook id." };
+  return { ok: true, webhook };
+}
+
+/** List the account's webhook subscriptions (docs.jodo.in/configuration/api/list-webhooks). */
+export async function listJodoWebhooks(cfg: JodoConfig): Promise<{ ok: true; webhooks: JodoWebhook[] } | { ok: false; error: string }> {
+  let res: Response;
+  try {
+    res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks`, { headers: { Authorization: cfg.auth }, cache: "no-store" });
+  } catch {
+    return { ok: false, error: "Couldn't reach the payment gateway." };
+  }
+  const raw = await res.json().catch(() => null);
+  if (!res.ok) return { ok: false, error: describeJodoError(raw, res.status).error };
+  const data = obj(raw).data;
+  const webhooks = Array.isArray(data) ? data.map(toWebhook).filter((w): w is JodoWebhook => w !== null) : [];
+  return { ok: true, webhooks };
+}
+
+/** Disable a webhook subscription (docs.jodo.in/configuration/api/disable-webhook). */
+export async function disableJodoWebhook(cfg: JodoConfig, webhookId: string): Promise<{ ok: boolean; error?: string }> {
+  let res: Response;
+  try {
+    res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks/${encodeURIComponent(webhookId)}`, {
+      method: "DELETE",
+      headers: { Authorization: cfg.auth },
+      cache: "no-store",
+    });
+  } catch {
+    return { ok: false, error: "Couldn't reach the payment gateway." };
+  }
+  if (res.ok) return { ok: true };
+  const raw = await res.json().catch(() => null);
+  return { ok: false, error: describeJodoError(raw, res.status).error };
 }

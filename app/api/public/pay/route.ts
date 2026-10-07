@@ -7,8 +7,9 @@ import { publicCodeSchema } from "@/lib/public-schema";
 import { defaultRatesForCategory } from "@/services/pricing";
 import { couponValue } from "@/services/recharge";
 import { localDateValue } from "@/lib/time";
-import { createJodoOrder, resolveJodoConfig } from "@/lib/jodo";
+import { createJodoOrder, resolveJodoConfig, JODO_NOTE_REF_KEY } from "@/lib/jodo";
 import { normalizePhone, normalizeEmail } from "@/lib/contact";
+import { firstReconcileAt } from "@/services/payment-webhook";
 
 const schema = z.object({
   code: publicCodeSchema,
@@ -22,8 +23,9 @@ const schema = z.object({
  * POST /api/public/pay — start a self-service top-up payment. Recomputes the
  * amount server-side from the catalog rates (never trusts the client), resolves
  * the cardholder's branch collector code, and creates a Jodo order. Returns the
- * payment URL to redirect to. Does NOT credit anything — the wallet/coupons are
- * only credited once payment is confirmed (callback — a later step).
+ * payment URL to redirect to. Does NOT credit anything — coupons are credited
+ * when Jodo's signed `order.payment.debited` webhook arrives (lib/payment-webhook),
+ * with the reconcile safety net polling only if that never comes.
  */
 export async function POST(req: Request) {
   const rl = rateLimit(`pub-pay:${clientIp(req.headers)}`, 10, 60_000);
@@ -77,9 +79,11 @@ export async function POST(req: Request) {
   if (total.lte(0)) return NextResponse.json({ error: "Add at least one coupon to continue." }, { status: 422 });
   const amountStr = total.toFixed(2);
 
-  // Our order reference, minted up front so it can ride in the callback URL path:
-  // the callback finds the order by it, independent of what params Jodo appends
-  // to the redirect (undocumented). Also the credited recharge's idempotency key.
+  // Our order reference, minted up front. It rides (1) in the callback URL path,
+  // so the return page finds the order without depending on what Jodo appends
+  // to the redirect, and (2) in the order's `notes`, which Jodo echoes back in
+  // every webhook — a second key the receiver cross-checks against the order.
+  // It is also the credited recharge's idempotency key.
   const clientUuid = crypto.randomUUID();
   const appUrl = (process.env.APP_URL ?? new URL(req.url).origin).replace(/\/$/, "");
   const order = await createJodoOrder(cfg, {
@@ -89,6 +93,7 @@ export async function POST(req: Request) {
     collectorCode: cfg.collectorCode,
     amount: Number(amountStr), // Jodo JSON boundary — exact after toFixed(2)
     callbackUrl: `${appUrl}/api/public/pay/callback/${clientUuid}`,
+    notes: [{ key: JODO_NOTE_REF_KEY, value: clientUuid }],
   });
 
   if (!order.ok) {
@@ -119,7 +124,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Payment gateway returned an unexpected response." }, { status: 502 });
   }
 
-  // Remember what to credit once Jodo confirms this order is paid (callback).
+  // Remember what to credit once Jodo confirms this order is paid (webhook).
+  // The safety-net poll is scheduled well after a normal webhook would land.
+  const now = new Date();
   await prisma.paymentOrder.create({
     data: {
       jodoOrderId: order.orderId,
@@ -129,8 +136,10 @@ export async function POST(req: Request) {
       amount: new Prisma.Decimal(amountStr),
       items,
       status: "pending",
+      createdAt: now,
+      nextCheckAt: firstReconcileAt(now),
     },
   });
 
-  return NextResponse.json({ paymentUrl: order.paymentUrl, amount: amountStr }, { headers: { "Cache-Control": "no-store" } });
+  return NextResponse.json({ paymentUrl: order.paymentUrl, amount: amountStr, ref: clientUuid }, { headers: { "Cache-Control": "no-store" } });
 }

@@ -18,6 +18,49 @@ const MEAL_ICON: Record<string, ReactNode> = {
 const TILE: Record<string, string> = { Breakfast: "c-bf", Lunch: "c-ln", Snacks: "c-sn", Dinner: "c-dn" };
 const mealIcon = (name: string) => MEAL_ICON[name] ?? <circle cx="12" cy="12" r="8" />;
 
+type PayStatus = "pending" | "credited" | "failed";
+
+/**
+ * Poll /api/public/pay/status (our DB, never the gateway) every 2s for up to
+ * 60s after the payer returns from checkout. Jodo's webhook normally lands
+ * within a few seconds; past the window we stop polling (the server's safety
+ * net keeps working) and tell the payer not to pay again. Returns a cleanup so
+ * an unmount stops the timer.
+ */
+export function pollPaymentStatus(
+  ref: string,
+  on: { onCredited: () => void; onFailed: () => void; onTimeout: () => void },
+  opts: { intervalMs?: number; deadlineMs?: number } = {},
+): () => void {
+  const intervalMs = opts.intervalMs ?? 2_000;
+  const deadlineMs = opts.deadlineMs ?? 60_000;
+  const started = Date.now();
+  let timer: ReturnType<typeof setTimeout> | null = null;
+  let stopped = false;
+
+  const tick = async () => {
+    if (stopped) return;
+    let status: PayStatus | null = null;
+    try {
+      const res = await fetch(`/api/public/pay/status?ref=${encodeURIComponent(ref)}`, { cache: "no-store" });
+      if (res.ok) status = ((await res.json()) as { status?: PayStatus }).status ?? null;
+      else if (res.status === 404) status = "failed";
+    } catch {
+      /* transient — keep polling */
+    }
+    if (stopped) return;
+    if (status === "credited") return on.onCredited();
+    if (status === "failed") return on.onFailed();
+    if (Date.now() - started >= deadlineMs) return on.onTimeout();
+    timer = setTimeout(tick, intervalMs);
+  };
+  void tick();
+  return () => {
+    stopped = true;
+    if (timer) clearTimeout(timer);
+  };
+}
+
 export function LookupClient() {
   const [code, setCode] = useState("");
   const [balance, setBalance] = useState<PublicBalance | null>(null);
@@ -89,31 +132,49 @@ export function LookupClient() {
     void runLookup(code);
   }
 
-  // Returning from the Jodo payment page: ?paid=1&code=… (verified + credited in
-  // the callback) or ?pay=pending|error. Show a banner and auto-refresh the balance.
-  const [notice, setNotice] = useState<{ tone: "ok" | "warn"; text: string } | null>(null);
+  // Returning from the Jodo payment page. The redirect is only a navigation
+  // signal — confirmation comes from Jodo's webhook to our server — so with
+  // ?ref=<our order ref>&code=… we poll OUR order status (never the gateway)
+  // until it flips to credited, then refresh the balance. Legacy returns
+  // (?paid=1 / ?pay=pending|error, pre-webhook deploy) still show their banner.
+  const [notice, setNotice] = useState<{ tone: "ok" | "warn" | "wait"; text: string } | null>(null);
   useEffect(() => {
     const q = new URLSearchParams(window.location.search);
+    const ref = q.get("ref");
     const paid = q.get("paid");
     const pay = q.get("pay");
     const c = q.get("code") ?? "";
-    if (!paid && !pay) return;
+    if (!ref && !paid && !pay) return;
+    // Clean the query so a refresh doesn't restart the flow.
+    window.history.replaceState(null, "", "/top-up");
     /* eslint-disable react-hooks/set-state-in-effect -- one-time sync of the payment return from the URL */
+    if (c) setCode(c);
+    if (ref) {
+      setNotice({ tone: "wait", text: "Confirming your payment with the gateway…" });
+      return pollPaymentStatus(ref, {
+        onCredited: () => {
+          setNotice({ tone: "ok", text: "Payment successful — your coupons have been added to your account." });
+          if (c) void runLookup(c);
+        },
+        onFailed: () => setNotice({ tone: "warn", text: "That payment wasn't completed. No money was taken; please try again." }),
+        onTimeout: () => {
+          setNotice({
+            tone: "warn",
+            text: "Your payment is still being confirmed by the gateway. If it was debited, your coupons will be added automatically — please don't pay again. Check back in a few minutes.",
+          });
+          if (c) void runLookup(c);
+        },
+      });
+    }
     if (paid === "1") {
       setNotice({ tone: "ok", text: "Payment successful — your coupons have been added to your account." });
-      if (c) {
-        setCode(c);
-        void runLookup(c);
-      }
+      if (c) void runLookup(c);
     } else if (pay === "pending") {
       setNotice({ tone: "warn", text: "We haven't received confirmation of your payment yet. If it was debited, your coupons will appear shortly." });
-      if (c) setCode(c);
     } else {
       setNotice({ tone: "warn", text: "Something went wrong with that payment. Please try again." });
     }
     /* eslint-enable react-hooks/set-state-in-effect */
-    // Clean the query so a refresh doesn't repeat the banner.
-    window.history.replaceState(null, "", "/top-up");
   }, []);
 
   async function startRecharge() {
@@ -205,7 +266,12 @@ export function LookupClient() {
           <p>Enter your ID to view your meal coupons and top up.</p>
         </div>
 
-        {notice ? <div className={`banner ${notice.tone}`} role="status">{notice.text}</div> : null}
+        {notice ? (
+          <div className={`banner ${notice.tone}`} role="status" aria-live="polite">
+            {notice.tone === "wait" ? <span className="spin" aria-hidden /> : null}
+            {notice.text}
+          </div>
+        ) : null}
 
         {/* lookup */}
         <form className="card" onSubmit={onLookup}>
@@ -434,6 +500,10 @@ html[data-theme="dark"] .tpg{
 .tpg .banner{border-radius:13px;padding:12px 15px;font-size:13.5px;font-weight:500;margin-bottom:16px}
 .tpg .banner.ok{background:var(--green-tint);color:var(--green-deep);border:1px solid var(--green-tint-2)}
 .tpg .banner.warn{background:var(--saffron-tint);color:var(--saffron-deep);border:1px solid var(--saffron-tint-2)}
+.tpg .banner.wait{background:var(--navy-ico-bg);color:var(--navy-text);border:1px solid var(--navy-ico-bg);display:flex;align-items:center;gap:10px}
+.tpg .spin{width:14px;height:14px;flex:none;border-radius:50%;border:2px solid currentColor;border-right-color:transparent;animation:tpg-spin .8s linear infinite}
+@keyframes tpg-spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.tpg .spin{animation:none;border-right-color:currentColor;opacity:.5}}
 .tpg .err{margin-top:12px;font-size:13px;font-weight:500;color:var(--danger);background:var(--danger-tint);border-radius:10px;padding:9px 12px}
 .tpg .ok{margin-top:12px;font-size:13px;font-weight:500;color:var(--green-deep);background:var(--green-tint);border-radius:10px;padding:9px 12px}
 .tpg .wcard{position:relative;border-radius:20px;overflow:hidden;background:linear-gradient(135deg,var(--navy) 0%,#2A4BB0 70%,#3A63D8 110%);color:#fff;padding:22px 24px;box-shadow:0 14px 34px -14px rgba(10,36,114,.55)}

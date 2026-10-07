@@ -88,8 +88,19 @@ digest), a template manager, and a send log:
   environment-variable fallback and no UI to edit the credentials (the branch settings screen
   shows read-only status: configured / incomplete). A branch can't take online payments until its
   row is fully populated. Credentials are never sent to the browser.
-- A staff-triggered and cron-friendly `/api/payments/reconcile` endpoint settles any online
-  top-up whose payment callback never fired.
+- Online top-ups are confirmed by **Jodo's signed webhooks** (`order.payment.debited` →
+  `POST /api/public/pay/webhook`, HMAC `X-Jodo-Signature` + source-IP allowlist, every
+  delivery stored in `payment_webhook_events`). The payer's return page polls *our* order
+  status (`/api/public/pay/status`) until the webhook lands — the gateway is never polled on
+  the payer's behalf. Register per branch with `npm run jodo:webhook` (DEPLOY.md §10).
+- `/api/payments/reconcile` (cron) is the **safety net**: it credits any order whose webhook
+  never arrived, polling Jodo per order with exponential backoff, and reports webhook health.
+  When the webhook looks dead, a paid order had to be credited by polling, or orders are stuck,
+  it raises the `payments.webhook_alert` notification event (≤ 1 per 6 h) — enable a rule for
+  it (email/push to Admins) in Notifications Management.
+- **Reports → Online payments** lists every Jodo order with its webhook outcome, and offers the
+  two manual outs when the gateway won't answer: *Credit (verified)* after checking the Jodo
+  dashboard, and *Mark failed*. Both act on the order, so nothing can be credited twice.
 
 ---
 
@@ -149,7 +160,8 @@ Everything else unlocks an optional feature and degrades gracefully when unset:
 |---|---|
 | `DATABASE_URL`, `AUTH_SECRET`, `AUTH_URL` | Core app (required) |
 | `APP_TIMEZONE` | IANA timezone for meal windows / rate versioning (defaults `Asia/Kolkata`) |
-| `APP_URL` | Absolute app URL used to build the Jodo payment callback |
+| `APP_URL` | Absolute **https** app URL used to build the Jodo callback + webhook URLs |
+| `JODO_WEBHOOK_IP_ALLOWLIST` | Optional. Comma-separated source IPs for Jodo webhooks (default: Jodo's documented production IPs; `any` disables the IP check) |
 | — *(none — see below)* | **Jodo payment gateway** — configured per-branch in the DB (`payment_config` table), not via env. See "Payments" above. |
 | `SMTP_PALLAVI_*`, `SMTP_DPS_*` | Email notifications (one SMTP account per sending entity) |
 | `SMARTPING_*`, `PINBOT_*` | WhatsApp notifications (Smartping partner API) |
