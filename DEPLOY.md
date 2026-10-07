@@ -180,6 +180,8 @@ cd /home/ubuntu/Mess-Management
 # disables the previous ones — Jodo has no "update" API). `--email` is where Jodo
 # sends delivery-failure notices; use a monitored mailbox.
 npm run jodo:webhook -- --branch <branch id or code> --email ops@example.com
+# A subscription belongs to a COLLECTOR. Branches sharing a collector code (e.g.
+# NH/MH/NG on DPSPAY) need ONE run — pick any of them; the secret is stored on all.
 
 npm run jodo:webhook -- --branch <id|code> --list          # what Jodo has on file
 npm run jodo:webhook -- --branch <id|code> --disable-all   # back to polling-only

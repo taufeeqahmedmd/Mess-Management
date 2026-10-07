@@ -152,7 +152,13 @@ describe("webhook management APIs", () => {
     expect(r).toEqual({ ok: true, webhook: { id: "wh1", eventCode: "order.payment.debited", url: "https://app/w", failureEmail: null } });
     const [url, init] = fetchMock.mock.calls[0] as [string, RequestInit];
     expect(url).toBe("https://ext.jodo.in/api/v1/integrations/erp/webhooks");
-    expect(JSON.parse(init.body as string)).toEqual({ event_code: "order.payment.debited", url: "https://app/w", secret_key: "s", failure_notification_email: "ops@x.y" });
+    expect(JSON.parse(init.body as string)).toEqual({
+      collector_code: "C",
+      event_code: "order.payment.debited",
+      url: "https://app/w",
+      secret_key: "s",
+      failure_notification_email: "ops@x.y",
+    });
   });
 
   it("lists and disables subscriptions", async () => {
@@ -161,9 +167,10 @@ describe("webhook management APIs", () => {
       .mockResolvedValueOnce(new Response(JSON.stringify({ status: "success", data: [{ id: "wh1", event_code: "x", url: "u", failure_notification_email: "e" }, { bad: 1 }] }), { status: 200 }))
       .mockResolvedValueOnce(new Response(JSON.stringify({ status: "success" }), { status: 200 }));
     vi.stubGlobal("fetch", fetchMock);
-    expect(await listJodoWebhooks(cfg)).toEqual({ ok: true, webhooks: [{ id: "wh1", eventCode: "x", url: "u", failureEmail: "e" }] });
+    expect(await listJodoWebhooks(cfg)).toMatchObject({ ok: true, webhooks: [{ id: "wh1", eventCode: "x", url: "u", failureEmail: "e" }] });
     expect(await disableJodoWebhook(cfg, "wh1")).toEqual({ ok: true });
-    expect((fetchMock.mock.calls[1] as [string, RequestInit])[0]).toBe("https://ext.jodo.in/api/v1/integrations/erp/webhooks/wh1");
+    expect((fetchMock.mock.calls[0] as [string, RequestInit])[0]).toBe("https://ext.jodo.in/api/v1/integrations/erp/webhooks?collector_code=C");
+    expect((fetchMock.mock.calls[1] as [string, RequestInit])[0]).toBe("https://ext.jodo.in/api/v1/integrations/erp/webhooks/wh1?collector_code=C");
     expect((fetchMock.mock.calls[1] as [string, RequestInit])[1].method).toBe("DELETE");
   });
 });

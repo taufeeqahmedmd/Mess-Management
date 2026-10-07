@@ -263,6 +263,9 @@ export async function addJodoWebhook(
       method: "POST",
       headers: { "Content-Type": "application/json", Authorization: cfg.auth },
       body: JSON.stringify({
+        // Required by the live API (not in the docs' field list): subscriptions
+        // are scoped to the collector the branch transacts under.
+        collector_code: cfg.collectorCode,
         event_code: input.eventCode,
         url: input.url,
         secret_key: input.secretKey,
@@ -281,10 +284,14 @@ export async function addJodoWebhook(
 }
 
 /** List the account's webhook subscriptions (docs.jodo.in/configuration/api/list-webhooks). */
-export async function listJodoWebhooks(cfg: JodoConfig): Promise<{ ok: true; webhooks: JodoWebhook[] } | { ok: false; error: string }> {
+export async function listJodoWebhooks(cfg: JodoConfig): Promise<{ ok: true; webhooks: JodoWebhook[]; raw: unknown } | { ok: false; error: string }> {
   let res: Response;
   try {
-    res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks`, { headers: { Authorization: cfg.auth }, cache: "no-store" });
+    // collector_code is required here too (live API; undocumented) — as a query param on GET.
+    res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks?collector_code=${encodeURIComponent(cfg.collectorCode)}`, {
+      headers: { Authorization: cfg.auth },
+      cache: "no-store",
+    });
   } catch {
     return { ok: false, error: "Couldn't reach the payment gateway." };
   }
@@ -292,18 +299,21 @@ export async function listJodoWebhooks(cfg: JodoConfig): Promise<{ ok: true; web
   if (!res.ok) return { ok: false, error: describeJodoError(raw, res.status).error };
   const data = obj(raw).data;
   const webhooks = Array.isArray(data) ? data.map(toWebhook).filter((w): w is JodoWebhook => w !== null) : [];
-  return { ok: true, webhooks };
+  return { ok: true, webhooks, raw };
 }
 
 /** Disable a webhook subscription (docs.jodo.in/configuration/api/disable-webhook). */
 export async function disableJodoWebhook(cfg: JodoConfig, webhookId: string): Promise<{ ok: boolean; error?: string }> {
   let res: Response;
   try {
-    res = await fetch(`${cfg.base}/api/v1/integrations/erp/webhooks/${encodeURIComponent(webhookId)}`, {
-      method: "DELETE",
-      headers: { Authorization: cfg.auth },
-      cache: "no-store",
-    });
+    res = await fetch(
+      `${cfg.base}/api/v1/integrations/erp/webhooks/${encodeURIComponent(webhookId)}?collector_code=${encodeURIComponent(cfg.collectorCode)}`,
+      {
+        method: "DELETE",
+        headers: { Authorization: cfg.auth },
+        cache: "no-store",
+      },
+    );
   } catch {
     return { ok: false, error: "Couldn't reach the payment gateway." };
   }
