@@ -212,10 +212,8 @@ npm run jodo:credit -- --ids 2884,2878 --by "Your Name" --confirm  # credits onc
 
 `jodo:credit` trusts the operator, not the gateway — run `jodo:check` (or verify in the Jodo
 dashboard) first and pass **only** ids reported `paid`. A 429 from get-order means "ask again
-later", not "unpaid". Jodo's get-order answers "Order not found" (HTTP 400) for a checkout
-that was never paid once it has aged out — paid orders of the same age still resolve
-(verified 2026-10-08). Reconcile therefore marks such orders `failed` after 1 h; they are
-abandoned checkouts, not stuck payments.
+later", not "unpaid". Jodo's get-order also stops resolving orders after some hours
+("Order not found", HTTP 400) — for those only the dashboard can confirm payment.
 
 Credited an order by mistake? The in-app reverse button refuses online recharges, so:
 
