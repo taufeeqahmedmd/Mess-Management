@@ -57,8 +57,20 @@ export async function handleJodoWebhook(rawBody: string, headers: Headers): Prom
     console.error("Jodo webhook: no webhook_secret for branch", order.branchId.toString());
     return reject(503, "Webhook secret not configured.");
   }
-  if (!verifyJodoSignature(secret, rawBody, headers.get("x-jodo-signature"))) {
-    console.error("Jodo webhook: bad signature for", event.orderId);
+  const received = headers.get("x-jodo-signature");
+  if (!verifyJodoSignature(secret, rawBody, received)) {
+    // Diagnostics only — never the secret or the signature value itself. Enough
+    // to tell "header never reached us" from "wrong secret" from "wrong format".
+    const sig = received?.trim() ?? "";
+    const format = !received ? "missing" : /^[0-9a-f]{64}$/i.test(sig) ? "hex64" : /^[A-Za-z0-9+/]{43}=$/.test(sig) ? "base64" : `other(len=${sig.length})`;
+    const headerNames = [...headers.keys()].filter((h) => h.startsWith("x-") || /jodo|sign|hmac/i.test(h)).sort();
+    console.error("Jodo webhook: bad signature for", event.orderId, {
+      branchId: order.branchId.toString(),
+      signature: format,
+      secretLength: secret.length,
+      bodyLength: rawBody.length,
+      headers: headerNames,
+    });
     return reject(401, "Invalid signature.");
   }
 
