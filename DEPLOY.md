@@ -167,8 +167,12 @@ to the Admin role) so a human is told without reading this log.
 Coupons for an online top-up are credited when **Jodo's signed webhook**
 (`order.payment.debited`) reaches `POST /api/public/pay/webhook` — not by polling.
 The payer's return page polls *our* order status until the webhook lands (normally
-1–5 s). Each branch has its own Jodo account, so each branch registers its own
-subscriptions with its own signing secret.
+1–5 s). A subscription belongs to a Jodo **collector**, not a branch: Jodo keeps one
+subscription per event per collector and updates it in place on re-registration. All
+branches on that collector must therefore hold the **same** signing secret — the
+registration script stores it on every one of them. (Incident 2026-10-08: GP had been
+registered separately, a later run from NH rotated the shared secret without updating
+GP, and every GP webhook was rejected with 401 until GP was re-registered.)
 
 Prerequisites: the branch's `payment_config` row is complete (see Payments in README),
 `APP_URL` is the public **https** URL, and nginx proxies `/api/public/pay/webhook`
@@ -176,9 +180,10 @@ like any other route (it already does — no change).
 
 ```bash
 cd /home/ubuntu/Mess-Management
-# Register (safe to re-run: adds new subscriptions, stores the secret, then
-# disables the previous ones — Jodo has no "update" API). `--email` is where Jodo
-# sends delivery-failure notices; use a monitored mailbox.
+# Register (safe to re-run: Jodo updates the collector's subscription in place,
+# the new secret is stored on every branch of the collector, and only ids from an
+# older separate subscription get disabled). `--email` is where Jodo sends
+# delivery-failure notices; use a monitored mailbox.
 npm run jodo:webhook -- --branch <branch id or code> --email ops@example.com
 # A subscription belongs to a COLLECTOR. Branches sharing a collector code (e.g.
 # NH/MH/NG on DPSPAY) need ONE run — pick any of them; the secret is stored on all.
@@ -215,7 +220,7 @@ registration command.
 ## Redeploying after a code change
 
 ```bash
-cd /home/ubuntu/mess-management
+cd /home/ubuntu/Mess-Management
 git pull
 npm ci
 npx prisma migrate deploy     # if there are new migrations

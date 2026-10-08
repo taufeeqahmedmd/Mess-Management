@@ -15,8 +15,10 @@
  *   3. store the secret + subscription ids on payment_config (only after Jodo
  *      accepted both — if step 2 fails midway, the partial subscription is
  *      disabled again and nothing is stored);
- *   4. disable the branch's previous subscriptions, if any (Jodo has no
- *      "update" API — rotation is add-new-then-disable-old).
+ *   4. disable any previously stored subscription ids that Jodo did NOT hand
+ *      back in step 2. Jodo keeps one subscription per event per collector and
+ *      updates it in place (same id), so on a re-run step 4 is usually a no-op;
+ *      it only cleans up ids from an older, separately registered subscription.
  *
  * Usage (on the server, with the production DATABASE_URL + APP_URL in .env):
  *   npx tsx prisma/register-jodo-webhook.ts --branch <id|code> --email ops@example.com
@@ -104,7 +106,15 @@ async function main() {
   });
   console.log(`Stored webhook secret + ids on ${siblingCodes} (collector ${cfg.collectorCode}).`);
 
+  // Jodo keeps ONE subscription per event per collector and updates it in place,
+  // handing back the SAME id — so an id we just got back is the live one, never
+  // "previous". Disabling it here would kill the subscription we just rotated.
+  const live = new Set(added.map((a) => a.id));
   for (const s of stored) {
+    if (live.has(s.id)) {
+      console.log(`kept ${s.id} (${s.eventCode}): updated in place by Jodo`);
+      continue;
+    }
     const r = await disableJodoWebhook(cfg, s.id);
     console.log(`disabled previous ${s.id} (${s.eventCode}): ${r.ok ? "ok" : r.error}`);
   }
