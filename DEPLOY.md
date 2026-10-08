@@ -204,9 +204,15 @@ dashboard shows them paid: credit them *as orders*, never as manual recharges �
 recharge leaves the order `pending`, and reconcile would credit it again later.
 
 ```bash
+npm run jodo:check -- --branch GP --pending                          # READ-ONLY: Jodo's status for every pending order
+npm run jodo:check -- --ids 2884,2878                                # READ-ONLY: specific orders (any status)
 npm run jodo:credit -- --ids 2884,2878 --by "Your Name"            # dry run: lists what would be credited
 npm run jodo:credit -- --ids 2884,2878 --by "Your Name" --confirm  # credits once; order → credited
 ```
+
+`jodo:credit` trusts the operator, not the gateway — run `jodo:check` (or verify in the Jodo
+dashboard) first and pass **only** ids reported `paid`. A 429 from get-order means "ask again
+later", not "unpaid".
 
 Security: every delivery is verified with HMAC-SHA256 (`X-Jodo-Signature`, per-branch
 secret) **and** the source IP must be one of Jodo's documented production IPs

@@ -20,6 +20,7 @@
     "db:scan-emails": "tsx prisma/scan-invalid-emails.ts",
     "jodo:webhook": "tsx prisma/register-jodo-webhook.ts",
     "jodo:credit": "tsx prisma/credit-payment-orders.ts",
+    "jodo:check": "tsx prisma/check-payment-orders.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {
