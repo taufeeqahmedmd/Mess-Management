@@ -74,9 +74,15 @@ export function parseJodoWebhookEvent(body: unknown): JodoWebhookEvent | null {
   };
 }
 
-/** True for a debited event that says the order is paid — the only event that credits. */
+/**
+ * True for an event that proves the order is paid, i.e. may credit it. Debited
+ * is the normal one; settled counts too — Jodo only settles money it collected,
+ * and a settled event can be the FIRST we hear of a payment when the debited
+ * delivery was lost (2026-10-08: GP order 2822 was settled but never credited).
+ * Crediting is idempotent, so a settled event after a debited one is a no-op.
+ */
 export function isPaidEvent(e: JodoWebhookEvent): boolean {
-  return e.event === "order.payment.debited" && e.orderStatus === "paid";
+  return (e.event === "order.payment.debited" || e.event === "order.payment.settled") && e.orderStatus === "paid";
 }
 
 /**

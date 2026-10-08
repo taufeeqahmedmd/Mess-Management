@@ -99,7 +99,8 @@ export async function POST(req: Request) {
     try {
       // 1. Self-heal from a stored paid event — no gateway call needed.
       const events = await prisma.paymentWebhookEvent.findMany({
-        where: { paymentOrderId: order.id, eventCode: "order.payment.debited" },
+        // Debited or settled: either proves payment (see isPaidEvent).
+        where: { paymentOrderId: order.id, eventCode: { in: ["order.payment.debited", "order.payment.settled"] } },
         orderBy: { receivedAt: "desc" },
         take: 5,
       });

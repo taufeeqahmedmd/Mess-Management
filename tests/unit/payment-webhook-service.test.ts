@@ -99,9 +99,9 @@ describe("parseJodoWebhookEvent", () => {
 });
 
 describe("isPaidEvent", () => {
-  it("is true only for a debited event whose order is paid", () => {
+  it("is true for a debited OR settled event whose order is paid (settlement proves payment)", () => {
     expect(isPaidEvent(parseJodoWebhookEvent(debited)!)).toBe(true);
-    expect(isPaidEvent(parseJodoWebhookEvent(settled)!)).toBe(false); // settled never credits
+    expect(isPaidEvent(parseJodoWebhookEvent(settled)!)).toBe(true);
     const unpaid = { ...debited, payload: { ...debited.payload, order: { ...debited.payload.order, status: "unpaid" } } };
     expect(isPaidEvent(parseJodoWebhookEvent(unpaid)!)).toBe(false);
   });

@@ -22,6 +22,7 @@
     "jodo:credit": "tsx prisma/credit-payment-orders.ts",
     "jodo:check": "tsx prisma/check-payment-orders.ts",
     "jodo:reverse": "tsx prisma/reverse-payment-orders.ts",
+    "jodo:recredit": "tsx prisma/recredit-payment-orders.ts",
     "db:studio": "prisma studio"
   },
   "prisma": {

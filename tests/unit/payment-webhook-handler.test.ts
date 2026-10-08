@@ -196,14 +196,29 @@ describe("handleJodoWebhook — crediting", () => {
     expect(creditPaymentOrder).not.toHaveBeenCalled();
   });
 
-  it("records the settlement UTR from order.payment.settled without crediting", async () => {
-    const settled = {
-      event_id: "evt-2",
-      event: "order.payment.settled",
-      payload: { order_id: "order_1", order: { status: "paid", details: [{ amount: 60, settlement_utr: "UTR123" }], notes: [{ key: "mess_ref", value: REF }] } },
-    };
+  const settled = {
+    event_id: "evt-2",
+    event: "order.payment.settled",
+    payload: { order_id: "order_1", order: { status: "paid", details: [{ amount: 60, settlement_utr: "UTR123" }], notes: [{ key: "mess_ref", value: REF }] } },
+  };
+
+  it("records the settlement UTR from order.payment.settled on an already-credited order (no second credit)", async () => {
+    creditPaymentOrder.mockResolvedValue({ ok: true, already: true });
     expect(await deliver(settled)).toEqual({ status: 200, body: { ok: true, outcome: "settled" } });
     expect(orderUpdate).toHaveBeenCalledWith({ where: { id: BigInt(7) }, data: { settlementUtr: "UTR123" } });
+    expect(creditPaymentOrder).toHaveBeenCalledTimes(1); // idempotent path, returned `already`
+  });
+
+  it("credits from a settled event when the debited delivery never arrived (settlement proves payment)", async () => {
+    // 2026-10-08: GP order 2822 was settled on Oct 7 but its debited event was lost — it sat uncredited.
+    expect(await deliver(settled)).toEqual({ status: 200, body: { ok: true, outcome: "credited" } });
+    expect(creditPaymentOrder).toHaveBeenCalledTimes(1);
+    expect(orderUpdate).toHaveBeenCalledWith({ where: { id: BigInt(7) }, data: { settlementUtr: "UTR123" } });
+  });
+
+  it("does not credit from a settled event whose order is not reported paid", async () => {
+    const odd = { ...settled, payload: { ...settled.payload, order: { ...settled.payload.order, status: "unpaid" } } };
+    expect(await deliver(odd)).toEqual({ status: 200, body: { ok: true, outcome: "settled" } });
     expect(creditPaymentOrder).not.toHaveBeenCalled();
   });
 });

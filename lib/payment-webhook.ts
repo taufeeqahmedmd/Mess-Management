@@ -120,6 +120,9 @@ export async function handleJodoWebhook(rawBody: string, headers: Headers): Prom
 
   try {
     if (isPaidEvent(event)) {
+      // Debited OR settled with status "paid": both prove payment. Crediting is
+      // idempotent, so the usual debited→settled pair credits once; a settled
+      // event whose debited delivery was lost credits here instead of never.
       const credit = await creditPaymentOrder(order, null, { paidAt: event.paidAt });
       if (!credit.ok) {
         // Paid but we couldn't credit (e.g. a meal lost its rate). Record it and
@@ -128,7 +131,11 @@ export async function handleJodoWebhook(rawBody: string, headers: Headers): Prom
         console.error("Jodo webhook: paid but credit failed", event.orderId, credit.error);
         return reject(500, credit.error);
       }
-      const outcome: WebhookOutcome = credit.already ? "already_credited" : "credited";
+      const settled = event.event === "order.payment.settled";
+      if (settled && event.settlementUtr && order.settlementUtr !== event.settlementUtr) {
+        await prisma.paymentOrder.update({ where: { id: order.id }, data: { settlementUtr: event.settlementUtr } });
+      }
+      const outcome: WebhookOutcome = !credit.already ? "credited" : settled ? "settled" : "already_credited";
       await finish(outcome);
       return ok(outcome);
     }

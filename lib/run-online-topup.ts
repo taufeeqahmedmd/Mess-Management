@@ -1,3 +1,4 @@
+import { randomUUID } from "node:crypto";
 import { Prisma } from "@prisma/client";
 import { prisma } from "@/lib/prisma";
 import { writeAudit } from "@/lib/audit";
@@ -43,9 +44,15 @@ export async function creditPaymentOrder(
     /** Set when an operator credits the order after verifying payment in the
      *  Jodo dashboard (gateway unreachable) — recorded on the recharge + audit. */
     manual?: { by: string };
+    /** Set when an operator re-credits an order whose recharge was reversed by
+     *  mistake. The order's clientUuid is already spent by the reversed
+     *  recharge, so a fresh idempotency key is used — which is exactly why
+     *  this path is operator-only and audited with who/why. */
+    recredit?: { by: string; reason: string };
   } = {},
 ): Promise<CreditResult> {
   if (order.status === "credited") return { ok: true, already: true };
+  if (opts.recredit && order.status !== "failed") return { ok: false, error: "Only a failed (reversed) order can be re-credited." };
 
   const rawItems = Array.isArray(order.items) ? (order.items as Array<{ mealTypeId?: unknown; qty?: unknown }>) : [];
   const coupons = rawItems
@@ -80,8 +87,15 @@ export async function creditPaymentOrder(
         paymentModeId,
         counterId: null,
         appUserId: null, // self-service — no operator
-        remarks: opts.manual ? `Online top-up (Jodo) — credited manually by ${opts.manual.by} after dashboard verification` : "Online top-up (Jodo)",
-        clientUuid: order.clientUuid,
+        remarks: opts.recredit
+          ? `Online top-up (Jodo) — re-credited by ${opts.recredit.by} after an erroneous reversal: ${opts.recredit.reason}`.slice(0, 255)
+          : opts.manual
+            ? `Online top-up (Jodo) — credited manually by ${opts.manual.by} after dashboard verification`
+            : "Online top-up (Jodo)",
+        // The order's clientUuid is the idempotency key for its ONE recharge. A
+        // re-credit follows a reversed recharge that already holds it, so it
+        // gets a fresh key (operator-only, audited below).
+        clientUuid: opts.recredit ? randomUUID() : order.clientUuid,
         transactionId,
       });
       await tx.paymentOrder.update({
@@ -100,6 +114,7 @@ export async function creditPaymentOrder(
             coupons: coupons.length,
             paymentOrderId: order.id.toString(),
             ...(opts.manual ? { manual: true, verifiedBy: opts.manual.by } : {}),
+            ...(opts.recredit ? { recredit: true, recreditedBy: opts.recredit.by, reason: opts.recredit.reason } : {}),
           },
         },
         tx,

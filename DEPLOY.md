@@ -212,8 +212,13 @@ npm run jodo:credit -- --ids 2884,2878 --by "Your Name" --confirm  # credits onc
 
 `jodo:credit` trusts the operator, not the gateway — run `jodo:check` (or verify in the Jodo
 dashboard) first and pass **only** ids reported `paid`. A 429 from get-order means "ask again
-later", not "unpaid". Jodo's get-order also stops resolving orders after some hours
-("Order not found", HTTP 400) — for those only the dashboard can confirm payment.
+later", not "unpaid". "Order not found" (HTTP 400) does **not** mean unpaid either: on
+2026-10-08 every GP order created before GP moved onto the DPSPAY collector answered
+"not found" with the current credentials — paid ones included (2761, credited after a
+real webhook) — while NG orders of the same age resolved fine. An order the current
+credentials can't see can only be confirmed in the Jodo dashboard of the account it was
+created under, or by a stored `order.payment.settled` event for it (settlement proves
+payment; the webhook handler now credits from a settled event too).
 
 Credited an order by mistake? The in-app reverse button refuses online recharges, so:
 
@@ -225,6 +230,17 @@ npm run jodo:reverse -- --ids 2819 --by "Your Name" --reason "not paid at Jodo" 
 Unspent coupons are clawed back with offsetting ledger rows, the recharge becomes `reversed`,
 the order `failed`, and an audit row records who/why. Coupons already spent are not recoverable
 — the dry run shows the split.
+
+Reversed an order that WAS paid? Neither the webhook, reconcile nor `jodo:credit` can credit it
+again (its idempotency key is held by the reversed recharge), so:
+
+```bash
+npm run jodo:recredit -- --ids 2822 --by "Your Name" --reason "settled webhook proves payment"            # dry run
+npm run jodo:recredit -- --ids 2822 --by "Your Name" --reason "settled webhook proves payment" --confirm  # re-credit
+```
+
+Same credit path with a fresh key: amount recomputed from the catalog, order back to `credited`
+and linked to the new recharge, audit row with who/why. The reversed recharge stays as-is.
 
 Security: every delivery is verified with HMAC-SHA256 (`X-Jodo-Signature`, per-branch
 secret) **and** the source IP must be one of Jodo's documented production IPs
