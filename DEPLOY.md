@@ -212,7 +212,19 @@ npm run jodo:credit -- --ids 2884,2878 --by "Your Name" --confirm  # credits onc
 
 `jodo:credit` trusts the operator, not the gateway — run `jodo:check` (or verify in the Jodo
 dashboard) first and pass **only** ids reported `paid`. A 429 from get-order means "ask again
-later", not "unpaid".
+later", not "unpaid". Jodo's get-order also stops resolving orders after some hours
+("Order not found", HTTP 400) — for those only the dashboard can confirm payment.
+
+Credited an order by mistake? The in-app reverse button refuses online recharges, so:
+
+```bash
+npm run jodo:reverse -- --ids 2819 --by "Your Name" --reason "not paid at Jodo"            # dry run
+npm run jodo:reverse -- --ids 2819 --by "Your Name" --reason "not paid at Jodo" --confirm  # claw back
+```
+
+Unspent coupons are clawed back with offsetting ledger rows, the recharge becomes `reversed`,
+the order `failed`, and an audit row records who/why. Coupons already spent are not recoverable
+— the dry run shows the split.
 
 Security: every delivery is verified with HMAC-SHA256 (`X-Jodo-Signature`, per-branch
 secret) **and** the source IP must be one of Jodo's documented production IPs
