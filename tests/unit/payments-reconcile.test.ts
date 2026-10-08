@@ -186,6 +186,26 @@ describe("POST /api/payments/reconcile — settlement", () => {
     expect(updateDataFor(BigInt(1))).toEqual({ status: "failed", nextCheckAt: null });
   });
 
+  it("marks an order Jodo no longer knows ('Order not found') failed once it is past the first-poll window", async () => {
+    const notFound = { ok: false, status: 400, error: "Order not found for id: JODO-1" };
+    findMany.mockResolvedValue([
+      order({ createdAt: new Date(Date.now() - 2 * HOUR) }), // aged out → abandoned checkout
+      order({ id: BigInt(2), jodoOrderId: "JODO-2", createdAt: new Date(Date.now() - 10 * 60_000) }), // fresh → could be a glitch
+      order({ id: BigInt(3), jodoOrderId: "JODO-3", createdAt: new Date(Date.now() - 2 * HOUR) }),
+    ]);
+    getJodoOrder
+      .mockResolvedValueOnce(notFound)
+      .mockResolvedValueOnce({ ...notFound, error: "Order not found for id: JODO-2" })
+      .mockResolvedValueOnce({ ok: false, status: 404, error: "Resource not found" });
+
+    const res = await POST(cronReq());
+    expect(await res.json()).toMatchObject({ checked: 3, failed: 2, errored: 1, errors: [{ id: "2", reason: "get-order 400: Order not found for id: JODO-2" }] });
+    expect(updateDataFor(BigInt(1))).toEqual({ status: "failed", nextCheckAt: null });
+    expect(updateDataFor(BigInt(2))).toMatchObject({ checkCount: { increment: 1 } });
+    expect(updateDataFor(BigInt(3))).toEqual({ status: "failed", nextCheckAt: null });
+    expect(creditPaymentOrder).not.toHaveBeenCalled();
+  });
+
   it("reschedules (never fails) an order on a 429 or transient gateway error, with the reason", async () => {
     findMany.mockResolvedValue([order(), order({ id: BigInt(2), jodoOrderId: "JODO-2", createdAt: new Date(Date.now() - 80 * HOUR) })]);
     getJodoOrder.mockResolvedValueOnce(limited).mockResolvedValueOnce({ ok: false, error: "gateway down" });

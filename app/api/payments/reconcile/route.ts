@@ -18,6 +18,10 @@ import { raisePaymentAlert } from "@/lib/payment-alerts";
 // as abandoned and marked failed, so it stops being re-checked. Matches Jodo's
 // own webhook retry horizon (~3 days), after which no delivery will ever come.
 const STALE_MS = 3 * 24 * 60 * 60_000;
+// A pending order Jodo no longer knows ("Order not found") after this long is an
+// abandoned checkout (paid orders stay resolvable), so it's marked failed. Long
+// enough that a live checkout session is never failed on a transient miss.
+const NOT_FOUND_AFTER_MS = 60 * 60_000;
 // Orders examined per run. Backoff keeps the due set small; this only bounds a
 // pathological backlog so a run always finishes inside nginx's 60s timeout.
 const BATCH = 60;
@@ -129,6 +133,17 @@ export async function POST(req: Request) {
       if (gatewayCalls++ > 0) await pause(GAP_MS);
       const res = await getJodoOrder(cfg, order.jodoOrderId);
       if (!res.ok) {
+        // Jodo answers "Order not found" (400/404) for a checkout that was never
+        // paid once it has aged out, while paid orders of the same age still
+        // resolve (verified 2026-10-08 against 2-day-old paid orders). Past the
+        // first-poll window that is a verdict, not a glitch: mark it failed so
+        // it stops being polled every 24h forever and counted as "stuck".
+        const notFound = res.status === 404 || (res.status === 400 && /not found/i.test(res.error));
+        if (notFound && order.createdAt.getTime() <= startedAt - NOT_FOUND_AFTER_MS) {
+          await prisma.paymentOrder.update({ where: { id: order.id }, data: { status: "failed", nextCheckAt: null } });
+          failed++;
+          continue;
+        }
         // Unreachable / 429 / errored — leave it pending for its next slot.
         fail(order, `get-order ${res.status ?? "unreachable"}: ${res.error}`);
         await reschedule(order);
